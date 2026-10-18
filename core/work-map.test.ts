@@ -14,6 +14,7 @@ import {
   prepareLinkedEvidenceDelete,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  prepareWorkMapRoleDelete,
   nominatimAddressLine,
   presentWorkMapPlace,
   publicationAllowsSnapshot,
@@ -515,6 +516,19 @@ describe("Work Map role create", () => {
     expect(prepareWorkMapRoleCreate({ kind: "gig" })).toEqual({
       ok: false,
       error: "kind-invalid",
+    });
+  });
+});
+
+describe("Work Map role delete", () => {
+  it("requires a role id", () => {
+    expect(prepareWorkMapRoleDelete({ id: " role-1 " })).toEqual({
+      ok: true,
+      value: { id: "role-1" },
+    });
+    expect(prepareWorkMapRoleDelete({ id: "  " })).toEqual({
+      ok: false,
+      error: "role-missing",
     });
   });
 });

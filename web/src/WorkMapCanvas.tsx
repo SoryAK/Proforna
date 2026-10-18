@@ -59,6 +59,7 @@ export function WorkMapCanvas({
   onSelect,
   onMapClick,
   holdView = false,
+  emptyNote = null,
   suppressEmpty = false,
   pinTheme,
   pinIcons,
@@ -78,6 +79,7 @@ export function WorkMapCanvas({
   onSelect: (id: string) => void;
   onMapClick?: (latitude: number, longitude: number) => void;
   holdView?: boolean;
+  emptyNote?: { title: string; detail: string } | null;
   suppressEmpty?: boolean;
   pinTheme: MapPinTheme;
   pinIcons: MapPinIcons;
@@ -286,7 +288,17 @@ export function WorkMapCanvas({
           </Marker>
         ) : null}
       </MapContainer>
-      {points.length === 0 && overlays.length === 0 && anchors.length === 0 && !suppressEmpty ? (
+      {points.length === 0 && overlays.length === 0 && emptyNote && !suppressEmpty ? (
+        <div className="work-map-unmapped" role="status">
+          <strong>{emptyNote.title}</strong>
+          <span>{emptyNote.detail}</span>
+        </div>
+      ) : null}
+      {points.length === 0 &&
+      overlays.length === 0 &&
+      anchors.length === 0 &&
+      !emptyNote &&
+      !suppressEmpty ? (
         <div className="work-map-unmapped">
           <strong>Your history is ready to map.</strong>
           <span>Select a role and add its first work site.</span>

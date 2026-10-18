@@ -4,6 +4,7 @@ import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
   classifyCareerHistorySection,
+  flagIdenticalRoles,
   formatHistoryGist,
   formatHistoryPeriod,
   formatHistoryPlace,
@@ -144,7 +145,16 @@ export function WorkMap({
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
   const [homesOpen, setHomesOpen] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [removeAsk, setRemoveAsk] = useState<{
+    ids: string[];
+    detail: string;
+  } | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [ledgerMenu, setLedgerMenu] = useState<"import" | "add" | null>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const [mapOverride, setMapOverride] = useState<"auto" | "show" | "hide">(
     "auto",
   );
@@ -152,6 +162,15 @@ export function WorkMap({
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    const live = new Set(data.roles.map((role) => role.id));
+    setCheckedIds((current) => {
+      const next = new Set([...current].filter((id) => live.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [data]);
 
   useEffect(() => {
     void fetch("/api/maps")
@@ -165,6 +184,22 @@ export function WorkMap({
   useEffect(() => {
     if (focusRoleId) setSelectedId(focusRoleId);
   }, [focusRoleId]);
+
+  useEffect(() => {
+    if (!ledgerMenu) return;
+    function onPointer(event: PointerEvent) {
+      if (!toolsRef.current?.contains(event.target as Node)) setLedgerMenu(null);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setLedgerMenu(null);
+    }
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ledgerMenu]);
 
   const focusTabUsed = useRef(false);
   useEffect(() => {
@@ -225,10 +260,49 @@ export function WorkMap({
     );
   }, [data, search, sort]);
   const groups = useMemo(() => groupCareerHistory(historyItems), [historyItems]);
-  const stats = useMemo(
-    () => presentCareerHistoryStats(data?.roles.map(asHistoryItem) ?? []),
-    [data],
+  const shownIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const section of CAREER_HISTORY_SECTIONS) {
+      if (closedSections.has(section.key)) continue;
+      const items = groups.find((group) => group.key === section.key)?.items ?? [];
+      for (const item of items) ids.push(item.id);
+    }
+    return ids;
+  }, [groups, closedSections]);
+  const identicalFlags = useMemo(() => {
+    if (!data) return new Map<string, { count: number; keeper: boolean }>();
+    const byId = new Map(data.roles.map((role) => [role.id, role]));
+    const sorted = sortCareerHistory(data.roles.map(asHistoryItem), sort);
+    return flagIdenticalRoles(
+      sorted.map((item) => {
+        const role = byId.get(item.id);
+        return {
+          ...item,
+          description: role?.description ?? "",
+          achievements: role?.achievements ?? [],
+        };
+      }),
+    );
+  }, [data, sort]);
+  const identicalExtraIds = useMemo(
+    () =>
+      [...identicalFlags.entries()]
+        .filter(([, flag]) => flag.count > 1 && !flag.keeper)
+        .map(([id]) => id),
+    [identicalFlags],
   );
+  const stats = useMemo(() => {
+    const identities = (data?.roles ?? []).map((role) => ({
+      ...asHistoryItem(role),
+      description: role.description,
+      achievements: role.achievements,
+    }));
+    const visibleIds = new Set(historyItems.map((item) => item.id));
+    const counted = search.trim()
+      ? identities.filter((item) => visibleIds.has(item.id))
+      : identities;
+    return presentCareerHistoryStats(counted);
+  }, [data, historyItems, search]);
   const visibleRoles = useMemo(() => {
     if (!data) return [];
     const byId = new Map(data.roles.map((role) => [role.id, role]));
@@ -415,6 +489,74 @@ export function WorkMap({
       const body = (await response.json()) as { error?: string };
       setMessage(body.error ?? "The Work Map could not be published.");
     }
+  }
+
+  function stopSelecting() {
+    setSelecting(false);
+    setCheckedIds(new Set());
+    setRemoveAsk(null);
+  }
+
+  function toggleChecked(id: string) {
+    setRemoveAsk(null);
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectShown(ids: string[]) {
+    setRemoveAsk(null);
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      const allOn = ids.length > 0 && ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allOn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function askRemove(ids: string[], detail: string) {
+    if (ids.length === 0) return;
+    setRemoveAsk({ ids, detail });
+  }
+
+  async function removeRoles(ids: string[]) {
+    setRemoving(true);
+    setMessage("");
+    const failed: string[] = [];
+    for (const id of ids) {
+      const response = await fetch(`/api/work-map/roles/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) failed.push(id);
+    }
+    setRemoving(false);
+    setRemoveAsk(null);
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (!failed.includes(id)) next.delete(id);
+      }
+      return next;
+    });
+    if (selectedId && ids.includes(selectedId) && !failed.includes(selectedId)) {
+      setSelectedId(null);
+    }
+    if (failed.length > 0) {
+      setMessage(
+        failed.length === ids.length
+          ? "Could not remove those roles."
+          : `Removed ${ids.length - failed.length}. ${failed.length} could not be removed.`,
+      );
+    } else {
+      setMessage(ids.length === 1 ? "Role removed." : `${ids.length} roles removed.`);
+    }
+    await load();
   }
 
   async function addRole(kind: CareerHistorySectionKey) {
@@ -622,15 +764,86 @@ export function WorkMap({
               <strong>{stats.cities}</strong>
             </div>
           </div>
-          <div className="work-map-tools">
+          <div className="work-map-tools" ref={toolsRef}>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search…"
               aria-label="Search career history"
             />
-            <button type="button" className="work-map-import" onClick={() => setImportOpen(true)}>
-              Import a resume
+            <div className="history-menu">
+              <button
+                type="button"
+                className="history-tool"
+                aria-label="Import"
+                aria-haspopup="menu"
+                aria-expanded={ledgerMenu === "import"}
+                onClick={() =>
+                  setLedgerMenu((current) => (current === "import" ? null : "import"))
+                }
+              >
+                <ImportIcon />
+              </button>
+              {ledgerMenu === "import" ? (
+                <div className="history-menu-panel" role="menu" aria-label="Import">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setLedgerMenu(null);
+                      setImportOpen(true);
+                    }}
+                  >
+                    Resume
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className="history-menu">
+              <button
+                type="button"
+                className="history-tool"
+                aria-label="Add"
+                aria-haspopup="menu"
+                aria-expanded={ledgerMenu === "add"}
+                aria-busy={creatingKind !== null}
+                disabled={creatingKind !== null}
+                onClick={() =>
+                  setLedgerMenu((current) => (current === "add" ? null : "add"))
+                }
+              >
+                +
+              </button>
+              {ledgerMenu === "add" ? (
+                <div className="history-menu-panel" role="menu" aria-label="Add">
+                  {CAREER_HISTORY_SECTIONS.map((section) => (
+                    <button
+                      key={section.key}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setLedgerMenu(null);
+                        void addRole(section.key);
+                      }}
+                    >
+                      {addKindLabel(section.key)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="history-tool"
+              aria-label={selecting ? "Done selecting" : "Select"}
+              aria-pressed={selecting}
+              onClick={() => {
+                setLedgerMenu(null);
+                if (selecting) stopSelecting();
+                else setSelecting(true);
+              }}
+            >
+              <SelectIcon />
             </button>
             <label className="work-map-sort">
               <span>Sort</span>
@@ -645,6 +858,83 @@ export function WorkMap({
               </select>
             </label>
           </div>
+          {removeAsk || selecting ? (
+          <div className="history-actions" aria-label="Career history actions">
+            {removeAsk ? (
+              <div className="history-confirm">
+                <p>{removeAsk.detail}</p>
+                <div>
+                  <button
+                    className="is-danger"
+                    disabled={removing}
+                    type="button"
+                    onClick={() => void removeRoles(removeAsk.ids)}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    disabled={removing}
+                    onClick={() => setRemoveAsk(null)}
+                  >
+                    Keep
+                  </button>
+                </div>
+              </div>
+            ) : selecting ? (
+              <>
+                <span>
+                  {checkedIds.size === 0
+                    ? "Select roles"
+                    : `${checkedIds.size} selected`}
+                </span>
+                <button
+                  type="button"
+                  disabled={shownIds.length === 0}
+                  onClick={() => selectShown(shownIds)}
+                >
+                  {shownIds.length > 0 &&
+                  shownIds.every((id) => checkedIds.has(id))
+                    ? "Clear shown"
+                    : "Select shown"}
+                </button>
+                {identicalExtraIds.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => selectShown(identicalExtraIds)}
+                  >
+                    Select identical
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={checkedIds.size !== 1}
+                  onClick={() => {
+                    const id = [...checkedIds][0];
+                    if (id) setSelectedId(id);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="is-danger"
+                  type="button"
+                  disabled={checkedIds.size === 0}
+                  onClick={() =>
+                    askRemove(
+                      [...checkedIds],
+                      checkedIds.size === 1
+                        ? "Remove this role? Its sites and photos on this machine go with it."
+                        : `Remove ${checkedIds.size} roles? Their sites and photos on this machine go with them.`,
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              </>
+            ) : null}
+          </div>
+          ) : null}
           {homesOpen ? (
             <HomesPanel
               residences={data.residences}
@@ -654,7 +944,7 @@ export function WorkMap({
           ) : null}
           <div className="work-map-role-list">
             {empty ? (
-              <p>Import a resume, or add a role to a section.</p>
+              <p>Import a resume, or add a role.</p>
             ) : null}
             {CAREER_HISTORY_SECTIONS.map((section) => {
               const items =
@@ -680,47 +970,30 @@ export function WorkMap({
                       <em>({items.length})</em>
                       <span aria-hidden="true">{open ? "▾" : "▸"}</span>
                     </button>
-                    <button
-                      aria-busy={creatingKind === section.key}
-                      aria-label={sectionAddLabel(section.key)}
-                      className="history-add"
-                      disabled={creatingKind !== null}
-                      onClick={() => void addRole(section.key)}
-                      type="button"
-                    >
-                      +
-                    </button>
                   </div>
                   {open
                     ? items.map((item) => (
-                        <button
-                          className="career-history-row"
+                        <HistoryRow
                           key={item.id}
-                          onClick={() => setSelectedId(item.id)}
-                          type="button"
-                        >
-                          <span>
-                            <strong>
-                              {item.organization || item.title || "Untitled"}
-                              {item.isCurrent ? (
-                                <mark>Current</mark>
-                              ) : null}
-                            </strong>
-                              {item.organization && item.title ? (
-                              <b>{item.title}</b>
-                            ) : null}
-                            {formatHistoryGist(item) ? (
-                              <small>{formatHistoryGist(item)}</small>
-                            ) : null}
-                          </span>
-                        </button>
+                          item={item}
+                          identical={(identicalFlags.get(item.id)?.count ?? 1) > 1}
+                          selecting={selecting}
+                          checked={checkedIds.has(item.id)}
+                          onToggle={() => toggleChecked(item.id)}
+                          onOpen={() => setSelectedId(item.id)}
+                        />
                       ))
                     : null}
                 </section>
               );
             })}
             {!empty && historyItems.length === 0 ? (
-              <p>No roles match that search.</p>
+              <p className="history-search-miss" role="status">
+                No roles match that search.
+                <button type="button" onClick={() => setSearch("")}>
+                  Clear search
+                </button>
+              </p>
             ) : null}
           </div>
         </aside>
@@ -758,6 +1031,14 @@ export function WorkMap({
             roles={mapRoles}
             selectedId={timelineActive ? null : selectedId}
             settings={mapSettings}
+            emptyNote={
+              search.trim() && historyItems.length === 0
+                ? {
+                    title: "No roles match that search.",
+                    detail: "Clear the search to see every role.",
+                  }
+                : null
+            }
             suppressEmpty={timelineActive}
             viewKey="history"
           />
@@ -1410,10 +1691,29 @@ function asTimelineRole(role: WorkMapRole): CareerTimelineRole {
   };
 }
 
-function sectionAddLabel(key: CareerHistorySectionKey): string {
-  if (key === "school") return "Add education";
-  if (key === "internship") return "Add internship";
-  return "Add job";
+function addKindLabel(key: CareerHistorySectionKey): string {
+  if (key === "school") return "Education";
+  if (key === "internship") return "Internship";
+  return "Job";
+}
+
+function ImportIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3.5v10" />
+      <path d="m8 9.5 4 4 4-4" />
+      <path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5" />
+    </svg>
+  );
+}
+
+function SelectIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4.5" y="4.5" width="15" height="15" rx="2" />
+      <path d="m8 12.2 2.6 2.6L16.2 9" />
+    </svg>
+  );
 }
 
 function asHistoryItem(role: WorkMapRole): CareerHistoryItem {
@@ -1432,6 +1732,51 @@ function asHistoryItem(role: WorkMapRole): CareerHistoryItem {
       longitude: location.longitude,
     })),
   };
+}
+
+function HistoryRow({
+  item,
+  identical,
+  selecting,
+  checked,
+  onToggle,
+  onOpen,
+}: {
+  item: CareerHistoryItem;
+  identical: boolean;
+  selecting: boolean;
+  checked: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  const name = item.organization || item.title || "Untitled";
+  const row = (
+    <button className="career-history-row" onClick={onOpen} type="button">
+      <span>
+        <strong>
+          {name}
+          {item.isCurrent ? <mark>Current</mark> : null}
+          {identical ? <mark className="is-identical">Identical</mark> : null}
+        </strong>
+        {item.organization && item.title ? <b>{item.title}</b> : null}
+        {formatHistoryGist(item) ? <small>{formatHistoryGist(item)}</small> : null}
+      </span>
+    </button>
+  );
+  if (!selecting) return row;
+  return (
+    <div className="history-entry">
+      <label className="history-check">
+        <input
+          type="checkbox"
+          checked={checked}
+          aria-label={`Select ${name}`}
+          onChange={onToggle}
+        />
+      </label>
+      {row}
+    </div>
+  );
 }
 
 function HomesIcon() {

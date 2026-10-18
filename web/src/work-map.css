@@ -368,7 +368,8 @@
 .history-publish {
   display: flex;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 12rem;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem;
@@ -451,7 +452,7 @@
 .work-map-stats span {
   margin: 0 0 0.15rem;
   color: var(--gold);
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -463,20 +464,74 @@
   font-size: 0.92rem;
 }
 
-.work-map-import {
-  border: 1px solid rgba(167, 139, 113, 0.45);
-  border-radius: 999px;
+.history-menu {
+  position: relative;
+  z-index: 4;
+  align-self: end;
+}
+
+.history-tool {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(199, 164, 123, 0.32);
+  border-radius: 0.25rem;
   background: transparent;
   color: var(--gold-hover);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 0.45rem 0.8rem;
-  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.history-tool svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.history-tool:hover,
+.history-tool[aria-expanded="true"],
+.history-tool[aria-pressed="true"] {
+  border-color: var(--gold-hover);
+  background: rgba(199, 164, 123, 0.12);
+}
+
+.history-menu-panel {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 8.5rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(199, 164, 123, 0.32);
+  border-radius: 0.4rem;
+  background: #14110e;
+}
+
+.history-menu-panel button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 0.2rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.history-menu-panel button:hover {
+  background: rgba(199, 164, 123, 0.12);
+  color: var(--gold-hover);
 }
 
 .work-map-tools {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
   align-items: end;
   padding: 0 0.75rem 0.7rem;
@@ -551,13 +606,70 @@
   box-shadow: inset 1px 0 0 var(--gold-hover);
 }
 
-.career-history-row.is-secondary {
-  opacity: 0.42;
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.15rem 0.9rem 0.45rem;
 }
 
-.career-history-row.is-secondary:hover {
-  opacity: 0.78;
+.history-actions > span {
+  margin-right: auto;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
 }
+
+.history-actions button,
+.history-confirm button {
+  padding: 0.32rem 0.6rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.75rem;
+}
+
+.history-confirm {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.history-confirm p {
+  margin: 0;
+  color: var(--wm-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.history-confirm div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.history-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+}
+
+.history-check {
+  display: grid;
+  place-items: center;
+  min-width: 2rem;
+  min-height: 2.4rem;
+  padding-left: 0.55rem;
+}
+
+.history-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--gold);
+}
+
 
 .work-map-focus {
   display: flex;
@@ -624,15 +736,19 @@
 }
 
 .career-history-row mark {
-  padding: 0.1rem 0.4rem;
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  border-radius: 999px;
-  background: rgba(16, 185, 129, 0.16);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #6ee7b7;
-  font-size: 0.58rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.career-history-row mark.is-identical {
+  color: var(--wm-muted);
 }
 
 .history-cat-row {
@@ -653,25 +769,6 @@
   background: transparent;
   color: inherit;
   text-align: left;
-}
-
-.history-add {
-  flex: 0 0 auto;
-  width: 1.7rem;
-  height: 1.7rem;
-  margin-right: 0.55rem;
-  padding: 0;
-  border: 1px solid rgba(199, 164, 123, 0.32);
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--gold-hover);
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.history-add:hover {
-  border-color: var(--gold-hover);
-  background: rgba(199, 164, 123, 0.12);
 }
 
 .work-map-pin-icon {
@@ -701,14 +798,14 @@
 .career-history-row b {
   margin-top: 0.2rem;
   color: var(--gold-light);
-  font-size: 0.69rem;
+  font-size: 0.8rem;
   font-weight: 450;
 }
 
 .career-history-row small {
   margin-top: 0.28rem;
   color: var(--wm-muted);
-  font-size: 0.67rem;
+  font-size: 0.8rem;
   font-style: normal;
 }
 
@@ -939,6 +1036,28 @@
   background: #0c0a08;
   color: var(--text);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+}
+
+.history-search-miss {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin: 0.75rem 0.9rem;
+  color: var(--wm-muted);
+  font-size: 0.875rem;
+}
+
+.history-search-miss button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.875rem;
+}
+
+.history-search-miss button:hover {
+  color: var(--text);
 }
 
 .work-map-unmapped span {
@@ -1527,7 +1646,7 @@
   gap: 1rem;
   padding: 0.65rem 0;
   border-bottom: 1px solid rgba(199, 164, 123, 0.12);
-  font-size: 0.68rem;
+  font-size: 0.85rem;
 }
 
 .role-existing > p.role-form-note {
@@ -1759,6 +1878,8 @@
 @media (max-width: 760px) {
   .work-map {
     flex: none;
+    min-width: 0;
+    max-width: 100%;
     min-height: auto;
   }
 
@@ -1771,9 +1892,13 @@
   }
 
   .work-map-ledger {
-    max-height: 22rem;
+    max-height: none;
     border-right: 0;
     border-bottom: 1px solid var(--wm-line);
+  }
+
+  .work-map-role-list {
+    min-height: 16rem;
   }
 
   .work-map-stage {
@@ -1834,9 +1959,19 @@
   }
 
   .work-map-float {
-    width: auto;
-    max-height: 46vh;
+    width: 100%;
+    max-height: none;
     order: 1;
+  }
+
+  .work-map-sort {
+    min-width: 5.5rem;
+    flex: 1 1 8rem;
+  }
+
+  .history-publish {
+    flex-basis: 100%;
+    justify-content: flex-start;
   }
 
   .role-sheet {
@@ -1850,6 +1985,10 @@
 }
 
 @media (max-width: 480px) {
+  .work-map-tools > input {
+    flex: 1 1 100%;
+  }
+
   .work-map-stats {
     grid-template-columns: repeat(2, 1fr);
   }
