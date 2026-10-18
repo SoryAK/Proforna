@@ -5,6 +5,7 @@ import {
   applySameRole,
   evidenceLinksFit,
   hintHeldRoles,
+  hintNextResume,
   historyFromHeld,
   dropSetAside,
   heldFromCareer,
@@ -16,8 +17,8 @@ import {
   rememberSetAside,
   rememberSkills,
   reviseSkills,
-  roleFieldDiffs,
   skillLines,
+  roleFieldDiffs,
   roleTookFile,
   type HeldRole,
 } from "./resume-compare";
@@ -75,6 +76,20 @@ describe("resume compare", () => {
     title: "Analyst",
     startDate: "2014-01-01",
     endDate: "2016-01-01",
+  });
+
+  it("asks about a kept role before a role from an earlier file", () => {
+    const kept = [{ ...holdVerifiedRoles([engineer], 0)[0], id: "kept-engineer" }];
+    const earlier = holdVerifiedRoles([item({ ...engineer, sourceIndex: 1 })], 0);
+    const incoming = item({ ...engineer, sourceIndex: 2, title: "Engineer" });
+    expect(hintNextResume(kept, earlier, incoming, [], "later")?.roleId).toBe("kept-engineer");
+  });
+
+  it("uses an earlier file when the kept match was declined", () => {
+    const kept = holdVerifiedRoles([engineer], 0);
+    const earlier = holdVerifiedRoles([item({ ...engineer, sourceIndex: 1 })], 1);
+    const incoming = item({ ...engineer, sourceIndex: 2, title: "Engineer" });
+    expect(hintNextResume(kept, earlier, incoming, [`${kept[0].id}|later`], "later")?.roleId).toBe(earlier[0].id);
   });
 
   it("does not treat a shortened title as the same wording", () => {
@@ -240,6 +255,7 @@ describe("historyFromHeld", () => {
       { name: "Machining", sourceFile: 0 },
     ]);
   });
+
   it("revises found skills from one line each", () => {
     const found = [
       { name: "Machining", sourceFile: 1 },

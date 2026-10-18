@@ -2080,6 +2080,12 @@ button.onboarding-verify-row {
   max-height: min(85vh, 44rem);
 }
 
+.onboarding-review[data-compare="true"] > .onboarding-verify {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
 .onboarding-file-dialog {
   box-sizing: border-box;
   width: min(80rem, calc(100% - 2rem));
