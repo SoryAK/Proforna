@@ -34,6 +34,7 @@ const snapshot: WorkMapSnapshot = {
       achievements: ["Cut recovery from 42 to 11 minutes."],
       locations: [],
       media: [],
+      linkedEvidence: [],
       milestones: [],
       events: [],
       techStack: [],

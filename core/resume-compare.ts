@@ -71,6 +71,22 @@ export function queuedResumeDuplicate(digests: readonly string[], digest: string
   return digests.some((row) => row.trim().toLowerCase() === next);
 }
 
+/** Indexes from one selection that are not already queued. A repeat inside the selection counts once. */
+export function resumesToQueue(existing: readonly string[], incoming: readonly string[]): { indexes: number[]; skipped: number } {
+  const seen = [...existing];
+  const indexes: number[] = [];
+  let skipped = 0;
+  for (let index = 0; index < incoming.length; index += 1) {
+    if (queuedResumeDuplicate(seen, incoming[index] ?? "")) {
+      skipped += 1;
+      continue;
+    }
+    seen.push(incoming[index] ?? "");
+    indexes.push(index);
+  }
+  return { indexes, skipped };
+}
+
 /** Roles that survived Verify, attributed to the file they came from. */
 export function holdVerifiedRoles(items: OnboardingCheckItem[], fileIndex: number): HeldRole[] {
   return items.filter((item) => !isBlankOnboardingCheckItem(item)).map((item) => holdRole(item, fileIndex));
@@ -284,6 +300,29 @@ export function rememberSkills(
     next.push({ name: trimmed, sourceFile });
   }
   return next;
+}
+
+/** A typed skill not found in any file is credited to `fileIndex`. */
+export function reviseSkills(
+  found: readonly HeldSkill[],
+  lines: readonly string[],
+  fileIndex: number,
+): HeldSkill[] {
+  const seen = new Set<string>();
+  const next: HeldSkill[] = [];
+  for (const line of lines) {
+    const name = line.trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    const match = found.find((skill) => skill.name.trim().toLowerCase() === key);
+    next.push({ name, sourceFile: match?.sourceFile ?? fileIndex });
+  }
+  return next;
+}
+
+export function skillLines(skills: readonly HeldSkill[]): string {
+  return skills.map((skill) => skill.name).join("\n");
 }
 
 /** One history write for the whole session. Each field still names the file it came from. */

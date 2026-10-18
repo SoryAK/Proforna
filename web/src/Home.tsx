@@ -10,6 +10,7 @@ import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
 import { HomeSearch } from "./HomeSearch";
 import { HomeSettings } from "./HomeSettings";
+import type { DetailTab } from "./RoleDetailPanel";
 import { WorkHistory } from "./WorkHistory";
 import { CareerWorkspace } from "./CareerWorkspace";
 import { HomeProforna } from "./HomeProforna";
@@ -57,11 +58,15 @@ function fitWidths(
 }
 
 export function Home({
+  initialFocusJobId = null,
+  initialFocusTab,
   profile,
   career,
   careerError,
   onProfileSaved,
 }: {
+  initialFocusJobId?: string | null;
+  initialFocusTab?: DetailTab;
   profile: OnboardingProfileValue;
   career: CareerFile;
   careerError: string | null;
@@ -71,7 +76,7 @@ export function Home({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [page, setPage] = useState<HomePage>(readPage);
-  const [focusJobId, setFocusJobId] = useState<string | null>(null);
+  const [focusJobId, setFocusJobId] = useState<string | null>(initialFocusJobId);
   const [photoTick, setPhotoTick] = useState(0);
   const [mapRevision, setMapRevision] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -291,6 +296,7 @@ export function Home({
             career={career}
             careerError={careerError}
             focusJobId={focusJobId}
+            focusTab={focusJobId === initialFocusJobId ? initialFocusTab : undefined}
             mapRevision={mapRevision}
             onHome={() => {
               setEditing(false);

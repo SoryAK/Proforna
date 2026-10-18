@@ -39,13 +39,21 @@ export function AddressStep({
   );
 }
 
-export function AddressFields({
-  place,
-  onPlace,
-}: {
+type PlaceFieldsProps = {
   place: OnboardingPlaceAnswer;
   onPlace: (place: OnboardingPlaceAnswer) => void;
-}) {
+};
+
+export function AddressFields(props: PlaceFieldsProps) {
+  return (
+    <>
+      <StreetField {...props} />
+      <CityStateFields {...props} />
+    </>
+  );
+}
+
+export function StreetField({ place, onPlace, note }: PlaceFieldsProps & { note?: string }) {
   const applied = useRef(place.street);
   const hits = usePlaceSuggestions(place.street === applied.current ? "" : place.street);
 
@@ -71,6 +79,7 @@ export function AddressFields({
           }}
         />
       </label>
+      {note ? <small className="onboarding-field-note">{note}</small> : null}
       {hits.length > 0 ? (
         <ul className="onboarding-suggest" role="listbox">
           {hits.map((hit) => (
@@ -82,6 +91,13 @@ export function AddressFields({
           ))}
         </ul>
       ) : null}
+    </>
+  );
+}
+
+export function CityStateFields({ place, onPlace, note }: PlaceFieldsProps & { note?: string }) {
+  return (
+    <>
       <div className="onboarding-field-row">
         <label className="onboarding-field">
           <span>City</span>
@@ -100,6 +116,7 @@ export function AddressFields({
           />
         </label>
       </div>
+      {note ? <small className="onboarding-field-note">{note}</small> : null}
     </>
   );
 }

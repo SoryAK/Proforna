@@ -12,9 +12,12 @@ import {
   holdVerifiedRoles,
   parseHistoryEvidence,
   queuedResumeDuplicate,
+  resumesToQueue,
   rememberSetAside,
   rememberSkills,
+  reviseSkills,
   roleFieldDiffs,
+  skillLines,
   roleTookFile,
   type HeldRole,
 } from "./resume-compare";
@@ -44,6 +47,14 @@ describe("queued resumes", () => {
   it("recognizes identical bytes already in the list", () => {
     expect(queuedResumeDuplicate(["abc", "def"], "ABC")).toBe(true);
     expect(queuedResumeDuplicate(["abc"], "xyz")).toBe(false);
+  });
+
+  it("keeps a selection of new files and skips ones already queued", () => {
+    expect(resumesToQueue(["abc"], ["abc", "def", "ghi", "def"])).toEqual({ indexes: [1, 2], skipped: 2 });
+  });
+
+  it("keeps every file when none are queued yet", () => {
+    expect(resumesToQueue([], ["abc", "def"])).toEqual({ indexes: [0, 1], skipped: 0 });
   });
 });
 
@@ -228,6 +239,18 @@ describe("historyFromHeld", () => {
     expect(rememberSkills([{ name: "Machining", sourceFile: 0 }], ["Welding"], 1, false)).toEqual([
       { name: "Machining", sourceFile: 0 },
     ]);
+  });
+  it("revises found skills from one line each", () => {
+    const found = [
+      { name: "Machining", sourceFile: 1 },
+      { name: "Welding", sourceFile: 0 },
+    ];
+    expect(reviseSkills(found, ["  machining ", "", "PLC", "plc", "CAD"], 0)).toEqual([
+      { name: "machining", sourceFile: 1 },
+      { name: "PLC", sourceFile: 0 },
+      { name: "CAD", sourceFile: 0 },
+    ]);
+    expect(skillLines(found)).toBe("Machining\nWelding");
   });
 });
 

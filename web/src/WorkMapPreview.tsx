@@ -14,10 +14,12 @@ import {
 import type { MapSettings } from "@core/map-settings";
 import {
   EMPTY_WORK_MAP_DETAILS,
+  groupLinkedEvidence,
   previewRoleMark,
   recruiterWorkMapSnapshot,
   roleCoverPhoto,
   workSitePublicationNote,
+  type PublishedLinkedEvidence,
   type WorkMapRole,
   type WorkMapSnapshot,
 } from "@core/work-map";
@@ -337,6 +339,7 @@ function PreviewRole({
   const chips = previewChips(role);
   const cover = roleCoverPhoto(role.media);
   const media = role.media.filter((item) => item.id !== cover?.id);
+  const evidence = groupLinkedEvidence(role.achievements, role.linkedEvidence);
 
   return (
     <section className="preview-reading" aria-label={`${role.title || "Role"} preview`}>
@@ -382,12 +385,31 @@ function PreviewRole({
               <p className="role-sheet-body">{story}</p>
             </section>
           ) : null}
-          {role.achievements.length > 0 ? (
+          {evidence.achievements.length > 0 ? (
             <section>
               <h3>Achievements</h3>
               <ul className="role-reading-list">
-                {role.achievements.map((item) => (
-                  <li key={item}>{item}</li>
+                {evidence.achievements.map((item) => (
+                  <li key={item.statement}>
+                    {item.statement}
+                    {item.evidence.length > 0 ? (
+                      <ul className="role-evidence-list">
+                        {item.evidence.map((source) => (
+                          <PreviewEvidence key={source.id} item={source} />
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {evidence.other.length > 0 ? (
+            <section>
+              <h3>Evidence</h3>
+              <ul className="role-evidence-list">
+                {evidence.other.map((source) => (
+                  <PreviewEvidence key={source.id} item={source} />
                 ))}
               </ul>
             </section>
@@ -425,6 +447,25 @@ function PreviewRole({
         </div>
       </div>
     </section>
+  );
+}
+
+function PreviewEvidence({ item }: { item: PublishedLinkedEvidence }) {
+  const meta = [
+    item.outlet,
+    item.publishedOn,
+    item.credit === "names-me" ? "Credited by name" : "Covers work they contributed to",
+  ].filter(Boolean);
+  return (
+    <li>
+      <a href={item.url} target="_blank" rel="noopener noreferrer">
+        {item.title}
+      </a>
+      <span>{meta.join(" · ")}</span>
+      {item.quote ? <q>{item.quote}</q> : null}
+      {item.timestamp ? <span>at {item.timestamp}</span> : null}
+      {item.contribution ? <p>{item.contribution}</p> : null}
+    </li>
   );
 }
 
@@ -497,6 +538,7 @@ function previewMapRoles(snapshot: PublicWorkMapSnapshot): WorkMapRole[] {
       claims: [],
       locations: role.locations,
       media: [],
+      linkedEvidence: [],
       details: structuredClone(EMPTY_WORK_MAP_DETAILS),
     };
   });

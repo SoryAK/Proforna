@@ -21,6 +21,15 @@ stored resume file is Evidence. Extracted jobs, schools, and skills are
 Career Facts that point at that file.
 _Avoid_: Attachment, proof
 
+**Linked Evidence**:
+Evidence captured from a public link, such as a review, article, talk, demo,
+press release, social post, or award, and attached to a Role. It may be pinned
+to one achievement or event on that Role. The occupant records what they did
+and whether the source names them or is about work they contributed to. The
+captured copy stays private; the occupant's record is published only when they
+mark it public.
+_Avoid_: Public mention, press clipping, source
+
 **Career Fact**:
 A versioned assertion about the occupant's identity, work, education, skills,
 achievements, or preferences, linked to its evidence.

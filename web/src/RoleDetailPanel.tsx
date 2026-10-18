@@ -7,14 +7,16 @@ import {
   type CareerHistoryItem,
 } from "@core/career-history";
 import {
+  LINKED_EVIDENCE_KINDS,
   roleCoverPhoto,
+  type LinkedEvidence,
   type WorkMapLocation,
   type WorkMapMoment,
   type WorkMapRole,
 } from "@core/work-map";
 import { lookupNote, searchPlaces, type PlaceHit } from "./place-search";
 
-export type DetailTab = "story" | "conditions" | "media" | "places";
+export type DetailTab = "story" | "conditions" | "media" | "evidence" | "places";
 
 type SitePlacement = {
   latitude: number;
@@ -236,6 +238,82 @@ export function RoleDetailPanel({
     await finish(response, "Media attached.");
   }
 
+  async function saveLinkedEvidence(
+    event: FormEvent<HTMLFormElement>,
+    linkedId?: string,
+  ) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setMessage(linkedId ? "Saving…" : "Saving and capturing a copy…");
+    const response = await fetch(
+      linkedId
+        ? `/api/work-map/roles/${role.id}/linked-evidence/${linkedId}`
+        : `/api/work-map/roles/${role.id}/linked-evidence`,
+      {
+        method: linkedId ? "PUT" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(linkedEvidencePayload(form)),
+      },
+    );
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setMessage(linkedEvidenceMessage(body.error));
+      return;
+    }
+    const body = (await response.json()) as { linkedEvidence: LinkedEvidence };
+    if (!linkedId) form.reset();
+    setMessage(
+      body.linkedEvidence.evidenceId
+        ? linkedId
+          ? "Linked evidence saved."
+          : "Linked evidence added, with a copy saved in your vault."
+        : "Saved. The page could not be captured; save again later to retry.",
+    );
+    await onSaved();
+  }
+
+  async function removeLinkedEvidence(linkedId: string) {
+    const response = await fetch(
+      `/api/work-map/roles/${role.id}/linked-evidence/${linkedId}`,
+      { method: "DELETE" },
+    );
+    await finish(response, "Linked evidence removed.");
+  }
+
+  async function fillFromLink(form: HTMLFormElement) {
+    const url = inputValue(form, "url");
+    if (!url) {
+      setMessage("Paste a link first.");
+      return;
+    }
+    setLookingUp(true);
+    try {
+      const response = await fetch("/api/work-map/linked-evidence/lookup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        setMessage(linkedEvidenceMessage(body.error));
+        return;
+      }
+      const { fields } = (await response.json()) as {
+        fields: Pick<LinkedEvidence, "title" | "outlet" | "publishedOn" | "kind">;
+      };
+      for (const name of ["title", "outlet", "publishedOn"] as const) {
+        if (fields[name] && !inputValue(form, name)) setInputValue(form, name, fields[name]);
+      }
+      const kind = form.elements.namedItem("kind");
+      if (kind instanceof HTMLSelectElement) kind.value = fields.kind;
+      setMessage("Filled from the page. Check the fields, then save.");
+    } catch {
+      setMessage(linkedEvidenceMessage("page-unreachable"));
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
   function saveDetails(body: Record<string, unknown>) {
     return fetch(`/api/work-map/roles/${role.id}/details`, {
       method: "PUT",
@@ -283,6 +361,7 @@ export function RoleDetailPanel({
             ["story", "Story"],
             ["conditions", "Conditions"],
             ["media", "Media"],
+            ["evidence", "Evidence"],
             ["places", "Places"],
           ] as Array<[DetailTab, string]>
         ).map(([value, label]) => (
@@ -654,6 +733,38 @@ export function RoleDetailPanel({
           </>
         ) : null}
 
+        {tab === "evidence" ? (
+          <>
+            <section className="role-existing">
+              <h3>Linked evidence</h3>
+              {role.linkedEvidence.length === 0 ? (
+                <p className="role-form-note">
+                  Link a review, article, talk, or shout-out about work you did
+                  in this role.
+                </p>
+              ) : (
+                role.linkedEvidence.map((item) => (
+                  <LinkedEvidenceForm
+                    key={`${item.id}-${item.evidenceId ?? "uncaptured"}`}
+                    role={role}
+                    item={item}
+                    lookingUp={lookingUp}
+                    onSubmit={(event) => saveLinkedEvidence(event, item.id)}
+                    onFill={fillFromLink}
+                    onRemove={() => removeLinkedEvidence(item.id)}
+                  />
+                ))
+              )}
+            </section>
+            <LinkedEvidenceForm
+              role={role}
+              lookingUp={lookingUp}
+              onSubmit={(event) => saveLinkedEvidence(event)}
+              onFill={fillFromLink}
+            />
+          </>
+        ) : null}
+
         {tab === "places" ? (
           <>
             <section className="role-existing">
@@ -895,6 +1006,218 @@ function SiteForm({
       </div>
     </form>
   );
+}
+
+const LINKED_EVIDENCE_KIND_LABELS: Record<LinkedEvidence["kind"], string> = {
+  review: "Review",
+  article: "Article",
+  talk: "Talk or demo",
+  "press-release": "Press release",
+  "social-post": "Social post",
+  award: "Award",
+};
+
+function LinkedEvidenceForm({
+  role,
+  item,
+  lookingUp,
+  onSubmit,
+  onFill,
+  onRemove,
+}: {
+  role: WorkMapRole;
+  item?: LinkedEvidence;
+  lookingUp: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onFill: (form: HTMLFormElement) => void | Promise<void>;
+  onRemove?: () => void;
+}) {
+  const pin = item?.pin
+    ? item.pin.kind === "event"
+      ? `event:${item.pin.id}`
+      : `achievement:${item.pin.statement}`
+    : "";
+  const pinStale =
+    pin !== "" &&
+    !role.achievements.some((achievement) => `achievement:${achievement.trim()}` === pin) &&
+    !role.details.events.some((event) => `event:${event.id}` === pin);
+  return (
+    <form className="role-form role-site-form" onSubmit={onSubmit}>
+      <h3>{item ? item.title : "Link evidence"}</h3>
+      <p className="role-form-note">
+        {item
+          ? item.evidenceId
+            ? "A copy of this page is saved in your vault."
+            : "No copy saved yet. Save again to retry the capture."
+          : "Paste a link to something public about this work. Proforna saves a private copy in case the page changes or disappears."}
+      </p>
+      <label className="role-lookup">
+        Link
+        <span>
+          <input
+            required
+            name="url"
+            type="url"
+            placeholder="https://"
+            defaultValue={item?.url ?? ""}
+          />
+          <button
+            type="button"
+            disabled={lookingUp}
+            onClick={(event) => {
+              const form = event.currentTarget.form;
+              if (form) void onFill(form);
+            }}
+          >
+            {lookingUp ? "Reading…" : "Fill from link"}
+          </button>
+        </span>
+      </label>
+      <label>
+        Title
+        <input required name="title" defaultValue={item?.title ?? ""} />
+      </label>
+      <div className="role-form-pair">
+        <label>
+          Outlet
+          <input
+            name="outlet"
+            placeholder="Who published it"
+            defaultValue={item?.outlet ?? ""}
+          />
+        </label>
+        <label>
+          Published
+          <input name="publishedOn" type="date" defaultValue={item?.publishedOn ?? ""} />
+        </label>
+      </div>
+      <div className="role-form-pair">
+        <label>
+          Type
+          <select name="kind" defaultValue={item?.kind ?? "article"}>
+            {LINKED_EVIDENCE_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {LINKED_EVIDENCE_KIND_LABELS[kind]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Credit
+          <select name="credit" defaultValue={item?.credit ?? "about-my-work"}>
+            <option value="names-me">Names me</option>
+            <option value="about-my-work">About work I contributed to</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        What I did
+        <textarea
+          name="contribution"
+          rows={2}
+          placeholder="Your part in what this covers"
+          defaultValue={item?.contribution ?? ""}
+        />
+      </label>
+      <div className="role-form-pair">
+        <label>
+          Quote
+          <textarea name="quote" rows={2} defaultValue={item?.quote ?? ""} />
+        </label>
+        <label>
+          Moment in video
+          <input
+            name="timestamp"
+            placeholder="14:32"
+            defaultValue={item?.timestamp ?? ""}
+          />
+        </label>
+      </div>
+      <label>
+        Supports
+        <select name="pin" defaultValue={pinStale ? "" : pin}>
+          <option value="">The whole role</option>
+          {role.achievements.length > 0 ? (
+            <optgroup label="Achievements">
+              {role.achievements.map((achievement) => (
+                <option key={achievement} value={`achievement:${achievement.trim()}`}>
+                  {achievement}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          {role.details.events.length > 0 ? (
+            <optgroup label="Events">
+              {role.details.events.map((event) => (
+                <option key={event.id} value={`event:${event.id}`}>
+                  {[event.date, event.title].filter(Boolean).join(" · ")}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+        </select>
+      </label>
+      {pinStale ? (
+        <p className="role-form-note">
+          The achievement or event this supported has changed. Choose it again.
+        </p>
+      ) : null}
+      <label className="role-check">
+        <input name="isPublic" type="checkbox" defaultChecked={item?.isPublic === true} />
+        Allow this evidence in publications
+      </label>
+      <div className="role-form-actions">
+        <button type="submit">{item ? "Save evidence" : "Add evidence"}</button>
+        {onRemove ? (
+          <button className="is-danger" type="button" onClick={onRemove}>
+            Remove evidence
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function linkedEvidencePayload(form: HTMLFormElement) {
+  const data = new FormData(form);
+  const pin = String(data.get("pin") ?? "");
+  const split = pin.indexOf(":");
+  const pinKind = split > 0 ? pin.slice(0, split) : "";
+  const pinValue = split > 0 ? pin.slice(split + 1) : "";
+  return {
+    url: data.get("url"),
+    title: data.get("title"),
+    outlet: data.get("outlet"),
+    publishedOn: data.get("publishedOn"),
+    kind: data.get("kind"),
+    credit: data.get("credit"),
+    contribution: data.get("contribution"),
+    quote: data.get("quote"),
+    timestamp: data.get("timestamp"),
+    pin:
+      pinKind === "event"
+        ? { kind: "event", id: pinValue }
+        : pinKind === "achievement"
+          ? { kind: "achievement", statement: pinValue }
+          : null,
+    isPublic: data.get("isPublic") === "on",
+  };
+}
+
+function linkedEvidenceMessage(code: string | undefined): string {
+  const messages: Record<string, string> = {
+    "url-invalid": "Use a full web link that starts with http:// or https://.",
+    "title-required": "Give this evidence a title.",
+    "kind-invalid": "Choose what kind of source this is.",
+    "credit-invalid": "Choose whether it names you or covers work you contributed to.",
+    "pin-missing": "That achievement or event is no longer on this role.",
+    "date-invalid": "Use a real publish date.",
+    "timestamp-invalid": "Write the video moment like 14:32 or 1:02:03.",
+    "page-unreachable": "Could not read that page. Fill the fields by hand.",
+    "linked-evidence-missing": "That evidence is no longer on this role.",
+    "role-missing": "That role is not on this map.",
+  };
+  return (code && messages[code]) || "Could not save this evidence.";
 }
 
 function RoleFocus({

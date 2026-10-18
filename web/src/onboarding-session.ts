@@ -2,6 +2,16 @@ import type { OnboardingCheckItem } from "@core/onboarding-review";
 import type { ExtractedProfile, ExtractedResume } from "@core/resume-extract";
 import type { HeldRole, HeldSkill, SetAsideRole } from "@core/resume-compare";
 
+/** One extracted role on the combined verify timeline. */
+export type OnboardingTimelineRow = {
+  id: string;
+  fileIndex: number;
+  item: OnboardingCheckItem;
+  removed: boolean;
+  adopted: boolean;
+  role: HeldRole | null;
+};
+
 const DB_NAME = "proforna-onboarding";
 const STORE = "session";
 const KEY = "current";
@@ -18,6 +28,8 @@ export type OnboardingDraft = {
   step: "file" | "check";
   items: OnboardingCheckItem[];
   profileExtract: ExtractedProfile | null;
+  timeline?: OnboardingTimelineRow[] | null;
+  declinedPairs?: string[];
 };
 
 export async function loadOnboardingDraft(): Promise<OnboardingDraft | null> {

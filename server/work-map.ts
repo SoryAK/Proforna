@@ -4,16 +4,25 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import {
   EMPTY_WORK_MAP_DETAILS,
+  LINKED_EVIDENCE_KINDS,
   PROFILE_AVATAR_MAX_BYTES,
   avatarExtension,
   isAvatarType,
+  isLinkedEvidenceUrl,
+  linkedEvidenceFromPage,
   normalizeWorkMapDetails,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
+  planLinkedEvidenceFacts,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareLinkedEvidence,
+  prepareLinkedEvidenceDelete,
   prepareWorkMapLocation,
+  readLinkedPage,
+  type LinkedEvidence,
+  type PreparedLinkedEvidence,
   prepareWorkMapRoleCreate,
   nominatimAddressLine,
   presentWorkMapPlace,
@@ -40,6 +49,7 @@ import {
 } from "./career-memory";
 import { loadCareerFile } from "./history";
 import { readProfile } from "./occupant";
+import type { FetchedPage, PageFetch } from "./page-capture";
 
 type JsonObject = Record<string, unknown>;
 
@@ -589,6 +599,245 @@ export function removeWorkMapMedia(
   }
 }
 
+export async function lookupLinkedPage(
+  url: string,
+  fetchPage: PageFetch,
+): Promise<ReturnType<typeof linkedEvidenceFromPage>> {
+  if (!isLinkedEvidenceUrl(url)) throw new WorkMapStoreError("url-invalid");
+  let page: FetchedPage;
+  try {
+    page = await fetchPage(url);
+  } catch {
+    throw new WorkMapStoreError("page-unreachable");
+  }
+  const read = readLinkedPage(page.html);
+  return linkedEvidenceFromPage({ url: page.url, title: read.title, meta: read.meta });
+}
+
+export async function addLinkedEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  input: JsonObject,
+  fetchPage: PageFetch,
+): Promise<LinkedEvidence> {
+  const role = readRole(db, occupantId, roleId);
+  const prepared = prepareLinkedEvidence(input, role);
+  if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
+  const id = randomUUID();
+  const evidenceId = await captureLinkedPage(db, occupantId, id, prepared.value, fetchPage);
+  db.prepare(
+    `INSERT INTO work_history_linked_evidence
+      (id, work_history_id, occupant_id, evidence_id, url, title, outlet,
+       published_on, kind, contribution, credit, quote, timestamp, pin_json,
+       is_public, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    roleId,
+    occupantId,
+    evidenceId,
+    ...linkedEvidenceColumns(prepared.value),
+    new Date().toISOString(),
+  );
+  await syncLinkedEvidenceFacts(db, occupantId, roleId, null, {
+    evidenceId,
+    pin: prepared.value.pin,
+  });
+  return { id, evidenceId, ...prepared.value };
+}
+
+export async function updateLinkedEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  linkedId: string,
+  input: JsonObject,
+  fetchPage: PageFetch,
+): Promise<LinkedEvidence> {
+  const role = readRole(db, occupantId, roleId);
+  const existing = requireLinkedEvidence(db, occupantId, roleId, linkedId);
+  const prepared = prepareLinkedEvidence(input, role);
+  if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
+  const evidenceId =
+    existing.url === prepared.value.url && existing.evidenceId
+      ? existing.evidenceId
+      : await captureLinkedPage(db, occupantId, linkedId, prepared.value, fetchPage);
+  db.prepare(
+    `UPDATE work_history_linked_evidence SET
+       evidence_id = ?, url = ?, title = ?, outlet = ?, published_on = ?,
+       kind = ?, contribution = ?, credit = ?, quote = ?, timestamp = ?,
+       pin_json = ?, is_public = ?
+     WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+  ).run(
+    evidenceId,
+    ...linkedEvidenceColumns(prepared.value),
+    linkedId,
+    roleId,
+    occupantId,
+  );
+  await syncLinkedEvidenceFacts(db, occupantId, roleId, existing, {
+    evidenceId,
+    pin: prepared.value.pin,
+  });
+  return { id: linkedId, evidenceId, ...prepared.value };
+}
+
+export async function removeLinkedEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  linkedId: string,
+): Promise<void> {
+  const prepared = prepareLinkedEvidenceDelete({ id: linkedId });
+  if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
+  requireRole(db, occupantId, roleId);
+  const existing = requireLinkedEvidence(db, occupantId, roleId, prepared.value.id);
+  db.prepare(
+    `DELETE FROM work_history_linked_evidence
+     WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+  ).run(prepared.value.id, roleId, occupantId);
+  await syncLinkedEvidenceFacts(db, occupantId, roleId, existing, null);
+}
+
+async function captureLinkedPage(
+  db: DatabaseSync,
+  occupantId: string,
+  linkedId: string,
+  value: PreparedLinkedEvidence,
+  fetchPage: PageFetch,
+): Promise<string | null> {
+  let page: FetchedPage;
+  try {
+    page = await fetchPage(value.url);
+  } catch {
+    return null;
+  }
+  const read = readLinkedPage(page.html);
+  return saveEvidence(db, occupantId, {
+    sourceType: "link",
+    sourceRef: `link:${linkedId}:${randomUUID()}`,
+    title: value.title,
+    content: {
+      url: value.url,
+      finalUrl: page.url,
+      contentType: page.contentType,
+      fetchedAt: new Date().toISOString(),
+      title: read.title,
+      meta: read.meta,
+      text: read.text,
+    },
+  }).id;
+}
+
+async function syncLinkedEvidenceFacts(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  before: Pick<LinkedEvidence, "evidenceId" | "pin"> | null,
+  after: Pick<LinkedEvidence, "evidenceId" | "pin"> | null,
+) {
+  await commitOccupantFactOperations(
+    db,
+    occupantId,
+    "Link evidence to an achievement",
+    planLinkedEvidenceFacts({
+      roleId,
+      facts: readCareerMemory(db, occupantId).facts,
+      before,
+      after,
+    }),
+  );
+}
+
+function linkedEvidenceColumns(value: PreparedLinkedEvidence) {
+  return [
+    value.url,
+    value.title,
+    value.outlet,
+    value.publishedOn,
+    value.kind,
+    value.contribution,
+    value.credit,
+    value.quote,
+    value.timestamp,
+    JSON.stringify(value.pin),
+    Number(value.isPublic),
+  ] as const;
+}
+
+function readRole(db: DatabaseSync, occupantId: string, roleId: string): WorkMapRole {
+  const row = db
+    .prepare(
+      `SELECT id, kind, title, company, location, start_date, end_date,
+              is_current, description, achievements_json
+       FROM work_history WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(roleId, occupantId) as JsonObject | undefined;
+  if (!row) throw new WorkMapStoreError("role-missing");
+  return mapRole(db, occupantId, row);
+}
+
+function requireLinkedEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  linkedId: string,
+): LinkedEvidence {
+  const found = readLinkedEvidence(db, occupantId, roleId).find(
+    (item) => item.id === linkedId,
+  );
+  if (!found) throw new WorkMapStoreError("linked-evidence-missing");
+  return found;
+}
+
+function readLinkedEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+): LinkedEvidence[] {
+  return (
+    db
+      .prepare(
+        `SELECT id, evidence_id, url, title, outlet, published_on, kind,
+                contribution, credit, quote, timestamp, pin_json, is_public
+         FROM work_history_linked_evidence
+         WHERE work_history_id = ? AND occupant_id = ? ORDER BY created_at, rowid`,
+      )
+      .all(roleId, occupantId) as JsonObject[]
+  ).map((row) => ({
+    id: String(row.id),
+    evidenceId: row.evidence_id ? String(row.evidence_id) : null,
+    url: String(row.url),
+    title: String(row.title),
+    outlet: String(row.outlet),
+    publishedOn: String(row.published_on),
+    kind: LINKED_EVIDENCE_KINDS.find((kind) => kind === row.kind) ?? "article",
+    contribution: String(row.contribution),
+    credit: row.credit === "names-me" ? "names-me" : "about-my-work",
+    quote: String(row.quote),
+    timestamp: String(row.timestamp),
+    pin: parsePin(row.pin_json),
+    isPublic: Number(row.is_public) === 1,
+  }));
+}
+
+function parsePin(value: unknown): LinkedEvidence["pin"] {
+  try {
+    const pin = JSON.parse(String(value)) as unknown;
+    if (!isObject(pin)) return null;
+    if (pin.kind === "event" && typeof pin.id === "string") {
+      return { kind: "event", id: pin.id };
+    }
+    if (pin.kind === "achievement" && typeof pin.statement === "string") {
+      return { kind: "achievement", statement: pin.statement };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function readWorkMapSettings(
   db: DatabaseSync,
   occupantId: string,
@@ -611,6 +860,7 @@ export function readWorkMapSettings(
       "map",
       "milestones",
       "media",
+      "evidence",
       "skills",
       "contact",
     ],
@@ -632,6 +882,7 @@ export async function saveWorkMapSettings(
     "map",
     "milestones",
     "media",
+    "evidence",
     "skills",
     "contact",
   ]);
@@ -789,6 +1040,7 @@ function mapRole(
     claims: [],
     locations: readLocations(db, occupantId, String(row.id)),
     media: readMedia(db, occupantId, String(row.id)),
+    linkedEvidence: readLinkedEvidence(db, occupantId, String(row.id)),
     details: readDetails(db, occupantId, String(row.id)),
   };
 }
