@@ -18,6 +18,7 @@ export function CareerMap({
   onSelect,
   onMapClick,
   holdView = false,
+  emptyNote = null,
   suppressEmpty = false,
   overlays = [],
   selectedOverlayId = null,
@@ -37,6 +38,7 @@ export function CareerMap({
   onSelect: (id: string) => void;
   onMapClick?: (latitude: number, longitude: number) => void;
   holdView?: boolean;
+  emptyNote?: { title: string; detail: string } | null;
   suppressEmpty?: boolean;
   overlays?: MapSearchPin[];
   selectedOverlayId?: string | null;
@@ -68,6 +70,7 @@ export function CareerMap({
         roles={roles}
         selectedId={selectedId}
         selectedOverlayId={selectedOverlayId}
+        emptyNote={emptyNote}
         suppressEmpty={suppressEmpty}
         fitKey={fitKey}
         viewKey={viewKey}
@@ -92,6 +95,7 @@ export function CareerMap({
       roles={roles}
       selectedId={selectedId}
       selectedOverlayId={selectedOverlayId}
+      emptyNote={emptyNote}
       suppressEmpty={suppressEmpty}
       fitKey={fitKey}
       viewKey={viewKey}

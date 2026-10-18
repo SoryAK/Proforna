@@ -321,19 +321,24 @@ function openSignInWindow(): Window | null {
   );
 }
 
-async function waitForSignIn(): Promise<{ connected: true; email: string } | null> {
+type ConnectedGmail = Extract<GmailAccount, { connected: true }>;
+
+async function waitForSignIn(): Promise<ConnectedGmail | null> {
   const started = Date.now();
   while (Date.now() - started < 120_000) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const response = await fetch("/api/sign-in/gmail/ready", { method: "POST" });
     if (!response.ok) continue;
     const body = (await response.json()) as { connected?: boolean; email?: string };
-    if (body.connected && body.email) return { connected: true, email: body.email };
+    if (!body.connected || !body.email) continue;
+    const saved = await fetch("/api/gmail");
+    const account = saved.ok ? ((await saved.json()) as GmailAccount) : null;
+    return account?.connected ? account : { connected: true, email: body.email, enabled: true };
   }
   return null;
 }
 
-async function waitForGmail(): Promise<{ connected: true; email: string } | null> {
+async function waitForGmail(): Promise<ConnectedGmail | null> {
   const started = Date.now();
   while (Date.now() - started < 120_000) {
     await new Promise((resolve) => setTimeout(resolve, 1000));

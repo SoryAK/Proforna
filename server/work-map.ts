@@ -24,6 +24,7 @@ import {
   type LinkedEvidence,
   type PreparedLinkedEvidence,
   prepareWorkMapRoleCreate,
+  prepareWorkMapRoleDelete,
   nominatimAddressLine,
   presentWorkMapPlace,
   type WorkMapLocation,
@@ -322,6 +323,66 @@ export function updateWorkMapLocation(
   requireRole(db, occupantId, roleId);
   requireLocation(db, occupantId, roleId, locationId);
   return persistWorkMapLocation(db, occupantId, roleId, locationId, input);
+}
+
+export function removeWorkMapRole(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  uploadsDir: string,
+): void {
+  const prepared = prepareWorkMapRoleDelete({ id: roleId });
+  if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
+  const id = prepared.value.id;
+  requireRole(db, occupantId, id);
+  const files = db
+    .prepare(
+      `SELECT stored_name FROM work_history_media
+       WHERE work_history_id = ? AND occupant_id = ? AND stored_name IS NOT NULL`,
+    )
+    .all(id, occupantId) as Array<{ stored_name: string }>;
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `DELETE FROM work_history_media
+       WHERE work_history_id = ? AND occupant_id = ?`,
+    ).run(id, occupantId);
+    db.prepare(
+      `DELETE FROM work_history_linked_evidence
+       WHERE work_history_id = ? AND occupant_id = ?`,
+    ).run(id, occupantId);
+    db.prepare(
+      `DELETE FROM work_history_locations
+       WHERE work_history_id = ? AND occupant_id = ?`,
+    ).run(id, occupantId);
+    db.prepare(
+      `DELETE FROM work_history_details
+       WHERE work_history_id = ? AND occupant_id = ?`,
+    ).run(id, occupantId);
+    db.prepare(
+      `DELETE FROM career_facts
+       WHERE occupant_id = ? AND subject_id = ?`,
+    ).run(occupantId, id);
+    db.prepare(
+      `UPDATE worklog_entries SET role_id = NULL
+       WHERE occupant_id = ? AND role_id = ?`,
+    ).run(occupantId, id);
+    const removed = db
+      .prepare(`DELETE FROM work_history WHERE id = ? AND occupant_id = ?`)
+      .run(id, occupantId);
+    if (removed.changes !== 1) throw new WorkMapStoreError("role-missing");
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  for (const file of files) {
+    try {
+      unlinkSync(join(uploadsDir, file.stored_name));
+    } catch {
+      /* leftover file is harmless */
+    }
+  }
 }
 
 export function removeWorkMapLocation(
