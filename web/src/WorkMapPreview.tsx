@@ -62,7 +62,10 @@ export function WorkMapPreview({
     [history, search, sort],
   );
   const groups = useMemo(() => groupCareerHistory(visible), [visible]);
-  const stats = useMemo(() => presentCareerHistoryStats(history), [history]);
+  const stats = useMemo(
+    () => presentCareerHistoryStats(search.trim() ? visible : history),
+    [history, search, visible],
+  );
   const selected = viewSnapshot.roles.find((role) => role.id === selectedId) ?? null;
   const showMap = snapshot.sections.includes("map");
   const withheldSite = snapshot.roles.some((role) =>
@@ -256,7 +259,12 @@ export function WorkMapPreview({
                   </section>
                 ))}
                 {snapshot.roles.length > 0 && visible.length === 0 ? (
-                  <p>No roles match that search.</p>
+                  <p className="history-search-miss" role="status">
+                    No roles match that search.
+                    <button type="button" onClick={() => setSearch("")}>
+                      Clear search
+                    </button>
+                  </p>
                 ) : null}
                 {snapshot.sections.includes("skills") && snapshot.skills.length > 0 ? (
                   <section>

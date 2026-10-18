@@ -29,6 +29,11 @@ export type CareerHistoryGroup = {
   items: CareerHistoryItem[];
 };
 
+export type CareerHistoryCluster = {
+  lead: CareerHistoryItem;
+  copies: CareerHistoryItem[];
+};
+
 export type CareerHistoryStats = {
   tenure: string;
   roles: number;
@@ -67,7 +72,13 @@ export function searchCareerHistory(
   const needle = query.trim().toLowerCase();
   if (!needle) return items;
   return items.filter((item) =>
-    [item.organization, item.title, item.locationLabel, formatHistoryPlace(item)]
+    [
+      item.organization,
+      item.title,
+      item.locationLabel,
+      formatHistoryPlace(item),
+      ...(item.locations ?? []).map((location) => location.address),
+    ]
       .join(" ")
       .toLowerCase()
       .includes(needle),
@@ -93,17 +104,116 @@ export function groupCareerHistory(
   })).filter((section) => section.items.length > 0);
 }
 
-export function presentCareerHistoryStats(
+export function careerHistoryCopyKey(item: {
+  kind: string;
+  title: string;
+  organization: string;
+  startDate: string;
+}): string {
+  const month = item.startDate.trim().match(/^(\d{4})-(\d{2})/);
+  const start = month
+    ? `${month[1]}-${month[2]}`
+    : item.startDate.trim().toLowerCase();
+  return [
+    classifyCareerHistorySection(item),
+    item.organization.trim().toLowerCase().replace(/\s+/g, " "),
+    item.title.trim().toLowerCase().replace(/\s+/g, " "),
+    start,
+  ].join("\0");
+}
+
+export function clusterCareerHistory(
   items: CareerHistoryItem[],
+): CareerHistoryCluster[] {
+  const order: string[] = [];
+  const groups = new Map<string, CareerHistoryItem[]>();
+  for (const item of items) {
+    const key = careerHistoryCopyKey(item);
+    const group = groups.get(key);
+    if (group) group.push(item);
+    else {
+      groups.set(key, [item]);
+      order.push(key);
+    }
+  }
+  return order.map((key) => {
+    const group = groups.get(key) ?? [];
+    const lead = [...group].sort(byCopyRichness)[0];
+    return {
+      lead,
+      copies: [lead, ...group.filter((item) => item.id !== lead.id)],
+    };
+  });
+}
+
+export type CareerHistoryIdentity = CareerHistoryItem & {
+  description?: string;
+  achievements?: string[];
+};
+
+export type IdenticalRoleFlag = {
+  count: number;
+  keeper: boolean;
+};
+
+export function careerHistoryIdentityKey(item: CareerHistoryIdentity): string {
+  const places = (item.locations ?? [])
+    .map((location) => normalizeHistoryText(location.address))
+    .filter(Boolean)
+    .sort();
+  const achievements = (item.achievements ?? [])
+    .map((achievement) => normalizeHistoryText(achievement))
+    .filter(Boolean)
+    .sort();
+  return [
+    classifyCareerHistorySection(item),
+    normalizeHistoryText(item.organization),
+    normalizeHistoryText(item.title),
+    historyMonthKey(item.startDate),
+    item.isCurrent ? "current" : historyMonthKey(item.endDate),
+    normalizeHistoryText(item.description ?? ""),
+    achievements.join("|"),
+    places.length > 0
+      ? places.join("|")
+      : normalizeHistoryText(item.locationLabel),
+  ].join("\0");
+}
+
+export function flagIdenticalRoles(
+  items: CareerHistoryIdentity[],
+): Map<string, IdenticalRoleFlag> {
+  const groups = new Map<string, string[]>();
+  const order: string[] = [];
+  for (const item of items) {
+    const key = careerHistoryIdentityKey(item);
+    const group = groups.get(key);
+    if (group) group.push(item.id);
+    else {
+      groups.set(key, [item.id]);
+      order.push(key);
+    }
+  }
+  const flags = new Map<string, IdenticalRoleFlag>();
+  for (const key of order) {
+    const ids = groups.get(key) ?? [];
+    ids.forEach((id, index) => {
+      flags.set(id, { count: ids.length, keeper: index === 0 });
+    });
+  }
+  return flags;
+}
+
+export function presentCareerHistoryStats(
+  items: CareerHistoryIdentity[],
   now = new Date(),
 ): CareerHistoryStats {
   const work = items.filter(
     (item) => classifyCareerHistorySection(item) !== "school",
   );
   return {
-    tenure: formatTenureMonths(careerSpanMonths(items, now)),
-    roles: work.length,
-    miles: Math.round(travelMiles(items)),
+    tenure: formatTenureMonths(workTenureMonths(items, now)),
+    roles: new Set(work.map((item) => careerHistoryIdentityKey(item))).size,
+    miles: Math.round(travelMiles(items, now)),
     cities: uniqueCities(items).size,
   };
 }
@@ -164,6 +274,9 @@ const STATE_ABBREV: Record<string, string> = {
 
 const STREET_WORD =
   /\b(streets?|roads?|avenues?|boulevards?|drives?|lanes?|ways?|courts?|highways?|parkways?|circles?|places?|terraces?|trails?)\b/i;
+const STREET_SUFFIX =
+  /\b(?:st|ave|blvd|dr|ln|rd|ct|hwy|pkwy|cir|pl|ter|trl|sq|pike|aly)\.?$/i;
+const STATE_CODES = new Set(Object.values(STATE_ABBREV));
 
 export function formatHistoryPlace(item: {
   organization: string;
@@ -205,6 +318,12 @@ function compactPlace(raw: string, organization: string): string {
       if (!state) state = abbrev;
       continue;
     }
+    const postal = stateBeforePostal(part);
+    if (postal) {
+      if (!state) state = postal.state;
+      if (postal.city) cities.push(postal.city);
+      continue;
+    }
     if (/ county$/i.test(part)) {
       if (!county) county = part.replace(/ county$/i, "").trim();
       continue;
@@ -230,7 +349,27 @@ function isHouseNumber(value: string): boolean {
 }
 
 function isStreet(value: string): boolean {
-  return STREET_WORD.test(value);
+  const trimmed = value.trim();
+  return STREET_WORD.test(trimmed) || STREET_SUFFIX.test(trimmed);
+}
+
+function stateBeforePostal(part: string): { state: string; city: string } | null {
+  const match = part.trim().match(/^(.*?)(?:\s+)(\d{5}(?:-\d{4})?)$/);
+  if (!match) return null;
+  const head = match[1].trim();
+  const direct = knownState(head);
+  if (direct) return { state: direct, city: "" };
+  const words = head.split(/\s+/);
+  if (words.length < 2) return null;
+  const abbrev = knownState(words[words.length - 1] ?? "");
+  if (!abbrev) return null;
+  return { state: abbrev, city: words.slice(0, -1).join(" ") };
+}
+
+function knownState(value: string): string | null {
+  const abbrev = stateAbbrev(value);
+  if (!abbrev || !STATE_CODES.has(abbrev)) return null;
+  return abbrev;
 }
 
 function stateAbbrev(value: string): string | null {
@@ -283,7 +422,8 @@ export function tenureMonths(
 ): number {
   const start = parseYearMonth(startDate);
   if (!start) return 0;
-  const end = isCurrent || !endDate ? now : (parseYearMonth(endDate) ?? now);
+  const end = isCurrent ? now : parseYearMonth(endDate);
+  if (!end) return 0;
   return Math.max(
     0,
     (end.getFullYear() - start.getFullYear()) * 12 +
@@ -300,53 +440,91 @@ export function formatTenureMonths(months: number): string {
   return `${rest}m`;
 }
 
-function careerSpanMonths(items: CareerHistoryItem[], now: Date): number {
-  const starts = items
-    .map((item) => parseYearMonth(item.startDate))
-    .filter((value): value is Date => Boolean(value));
-  if (starts.length === 0) return 0;
-  const earliest = starts.reduce((min, date) => (date < min ? date : min));
-  const ends = items.map((item) =>
-    item.isCurrent || !item.endDate
-      ? now
-      : (parseYearMonth(item.endDate) ?? now),
-  );
-  const latest = ends.reduce((max, date) => (date > max ? date : max));
-  return Math.max(
-    0,
-    (latest.getFullYear() - earliest.getFullYear()) * 12 +
-      (latest.getMonth() - earliest.getMonth()),
-  );
+function workTenureMonths(items: CareerHistoryItem[], now: Date): number {
+  const intervals = items
+    .filter((item) => classifyCareerHistorySection(item) !== "school")
+    .flatMap((item) => {
+      const start = parseYearMonth(item.startDate);
+      const end = item.isCurrent ? now : parseYearMonth(item.endDate);
+      if (!start || !end || end < start) return [];
+      return [{ start: monthIndex(start), end: monthIndex(end) }];
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  let months = 0;
+  let cursor = Number.NEGATIVE_INFINITY;
+  for (const interval of intervals) {
+    const from = Math.max(interval.start, cursor);
+    if (interval.end > from) {
+      months += interval.end - from;
+      cursor = interval.end;
+    }
+  }
+  return months;
+}
+
+function monthIndex(date: Date): number {
+  return date.getFullYear() * 12 + date.getMonth();
 }
 
 function uniqueCities(items: CareerHistoryItem[]): Set<string> {
   const cities = new Set<string>();
   for (const item of items) {
-    const place = formatHistoryPlace(item);
-    if (place) cities.add(place.toLowerCase());
+    const sources = [
+      ...(item.locations ?? []).map((location) => location.address),
+      item.locationLabel,
+    ];
+    for (const raw of sources) {
+      const place = compactPlace(raw, item.organization);
+      if (place) cities.add(place.toLowerCase());
+    }
   }
   return cities;
 }
 
-function travelMiles(items: CareerHistoryItem[]): number {
-  const points = [...items]
-    .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""))
-    .flatMap((item) => {
-      const location = item.locations?.[0];
-      if (
-        !location ||
-        !Number.isFinite(location.latitude) ||
-        !Number.isFinite(location.longitude)
-      ) {
-        return [];
-      }
-      return [location];
-    });
+function travelMiles(items: CareerHistoryItem[], now: Date): number {
+  const stops = [...items]
+    .filter((item) => mappedPoint(item) !== null)
+    .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
   let miles = 0;
-  for (let index = 1; index < points.length; index += 1) {
-    miles += haversineMiles(points[index - 1], points[index]);
+  for (let index = 1; index < stops.length; index += 1) {
+    const previous = stops[index - 1];
+    const next = stops[index];
+    if (!previous || !next || rolesOverlap(previous, next, now)) continue;
+    const from = mappedPoint(previous);
+    const to = mappedPoint(next);
+    if (!from || !to) continue;
+    miles += haversineMiles(from, to);
   }
   return miles;
+}
+
+function mappedPoint(item: CareerHistoryItem): {
+  latitude: number;
+  longitude: number;
+} | null {
+  const location = item.locations?.[0];
+  if (
+    !location ||
+    !Number.isFinite(location.latitude) ||
+    !Number.isFinite(location.longitude)
+  ) {
+    return null;
+  }
+  return location;
+}
+
+function rolesOverlap(
+  left: CareerHistoryItem,
+  right: CareerHistoryItem,
+  now: Date,
+): boolean {
+  const leftStart = parseYearMonth(left.startDate);
+  const rightStart = parseYearMonth(right.startDate);
+  if (!leftStart || !rightStart) return false;
+  const leftEnd = left.isCurrent ? now : parseYearMonth(left.endDate);
+  const rightEnd = right.isCurrent ? now : parseYearMonth(right.endDate);
+  if (!leftEnd || !rightEnd) return true;
+  return leftStart < rightEnd && rightStart < leftEnd;
 }
 
 function haversineMiles(
@@ -382,6 +560,23 @@ function parseYearMonth(value: string): Date | null {
   const month = Number(match[2]);
   if (month < 1 || month > 12) return null;
   return new Date(Number(match[1]), month - 1, 1);
+}
+
+function normalizeHistoryText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function historyMonthKey(value: string): string {
+  const month = value.trim().match(/^(\d{4})-(\d{2})/);
+  return month ? `${month[1]}-${month[2]}` : normalizeHistoryText(value);
+}
+
+function byCopyRichness(a: CareerHistoryItem, b: CareerHistoryItem): number {
+  const locations = (b.locations?.length ?? 0) - (a.locations?.length ?? 0);
+  if (locations !== 0) return locations;
+  const label = b.locationLabel.trim().length - a.locationLabel.trim().length;
+  if (label !== 0) return label;
+  return a.id.localeCompare(b.id);
 }
 
 function byHistoryRecency(a: CareerHistoryItem, b: CareerHistoryItem): number {

@@ -403,9 +403,7 @@ export function RoleDetailPanel({
                 Place
                 <input
                   name="locationLabel"
-                  defaultValue={
-                    formatHistoryPlace(historyItem(role)) || role.locationLabel
-                  }
+                  defaultValue={storedPlace(role)}
                 />
               </label>
               <div className="role-form-pair">
@@ -1370,6 +1368,18 @@ function CoverFile({
       />
     </label>
   );
+}
+
+function storedPlace(role: WorkMapRole): string {
+  const label = role.locationLabel.trim();
+  const site =
+    role.locations.find((location) => location.address.trim())?.address.trim() ??
+    "";
+  if (!label) return site;
+  if (site && (/^\d+[a-z]?$/i.test(label) || /^[A-Z]{2}\s+\d{5}/.test(label))) {
+    return site;
+  }
+  return label;
 }
 
 function historyItem(role: WorkMapRole): CareerHistoryItem {
