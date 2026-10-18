@@ -19,6 +19,7 @@ import {
 } from "@core/career-history";
 import {
   publicationAllowsSnapshot,
+  publicationEmbed,
   publicationNeedsAudienceConfirm,
   roleCoverPhoto,
   type WorkMapPublicationSettings,
@@ -69,6 +70,7 @@ type WorkMapResponse = {
   skills: string[];
   settings: WorkMapPublicationSettings;
   residences: Residence[];
+  relayOrigin?: string | null;
   stats: {
     roles: number;
     education: number;
@@ -1093,6 +1095,10 @@ export function WorkMap({
             />
             <PublicationSettings
               placement={placement}
+              published={
+                latest?.status === "published" && latest.slug === settings.slug
+              }
+              relayOrigin={data?.relayOrigin ?? null}
               settings={settings}
               onChange={setSettings}
               onClose={() => setSettingsOpen(false)}
@@ -1383,6 +1389,8 @@ function MediaSheet({ role }: { role: WorkMapRole }) {
 
 function PublicationSettings({
   placement,
+  published,
+  relayOrigin,
   settings,
   onChange,
   onClose,
@@ -1390,12 +1398,20 @@ function PublicationSettings({
   onSubmit,
 }: {
   placement: PreviewPlacement;
+  published: boolean;
+  relayOrigin: string | null;
   settings: WorkMapPublicationSettings;
   onChange: (settings: WorkMapPublicationSettings) => void;
   onClose: () => void;
   onPlacement: (placement: PreviewPlacement) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const embed = publicationEmbed({
+    origin: relayOrigin,
+    slug: settings.slug,
+    visibility: settings.visibility,
+  });
   const sections: Array<[WorkMapPublishSection, string]> = [
     ["profile", "Profile and bio"],
     ["history", "Career history"],
@@ -1527,6 +1543,45 @@ function PublicationSettings({
             />
             Publish exact coordinates and addresses
           </label>
+        </div>
+        <div className="publication-embed">
+          <span>Frame</span>
+          {embed.ok ? (
+            <>
+              <textarea readOnly rows={3} value={embed.code} />
+              <div className="publication-embed-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(embed.code).then(
+                      () => {
+                        setCopied(true);
+                        window.setTimeout(() => setCopied(false), 2000);
+                      },
+                      () => setCopied(false),
+                    );
+                  }}
+                >
+                  {copied ? "Copied" : "Copy frame"}
+                </button>
+                <p>
+                  {published
+                    ? "This frame shows the published career. A later edit stays private until you publish again."
+                    : "Publish once, then this frame shows the career. A later edit stays private until you publish again."}
+                </p>
+              </div>
+            </>
+          ) : (
+            <p>
+              {embed.reason === "private"
+                ? "A private career stays off the relay, so there is no frame to copy."
+                : embed.reason === "access-controlled"
+                  ? "An access-controlled career uses its own link, so there is no frame to copy."
+                  : embed.reason === "slug"
+                    ? "Save a public slug before copying a frame."
+                    : "The frame address appears once the relay is connected."}
+            </p>
+          )}
         </div>
         <p className="publication-warning">
           Private notes stay out of the snapshot. Compensation, working
