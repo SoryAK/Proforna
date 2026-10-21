@@ -6,10 +6,11 @@ import {
   hintHeldRoles,
   hintNextResume,
   hintSetAside,
+  followSkillEdits,
   rememberSkills,
-  reviseSkills,
   roleFieldDiffs,
   skillLines,
+  type SkillEdit,
   roleTookFile,
   type HeldRole,
   type HeldSkill,
@@ -478,6 +479,7 @@ export function AllResumesVerify({
   asides,
   busy,
   error,
+  editSkills = false,
   onBack,
   onSetAside,
   onForgetAside,
@@ -493,6 +495,7 @@ export function AllResumesVerify({
   asides: SetAsideRole[];
   busy: boolean;
   error: string | null;
+  editSkills?: boolean;
   onBack: () => void;
   onSetAside: (item: OnboardingCheckItem) => void;
   onForgetAside: (id: string) => void;
@@ -510,7 +513,7 @@ export function AllResumesVerify({
   const [compareId, setCompareId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
-  const [skillText, setSkillText] = useState<string | null>(null);
+  const [skillEdit, setSkillEdit] = useState<SkillEdit | null>(null);
   const visible = rows.filter((row) => !row.removed);
   const summary = onboardingExtractSummary(
     bundles.flatMap((bundle) => bundle.items),
@@ -620,6 +623,11 @@ export function AllResumesVerify({
     return skills;
   }
 
+  function shownSkills(): HeldSkill[] {
+    const found = foundSkills(keptRoles());
+    return editSkills ? followSkillEdits(found, skillEdit) : found;
+  }
+
   function finish() {
     const next = rows.filter((row) => !isBlankOnboardingCheckItem(row.item));
     const unopened = next.filter((row) => !row.removed && !opened.includes(row.id));
@@ -628,12 +636,7 @@ export function AllResumesVerify({
       setPointOut(true);
       return;
     }
-    const held = keptRoles();
-    const found = foundSkills(held);
-    onDone(
-      held,
-      skillText == null ? found : reviseSkills(found, skillText.split("\n"), bundles[0]?.fileIndex ?? 0),
-    );
+    onDone(keptRoles(), shownSkills());
   }
 
   function add(kind: OnboardingCheckItem["kind"]) {
@@ -709,15 +712,25 @@ export function AllResumesVerify({
           : "Open a job or a school to review it against the resume."}
       </p>
       <VerifyBoard jobs={cards("job")} schools={cards("school")} />
-      <label className="onboarding-field">
-        <span>Skills, one per line</span>
-        <textarea
-          rows={4}
-          value={skillText ?? skillLines(foundSkills(keptRoles()))}
-          placeholder="Skills from a kept job show here."
-          onChange={(event) => setSkillText(event.target.value)}
-        />
-      </label>
+      {editSkills ? (
+        <label className="onboarding-field">
+          <span>Skills, one per line</span>
+          <textarea
+            rows={4}
+            value={skillLines(shownSkills())}
+            placeholder="Skills from a kept job show here."
+            onChange={(event) => {
+              const found = foundSkills(keptRoles());
+              const shown = followSkillEdits(found, skillEdit);
+              setSkillEdit({
+                lines: event.target.value.split("\n"),
+                seen: shown.map((skill) => skill.name),
+              });
+            }}
+          />
+          <small className="onboarding-field-note">A skill you add is yours. It is not tied to a resume.</small>
+        </label>
+      ) : null}
       <div className="onboarding-verify-actions">
         <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
           Add a job

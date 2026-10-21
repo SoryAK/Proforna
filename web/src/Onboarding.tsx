@@ -11,9 +11,12 @@ import {
   type LocalScanHit,
 } from "@core/model-onboarding";
 import {
+  evidenceRoleChoices,
   onboardingCheckItems,
   onboardingDone,
+  onboardingSavedLines,
   profileAfterOnboarding,
+  type EvidenceRoleChoice,
   type OnboardingCheckItem,
   type OnboardingDone,
   type OnboardingLinkAnswer,
@@ -97,7 +100,7 @@ export function Onboarding({
   const [selected, setSelected] = useState("");
   const [foundPick, setFoundPick] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [done, setDone] = useState<{ me: Me; summary: OnboardingDone } | null>(null);
+  const [done, setDone] = useState<{ me: Me; profile: ProfileFields; summary: OnboardingDone } | null>(null);
   const [files, setFiles] = useState<QueuedResume[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -609,7 +612,7 @@ export function Onboarding({
                 education: history.educationEvidence.map((source) => ({
                   resumeIds: source.files.map((index) => resumeIds[index]),
                 })),
-                skills: history.skillFiles.map((index) => resumeIds[index]),
+                skills: history.skillFiles.map((index) => (index >= 0 ? (resumeIds[index] ?? "") : "")),
               },
             }),
           });
@@ -633,6 +636,7 @@ export function Onboarding({
       }
       setDone({
         me: body,
+        profile: prepared.value,
         summary: onboardingDone({ ...keptHistory, resumes: resumeIds.length, setAside: setAsides.length }),
       });
     } finally {
@@ -681,7 +685,11 @@ export function Onboarding({
           <WashProgress step={step} />
           <div className="onboarding-sheet">
             <section className="onboarding-card">
-              <DoneStep summary={done.summary} onGo={(next) => onFinished(done.me, next)} />
+              <DoneStep
+                summary={done.summary}
+                profile={done.profile}
+                onGo={(next) => onFinished(done.me, next)}
+              />
             </section>
           </div>
         </div>
@@ -1142,6 +1150,7 @@ export function Onboarding({
               asides={setAsides}
               busy={busy}
               error={error}
+              editSkills
               onBack={leaveCheck}
               onSetAside={(item) => setSetAsides((current) => rememberSetAside(current, item))}
               onForgetAside={(id) => setSetAsides((current) => dropSetAside(current, id))}
@@ -1402,18 +1411,71 @@ function ReadProgress({ model }: { model: string }) {
   );
 }
 
-function DoneStep({ summary, onGo }: { summary: OnboardingDone; onGo: (next: OnboardingExit) => void }) {
+function DoneStep({
+  summary,
+  profile,
+  onGo,
+}: {
+  summary: OnboardingDone;
+  profile: ProfileFields;
+  onGo: (next: OnboardingExit) => void;
+}) {
+  const saved = onboardingSavedLines(profile);
+  const [fields, setFields] = useState(profile);
+  const [choices, setChoices] = useState<EvidenceRoleChoice[]>([]);
+  const [choiceId, setChoiceId] = useState("");
   const [opening, setOpening] = useState(false);
-  async function openFirstRole() {
-    setOpening(true);
-    try {
-      const res = await fetch("/api/history");
-      const career = res.ok ? ((await res.json()) as { jobs?: Array<{ id: string }> }) : null;
-      onGo({ page: "history", focusJobId: career?.jobs?.[0]?.id });
-    } catch {
-      onGo({ page: "history" });
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancel = false;
+    void fetch("/api/history")
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as {
+          jobs?: Array<{ id: string; title: string; company: string }>;
+          schools?: Array<{ id: string; institution: string; degree: string }>;
+        };
+      })
+      .then((career) => {
+        if (cancel || !career) return;
+        const next = evidenceRoleChoices({ jobs: career.jobs ?? [], schools: career.schools ?? [] });
+        setChoices(next);
+        setChoiceId(next[0]?.id ?? "");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  async function leave(next: OnboardingExit) {
+    const changed =
+      fields.headline !== profile.headline ||
+      fields.city !== profile.city ||
+      fields.state !== profile.state ||
+      fields.bio !== profile.bio ||
+      fields.linkedinUrl !== profile.linkedinUrl ||
+      fields.githubUrl !== profile.githubUrl ||
+      fields.portfolioUrl !== profile.portfolioUrl;
+    if (changed) {
+      const prepared = prepareProfile(fields);
+      if (!prepared.ok) {
+        setError(prepared.error === "url-invalid" ? "Use an http(s) URL for a link." : "A name is required.");
+        return;
+      }
+      const savedProfile = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(prepared.value),
+      });
+      if (!savedProfile.ok) {
+        setError("Could not save those profile changes.");
+        return;
+      }
     }
+    onGo(next);
   }
+
   return (
     <>
       <p className="onboarding-kicker">Done</p>
@@ -1429,24 +1491,77 @@ function DoneStep({ summary, onGo }: { summary: OnboardingDone; onGo: (next: Onb
         ))}
       </ul>
       {summary.setAside ? <p className="onboarding-lead">{summary.setAside}</p> : null}
+      {saved.length > 0 ? (
+        <div className="onboarding-saved">
+          <p>These were saved with your profile. A blank field took the value from a resume.</p>
+          <label className="onboarding-field">
+            <span>Headline</span>
+            <input value={fields.headline} onChange={(event) => setFields({ ...fields, headline: event.target.value })} />
+          </label>
+          <div className="onboarding-field-row">
+            <label className="onboarding-field">
+              <span>City</span>
+              <input value={fields.city} onChange={(event) => setFields({ ...fields, city: event.target.value })} />
+            </label>
+            <label className="onboarding-field">
+              <span>State</span>
+              <input value={fields.state} onChange={(event) => setFields({ ...fields, state: event.target.value })} />
+            </label>
+          </div>
+          <label className="onboarding-field">
+            <span>LinkedIn</span>
+            <input value={fields.linkedinUrl} onChange={(event) => setFields({ ...fields, linkedinUrl: event.target.value })} />
+          </label>
+          <label className="onboarding-field">
+            <span>GitHub</span>
+            <input value={fields.githubUrl} onChange={(event) => setFields({ ...fields, githubUrl: event.target.value })} />
+          </label>
+          <label className="onboarding-field">
+            <span>Website</span>
+            <input value={fields.portfolioUrl} onChange={(event) => setFields({ ...fields, portfolioUrl: event.target.value })} />
+          </label>
+          <label className="onboarding-field">
+            <span>Bio</span>
+            <textarea rows={3} value={fields.bio} onChange={(event) => setFields({ ...fields, bio: event.target.value })} />
+          </label>
+        </div>
+      ) : null}
+      {choices.length > 1 ? (
+        <label className="onboarding-field">
+          <span>Add evidence to</span>
+          <select className="onboarding-model-select" value={choiceId} onChange={(event) => setChoiceId(event.target.value)}>
+            {choices.map((choice) => (
+              <option key={choice.id} value={choice.id}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {error ? (
+        <p className="onboarding-alert" role="alert">
+          {error}
+        </p>
+      ) : null}
       <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-link" onClick={() => onGo({ page: "home" })}>
+        <button type="button" className="onboarding-link" onClick={() => void leave({ page: "home" })}>
           Go to Home
         </button>
         <div className="onboarding-action-pair">
-          <button
-            type="button"
-            className="onboarding-btn onboarding-btn-ghost"
-            disabled={opening}
-            onClick={() => void openFirstRole()}
-          >
-            Add evidence to a role
-          </button>
-          <button
-            type="button"
-            className="onboarding-btn onboarding-btn-solid"
-            onClick={() => onGo({ page: "history" })}
-          >
+          {choices.length > 0 ? (
+            <button
+              type="button"
+              className="onboarding-btn onboarding-btn-ghost"
+              disabled={opening || !choiceId}
+              onClick={() => {
+                setOpening(true);
+                void leave({ page: "history", focusJobId: choiceId });
+              }}
+            >
+              Add evidence to a role
+            </button>
+          ) : null}
+          <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={() => void leave({ page: "history" })}>
             See your map
           </button>
         </div>
