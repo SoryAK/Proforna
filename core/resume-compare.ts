@@ -123,6 +123,22 @@ export function hintHeldRoles(held: readonly HeldRole[], incoming: OnboardingChe
   return hints.map(({ roleId, reason }) => ({ roleId, reason }));
 }
 
+/**
+ * A kept role is asked before a role from an earlier file in this same import.
+ * A declined pair is skipped. The hint does not change either role.
+ */
+export function hintNextResume(
+  kept: readonly HeldRole[],
+  earlier: readonly HeldRole[],
+  incoming: OnboardingCheckItem,
+  declined: readonly string[],
+  laterId: string,
+): ResumeMatchHint | null {
+  const career = hintHeldRoles(kept, incoming).find((hint) => !declined.includes(`${hint.roleId}|${laterId}`));
+  if (career) return career;
+  return hintHeldRoles(earlier, incoming).find((hint) => !declined.includes(`${hint.roleId}|${laterId}`)) ?? null;
+}
+
 export function rememberSetAside(
   current: readonly SetAsideRole[],
   item: OnboardingCheckItem,
@@ -302,12 +318,8 @@ export function rememberSkills(
   return next;
 }
 
-/** A typed skill not found in any file is credited to `fileIndex`. */
-export function reviseSkills(
-  found: readonly HeldSkill[],
-  lines: readonly string[],
-  fileIndex: number,
-): HeldSkill[] {
+/** A typed skill that no file stated is not credited to a resume (`sourceFile` -1). */
+export function reviseSkills(found: readonly HeldSkill[], lines: readonly string[]): HeldSkill[] {
   const seen = new Set<string>();
   const next: HeldSkill[] = [];
   for (const line of lines) {
@@ -316,7 +328,31 @@ export function reviseSkills(
     if (!name || seen.has(key)) continue;
     seen.add(key);
     const match = found.find((skill) => skill.name.trim().toLowerCase() === key);
-    next.push({ name, sourceFile: match?.sourceFile ?? fileIndex });
+    next.push({ name, sourceFile: match?.sourceFile ?? -1 });
+  }
+  return next;
+}
+
+export type SkillEdit = {
+  lines: readonly string[];
+  seen: readonly string[];
+};
+
+/**
+ * Keeps a skill edit in step with the jobs still held.
+ * A skill the edit never showed is added. A skill the edit removed stays off.
+ */
+export function followSkillEdits(found: readonly HeldSkill[], edit: SkillEdit | null): HeldSkill[] {
+  if (!edit) return found.map((skill) => ({ ...skill }));
+  const revised = reviseSkills(found, edit.lines);
+  const seen = new Set(edit.seen.map((name) => name.trim().toLowerCase()).filter(Boolean));
+  const have = new Set(revised.map((skill) => skill.name.trim().toLowerCase()));
+  const next = [...revised];
+  for (const skill of found) {
+    const key = skill.name.trim().toLowerCase();
+    if (!key || have.has(key) || seen.has(key)) continue;
+    have.add(key);
+    next.push({ ...skill });
   }
   return next;
 }
@@ -604,7 +640,7 @@ function readSkillLinks(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null;
   const ids: string[] = [];
   for (const entry of raw) {
-    if (typeof entry !== "string" || !entry.trim()) return null;
+    if (typeof entry !== "string") return null;
     ids.push(entry.trim());
   }
   return ids;

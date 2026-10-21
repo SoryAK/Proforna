@@ -58,6 +58,55 @@ export type OnboardingDone = {
   setAside: string | null;
 };
 
+export type OnboardingSavedLine = { label: string; value: string };
+
+/** Profile values worth showing after save. The street stays off this list. */
+export function onboardingSavedLines(profile: {
+  headline: string;
+  city: string;
+  state: string;
+  bio: string;
+  linkedinUrl: string;
+  githubUrl: string;
+  portfolioUrl: string;
+}): OnboardingSavedLine[] {
+  const place = [profile.city.trim(), profile.state.trim()].filter(Boolean).join(", ");
+  const rows: Array<[string, string]> = [
+    ["Headline", profile.headline],
+    ["Place", place],
+    ["LinkedIn", profile.linkedinUrl],
+    ["GitHub", profile.githubUrl],
+    ["Website", profile.portfolioUrl],
+    ["Bio", profile.bio],
+  ];
+  return rows.flatMap(([label, value]) => {
+    const text = value.trim();
+    return text ? [{ label, value: text }] : [];
+  });
+}
+
+export type EvidenceRoleChoice = { id: string; label: string };
+
+/** Jobs and schools the Done step can open. A school is a choice when no job was kept. */
+export function evidenceRoleChoices(input: {
+  jobs: ReadonlyArray<{ id: string; title: string; company: string }>;
+  schools: ReadonlyArray<{ id: string; institution: string; degree: string }>;
+}): EvidenceRoleChoice[] {
+  const jobs = input.jobs.flatMap((job) => {
+    const id = job.id.trim();
+    if (!id) return [];
+    const label = [job.title.trim(), job.company.trim()].filter(Boolean).join(" · ") || "Job";
+    return [{ id, label }];
+  });
+  const schools = input.schools.flatMap((school) => {
+    const id = school.id.trim();
+    if (!id) return [];
+    const label = [school.institution.trim(), school.degree.trim()].filter(Boolean).join(" · ") || "School";
+    return [{ id, label }];
+  });
+  return [...jobs, ...schools];
+}
+
 /** What the last step reports once the session is saved. */
 export function onboardingDone(saved: {
   jobs: number;

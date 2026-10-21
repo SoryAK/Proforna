@@ -4,11 +4,13 @@ import {
   addHeldRole,
   applySameRole,
   hintHeldRoles,
+  hintNextResume,
   hintSetAside,
+  followSkillEdits,
   rememberSkills,
-  reviseSkills,
   roleFieldDiffs,
   skillLines,
+  type SkillEdit,
   roleTookFile,
   type HeldRole,
   type HeldSkill,
@@ -473,9 +475,11 @@ export function AllResumesVerify({
   initialDeclined,
   editedItems,
   editedFileIndex,
+  priorHeld = [],
   asides,
   busy,
   error,
+  editSkills = false,
   onBack,
   onSetAside,
   onForgetAside,
@@ -487,9 +491,11 @@ export function AllResumesVerify({
   initialDeclined: string[];
   editedItems: OnboardingCheckItem[];
   editedFileIndex: number;
+  priorHeld?: HeldRole[];
   asides: SetAsideRole[];
   busy: boolean;
   error: string | null;
+  editSkills?: boolean;
   onBack: () => void;
   onSetAside: (item: OnboardingCheckItem) => void;
   onForgetAside: (id: string) => void;
@@ -499,21 +505,21 @@ export function AllResumesVerify({
   const [rows, setRows] = useState<OnboardingTimelineRow[]>(
     () => initialRows ?? overlayFileEdits(buildTimeline(bundles), editedItems, editedFileIndex),
   );
+  const [prior, setPrior] = useState(priorHeld);
   const [declined, setDeclined] = useState(initialDeclined);
   const [opened, setOpened] = useState<string[]>([]);
-  const [pointOut, setPointOut] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
-  const [skillText, setSkillText] = useState<string | null>(null);
+  const [skillEdit, setSkillEdit] = useState<SkillEdit | null>(null);
   const visible = rows.filter((row) => !row.removed);
   const summary = onboardingExtractSummary(
     bundles.flatMap((bundle) => bundle.items),
     bundles.length,
   );
-  const pair = comparePair(rows, compareId);
-  const choices = pair ? identityChoices(pair.earlier.item, pair.later.item) : [];
+  const pair = comparePair(rows, prior, compareId);
+  const choices = pair ? identityChoices(pair.earlierItem, pair.later.item) : [];
 
   useEffect(() => {
     onRows(rows, declined);
@@ -544,12 +550,12 @@ export function AllResumesVerify({
   }
 
   function keepDifferent(laterId: string) {
-    const match = comparePair(rows, laterId);
+    const match = comparePair(rows, prior, laterId);
     if (!match) return;
     const aside = hintSetAside(asides, match.later.item);
     if (aside) onForgetAside(aside.id);
     setDeclined((current) => {
-      const key = pairKey(match.earlier.id, match.later.id);
+      const key = pairKey(match.earlierId, match.later.id);
       return current.includes(key) ? current : [...current, key];
     });
     setRows((current) =>
@@ -576,17 +582,16 @@ export function AllResumesVerify({
     }
     if (choices.some((choice) => !picks[choice.key])) return;
     const takes = [
-      ...lineTakes(pair.earlier.item, pair.later.item),
+      ...lineTakes(pair.earlierItem, pair.later.item),
       ...choices.filter((choice) => picks[choice.key] === "incoming").flatMap((choice) => choice.takes),
     ];
-    const base = pair.earlier.role ?? addHeldRole([], pair.earlier.item, pair.earlier.fileIndex)[0];
-    if (!base) return;
-    const nextRole = applySameRole(base, pair.later.item, pair.later.fileIndex, takes);
+    const nextRole = applySameRole(pair.earlierRole, pair.later.item, pair.later.fileIndex, takes);
     const aside = hintSetAside(asides, pair.later.item);
     if (aside) onForgetAside(aside.id);
+    if (pair.fromCareer) setPrior((current) => current.map((role) => (role.id === nextRole.id ? nextRole : role)));
     setRows((current) =>
       current.map((row) => {
-        if (row.id === pair.earlier.id) return { ...row, item: nextRole.item, role: nextRole, adopted: true };
+        if (!pair.fromCareer && row.id === pair.earlierId) return { ...row, item: nextRole.item, role: nextRole, adopted: true };
         if (row.id === pair.later.id) return { ...row, removed: true, adopted: true };
         return row;
       }),
@@ -598,7 +603,7 @@ export function AllResumesVerify({
   }
 
   function keptRoles(): HeldRole[] {
-    let held: HeldRole[] = [];
+    let held: HeldRole[] = prior.filter((role) => bundles.some((bundle) => roleTookFile(role, bundle.fileIndex)));
     for (const row of rows) {
       if (row.removed || isBlankOnboardingCheckItem(row.item)) continue;
       if (!row.adopted && hintSetAside(asides, row.item)) continue;
@@ -617,20 +622,13 @@ export function AllResumesVerify({
     return skills;
   }
 
+  function shownSkills(): HeldSkill[] {
+    const found = foundSkills(keptRoles());
+    return editSkills ? followSkillEdits(found, skillEdit) : found;
+  }
+
   function finish() {
-    const next = rows.filter((row) => !isBlankOnboardingCheckItem(row.item));
-    const unopened = next.filter((row) => !row.removed && !opened.includes(row.id));
-    if (unopened.length > 0 && !pointOut) {
-      setRows(next);
-      setPointOut(true);
-      return;
-    }
-    const held = keptRoles();
-    const found = foundSkills(held);
-    onDone(
-      held,
-      skillText == null ? found : reviseSkills(found, skillText.split("\n"), bundles[0]?.fileIndex ?? 0),
-    );
+    onDone(keptRoles(), shownSkills());
   }
 
   function add(kind: OnboardingCheckItem["kind"]) {
@@ -654,7 +652,7 @@ export function AllResumesVerify({
       .filter((row) => row.item.source === section)
       .map((row) => {
         const fileName = bundles.find((bundle) => bundle.fileIndex === row.fileIndex)?.name ?? null;
-        const match = matchFor(rows, row, declined);
+        const match = matchFor(rows, prior, row, declined);
         const asideHit = !match && hintSetAside(asides, row.item);
         return {
           key: row.id,
@@ -663,9 +661,8 @@ export function AllResumesVerify({
           year: yearLabel(row.item),
           start: row.item.startDate,
           opened: opened.includes(row.id),
-          pending: pointOut && !opened.includes(row.id) && !isBlankOnboardingCheckItem(row.item),
           hint: match
-            ? hintCopy(match.hint.reason, match.earlier.item)
+            ? hintCopy(match.hint.reason, match.earlierItem)
             : asideHit && !row.adopted
               ? "You set this aside before."
               : undefined,
@@ -701,20 +698,30 @@ export function AllResumesVerify({
       </h1>
       <p className="onboarding-meta">{summary}</p>
       <p className="onboarding-meta">
-        {bundles.length > 1
+        {bundles.length > 1 || prior.length > 0
           ? "Open a job or a school to review it. Compare a role when it might be the same as another."
           : "Open a job or a school to review it against the resume."}
       </p>
       <VerifyBoard jobs={cards("job")} schools={cards("school")} />
-      <label className="onboarding-field">
-        <span>Skills, one per line</span>
-        <textarea
-          rows={4}
-          value={skillText ?? skillLines(foundSkills(keptRoles()))}
-          placeholder="Skills from a kept job show here."
-          onChange={(event) => setSkillText(event.target.value)}
-        />
-      </label>
+      {editSkills ? (
+        <label className="onboarding-field">
+          <span>Skills, one per line</span>
+          <textarea
+            rows={4}
+            value={skillLines(shownSkills())}
+            placeholder="Skills from a kept job show here."
+            onChange={(event) => {
+              const found = foundSkills(keptRoles());
+              const shown = followSkillEdits(found, skillEdit);
+              setSkillEdit({
+                lines: event.target.value.split("\n"),
+                seen: shown.map((skill) => skill.name),
+              });
+            }}
+          />
+          <small className="onboarding-field-note">A skill you add is yours. It is not tied to a resume.</small>
+        </label>
+      ) : null}
       <div className="onboarding-verify-actions">
         <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
           Add a job
@@ -741,9 +748,9 @@ export function AllResumesVerify({
           {error}
         </p>
       ) : null}
-      {pointOut && unopenedCount > 0 ? (
-        <p className="onboarding-alert" role="status">
-          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Open them, or continue again to keep them.
+      {unopenedCount > 0 ? (
+        <p className="onboarding-quiet" role="status">
+          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Worth a look before you continue.
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">
@@ -784,7 +791,7 @@ export function AllResumesVerify({
       {pair ? (
         <CompareDialog
           fileName={bundles.find((bundle) => bundle.fileIndex === pair.later.fileIndex)?.name ?? "Resume"}
-          kept={pair.earlier.item}
+          kept={pair.earlierItem}
           incoming={pair.later.item}
           confirming={confirming}
           choices={choices}
@@ -842,27 +849,45 @@ function pairKey(earlierId: string, laterId: string): string {
 
 function matchFor(
   rows: readonly OnboardingTimelineRow[],
+  prior: readonly HeldRole[],
   row: OnboardingTimelineRow,
   declined: readonly string[],
-): { earlier: OnboardingTimelineRow; hint: { reason: ResumeMatchReason } } | null {
+): {
+  earlierId: string;
+  earlierItem: OnboardingCheckItem;
+  earlierRole: HeldRole;
+  fromCareer: boolean;
+  hint: { reason: ResumeMatchReason };
+} | null {
   const index = rows.findIndex((item) => item.id === row.id);
   const earlier = rows.filter((item, itemIndex) => itemIndex < index && !item.removed && item.fileIndex < row.fileIndex);
-  const held = earlier.flatMap((item) => {
+  const earlierHeld = earlier.flatMap((item) => {
     const role = item.role ?? addHeldRole([], item.item, item.fileIndex)[0];
     return role ? [{ ...role, id: item.id }] : [];
   });
-  const hint = hintHeldRoles(held, row.item)[0];
+  const hint = hintNextResume(prior, earlierHeld, row.item, declined, row.id);
   if (!hint) return null;
+  const career = prior.find((role) => role.id === hint.roleId);
+  if (career) {
+    return { earlierId: career.id, earlierItem: career.item, earlierRole: career, fromCareer: true, hint };
+  }
   const match = earlier.find((item) => item.id === hint.roleId);
-  if (!match || declined.includes(pairKey(match.id, row.id))) return null;
-  return { earlier: match, hint };
+  const role = match ? (match.role ?? addHeldRole([], match.item, match.fileIndex)[0]) : undefined;
+  if (!match || !role) return null;
+  return {
+    earlierId: match.id,
+    earlierItem: match.item,
+    earlierRole: { ...role, id: match.id },
+    fromCareer: false,
+    hint,
+  };
 }
 
-function comparePair(rows: readonly OnboardingTimelineRow[], laterId: string | null) {
+function comparePair(rows: readonly OnboardingTimelineRow[], prior: readonly HeldRole[], laterId: string | null) {
   if (!laterId) return null;
   const later = rows.find((row) => row.id === laterId && !row.removed);
   if (!later) return null;
-  const match = matchFor(rows, later, []);
+  const match = matchFor(rows, prior, later, []);
   if (!match) return null;
-  return { earlier: match.earlier, later };
+  return { ...match, later };
 }

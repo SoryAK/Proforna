@@ -4,7 +4,9 @@ import {
   addHeldRole,
   applySameRole,
   evidenceLinksFit,
+  followSkillEdits,
   hintHeldRoles,
+  hintNextResume,
   historyFromHeld,
   dropSetAside,
   heldFromCareer,
@@ -16,8 +18,8 @@ import {
   rememberSetAside,
   rememberSkills,
   reviseSkills,
-  roleFieldDiffs,
   skillLines,
+  roleFieldDiffs,
   roleTookFile,
   type HeldRole,
 } from "./resume-compare";
@@ -75,6 +77,20 @@ describe("resume compare", () => {
     title: "Analyst",
     startDate: "2014-01-01",
     endDate: "2016-01-01",
+  });
+
+  it("asks about a kept role before a role from an earlier file", () => {
+    const kept = [{ ...holdVerifiedRoles([engineer], 0)[0], id: "kept-engineer" }];
+    const earlier = holdVerifiedRoles([item({ ...engineer, sourceIndex: 1 })], 0);
+    const incoming = item({ ...engineer, sourceIndex: 2, title: "Engineer" });
+    expect(hintNextResume(kept, earlier, incoming, [], "later")?.roleId).toBe("kept-engineer");
+  });
+
+  it("uses an earlier file when the kept match was declined", () => {
+    const kept = holdVerifiedRoles([engineer], 0);
+    const earlier = holdVerifiedRoles([item({ ...engineer, sourceIndex: 1 })], 1);
+    const incoming = item({ ...engineer, sourceIndex: 2, title: "Engineer" });
+    expect(hintNextResume(kept, earlier, incoming, [`${kept[0].id}|later`], "later")?.roleId).toBe(earlier[0].id);
   });
 
   it("does not treat a shortened title as the same wording", () => {
@@ -240,17 +256,30 @@ describe("historyFromHeld", () => {
       { name: "Machining", sourceFile: 0 },
     ]);
   });
+
   it("revises found skills from one line each", () => {
     const found = [
       { name: "Machining", sourceFile: 1 },
       { name: "Welding", sourceFile: 0 },
     ];
-    expect(reviseSkills(found, ["  machining ", "", "PLC", "plc", "CAD"], 0)).toEqual([
+    expect(reviseSkills(found, ["  machining ", "", "PLC", "plc", "CAD"])).toEqual([
       { name: "machining", sourceFile: 1 },
-      { name: "PLC", sourceFile: 0 },
-      { name: "CAD", sourceFile: 0 },
+      { name: "PLC", sourceFile: -1 },
+      { name: "CAD", sourceFile: -1 },
     ]);
     expect(skillLines(found)).toBe("Machining\nWelding");
+    expect(
+      followSkillEdits(found, { lines: ["Machining", "CAD"], seen: ["Machining", "Welding"] }),
+    ).toEqual([
+      { name: "Machining", sourceFile: 1 },
+      { name: "CAD", sourceFile: -1 },
+    ]);
+    expect(
+      followSkillEdits(
+        [...found, { name: "Lathe", sourceFile: 2 }],
+        { lines: ["Machining"], seen: ["Machining", "Welding"] },
+      ).map((skill) => skill.name),
+    ).toEqual(["Machining", "Lathe"]);
   });
 });
 
@@ -298,5 +327,12 @@ describe("parseHistoryEvidence", () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok || !parsed.links) throw new Error("expected links");
     expect(evidenceLinksFit(extracted, parsed.links)).toBe(true);
+  });
+
+  it("accepts a skill the occupant typed, with no resume behind it", () => {
+    const parsed = parseHistoryEvidence({
+      evidence: { experience: [], education: [], skills: [""] },
+    });
+    expect(parsed).toEqual({ ok: true, links: { experience: [], education: [], skills: [""] } });
   });
 });

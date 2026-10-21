@@ -4,9 +4,11 @@ import {
   isBlankOnboardingCheckItem,
   keptOnboardingHistory,
   nextOnboardingSourceIndex,
+  evidenceRoleChoices,
   onboardingCheckItems,
   onboardingDone,
   onboardingExtractSummary,
+  onboardingSavedLines,
   profileAfterOnboarding,
 } from "./onboarding-review";
 import type { ProfileFields } from "./profile";
@@ -311,5 +313,41 @@ describe("onboardingDone", () => {
     const done = onboardingDone({ jobs: 0, schools: 0, skills: 0, resumes: 1, setAside: 0 });
     expect(done.setAside).toBeNull();
     expect(done.tiles.at(-1)).toEqual({ count: 1, label: "resume kept as evidence" });
+  });
+
+  it("shows the profile a resume filled in, and leaves the street off", () => {
+    expect(
+      onboardingSavedLines({
+        headline: "Technician",
+        city: "Allentown",
+        state: "PA",
+        bio: "",
+        linkedinUrl: "https://www.linkedin.com/in/ada",
+        githubUrl: "",
+        portfolioUrl: "",
+      }),
+    ).toEqual([
+      { label: "Headline", value: "Technician" },
+      { label: "Place", value: "Allentown, PA" },
+      { label: "LinkedIn", value: "https://www.linkedin.com/in/ada" },
+    ]);
+  });
+
+  it("offers a school when no job was kept, and every kept role otherwise", () => {
+    expect(
+      evidenceRoleChoices({
+        jobs: [],
+        schools: [{ id: "school-1", institution: "City College", degree: "AAS" }],
+      }),
+    ).toEqual([{ id: "school-1", label: "City College · AAS" }]);
+    expect(
+      evidenceRoleChoices({
+        jobs: [
+          { id: "job-new", title: "Lead", company: "Acme" },
+          { id: "job-old", title: "Tech", company: "Northwind" },
+        ],
+        schools: [{ id: "school-1", institution: "City College", degree: "AAS" }],
+      }).map((choice) => choice.id),
+    ).toEqual(["job-new", "job-old", "school-1"]);
   });
 });

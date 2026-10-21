@@ -285,6 +285,43 @@ describe("GET /api/history", () => {
     }
   });
 
+  it("keeps a typed skill without tying it to a resume", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 typed"], "typed.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const saved = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          resumeId: stored.resume.id,
+          experience: [{ company: "Acme", title: "Lead", achievements: ["Kept duty"] }],
+          education: [],
+          skills: ["CAD"],
+          evidence: {
+            experience: [{ resumeIds: [stored.resume.id], achievements: [stored.resume.id] }],
+            education: [],
+            skills: [""],
+          },
+        }),
+      });
+      expect(saved.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { skills: string[] };
+      expect(career.skills).toContain("CAD");
+      const memory = await ctx.app.request("/api/memory");
+      const body = (await memory.json()) as {
+        facts: Array<{ factType: string; evidenceIds: string[]; value: Record<string, unknown> }>;
+      };
+      const skill = body.facts.find((fact) => fact.factType === "skill" && fact.value.name === "CAD");
+      expect(skill).toBeUndefined();
+    } finally {
+      ctx.close();
+    }
+  });
+
   it("points a duty from a second resume at that resume", async () => {
     const ctx = setupUploads();
     try {
