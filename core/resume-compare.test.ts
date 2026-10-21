@@ -4,6 +4,7 @@ import {
   addHeldRole,
   applySameRole,
   evidenceLinksFit,
+  followSkillEdits,
   hintHeldRoles,
   hintNextResume,
   historyFromHeld,
@@ -261,12 +262,24 @@ describe("historyFromHeld", () => {
       { name: "Machining", sourceFile: 1 },
       { name: "Welding", sourceFile: 0 },
     ];
-    expect(reviseSkills(found, ["  machining ", "", "PLC", "plc", "CAD"], 0)).toEqual([
+    expect(reviseSkills(found, ["  machining ", "", "PLC", "plc", "CAD"])).toEqual([
       { name: "machining", sourceFile: 1 },
-      { name: "PLC", sourceFile: 0 },
-      { name: "CAD", sourceFile: 0 },
+      { name: "PLC", sourceFile: -1 },
+      { name: "CAD", sourceFile: -1 },
     ]);
     expect(skillLines(found)).toBe("Machining\nWelding");
+    expect(
+      followSkillEdits(found, { lines: ["Machining", "CAD"], seen: ["Machining", "Welding"] }),
+    ).toEqual([
+      { name: "Machining", sourceFile: 1 },
+      { name: "CAD", sourceFile: -1 },
+    ]);
+    expect(
+      followSkillEdits(
+        [...found, { name: "Lathe", sourceFile: 2 }],
+        { lines: ["Machining"], seen: ["Machining", "Welding"] },
+      ).map((skill) => skill.name),
+    ).toEqual(["Machining", "Lathe"]);
   });
 });
 
@@ -314,5 +327,12 @@ describe("parseHistoryEvidence", () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok || !parsed.links) throw new Error("expected links");
     expect(evidenceLinksFit(extracted, parsed.links)).toBe(true);
+  });
+
+  it("accepts a skill the occupant typed, with no resume behind it", () => {
+    const parsed = parseHistoryEvidence({
+      evidence: { experience: [], education: [], skills: [""] },
+    });
+    expect(parsed).toEqual({ ok: true, links: { experience: [], education: [], skills: [""] } });
   });
 });

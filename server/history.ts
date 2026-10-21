@@ -188,8 +188,16 @@ export function resolveImportEvidence(
     if (!evidenceIds) return null;
     education.push({ evidenceIds });
   }
-  const skillEvidenceIds = resolveResumeEvidence(db, occupantId, links.skills);
-  if (!skillEvidenceIds) return null;
+  const skillEvidenceIds: string[] = [];
+  for (const resumeId of links.skills) {
+    if (!resumeId.trim()) {
+      skillEvidenceIds.push("");
+      continue;
+    }
+    const evidenceId = evidenceIdForResume(db, occupantId, resumeId);
+    if (!evidenceId) return null;
+    skillEvidenceIds.push(evidenceId);
+  }
   return { experience, education, skillEvidenceIds };
 }
 

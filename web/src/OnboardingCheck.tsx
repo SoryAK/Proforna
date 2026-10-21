@@ -38,7 +38,6 @@ export function CheckOverview({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [openedKeys, setOpenedKeys] = useState<string[]>([]);
-  const [pointOutUnopened, setPointOutUnopened] = useState(false);
   const summary = onboardingExtractSummary(items, 1);
 
   function updateAt(index: number, next: OnboardingCheckItem) {
@@ -80,12 +79,6 @@ export function CheckOverview({
 
   function continueOn() {
     const next = items.filter((item) => !isBlankOnboardingCheckItem(item));
-    const unopened = next.some((item) => !openedKeys.includes(checkItemKey(item)));
-    if (unopened && !pointOutUnopened) {
-      if (next.length !== items.length) onChange(next);
-      setPointOutUnopened(true);
-      return;
-    }
     if (next.length !== items.length) onChange(next);
     onContinue(next);
   }
@@ -103,11 +96,11 @@ export function CheckOverview({
       <p className="onboarding-meta">{summary}</p>
       <p className="onboarding-meta">Open a job or a school to review it against the resume.</p>
       <VerifyBoard
-        jobs={sectionCards(items, "Job", openedKeys, pointOutUnopened, file?.name ?? null, (index) => {
+        jobs={sectionCards(items, "Job", openedKeys, false, file?.name ?? null, (index) => {
           setReviewIndex(index);
           setReviewOpen(true);
         })}
-        schools={sectionCards(items, "School", openedKeys, pointOutUnopened, file?.name ?? null, (index) => {
+        schools={sectionCards(items, "School", openedKeys, false, file?.name ?? null, (index) => {
           setReviewIndex(index);
           setReviewOpen(true);
         })}
@@ -136,9 +129,9 @@ export function CheckOverview({
           {error}
         </p>
       ) : null}
-      {pointOutUnopened && unopenedCount > 0 ? (
-        <p className="onboarding-alert" role="status">
-          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Open them, or continue again to keep them.
+      {unopenedCount > 0 ? (
+        <p className="onboarding-quiet" role="status">
+          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Worth a look before you continue.
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">

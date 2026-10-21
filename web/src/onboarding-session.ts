@@ -16,6 +16,15 @@ const DB_NAME = "proforna-onboarding";
 const STORE = "session";
 const KEY = "current";
 
+/** A model the occupant picked during onboarding. The cloud key is never stored here. */
+export type OnboardingModelChoice = {
+  skipped: boolean;
+  hosting: "local" | "cloud" | null;
+  model: string;
+  baseUrl: string;
+  endpoint: "scanned" | "custom" | null;
+};
+
 export type OnboardingDraft = {
   files: Array<{ digest: string; name: string; type: string; bytes: ArrayBuffer }>;
   extracts: Array<{ digest: string; data: ExtractedResume }>;
@@ -30,6 +39,7 @@ export type OnboardingDraft = {
   profileExtract: ExtractedProfile | null;
   timeline?: OnboardingTimelineRow[] | null;
   declinedPairs?: string[];
+  modelChoice?: OnboardingModelChoice | null;
 };
 
 export async function loadOnboardingDraft(): Promise<OnboardingDraft | null> {

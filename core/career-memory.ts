@@ -236,8 +236,10 @@ export function planResumeImportFacts(input: {
   input.skills.forEach((name, index) => {
     const skill = name.trim();
     if (!skill) return;
+    const explicit = input.skillEvidenceIds?.[index];
+    if (explicit !== undefined && !explicit.trim()) return;
     const skillEvidence = evidenceList(
-      input.skillEvidenceIds?.[index] ? [input.skillEvidenceIds[index]] : undefined,
+      explicit?.trim() ? [explicit] : undefined,
       input.evidenceId,
     );
     if (skillEvidence.length === 0) return;
