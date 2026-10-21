@@ -508,7 +508,6 @@ export function AllResumesVerify({
   const [prior, setPrior] = useState(priorHeld);
   const [declined, setDeclined] = useState(initialDeclined);
   const [opened, setOpened] = useState<string[]>([]);
-  const [pointOut, setPointOut] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -629,13 +628,6 @@ export function AllResumesVerify({
   }
 
   function finish() {
-    const next = rows.filter((row) => !isBlankOnboardingCheckItem(row.item));
-    const unopened = next.filter((row) => !row.removed && !opened.includes(row.id));
-    if (unopened.length > 0 && !pointOut) {
-      setRows(next);
-      setPointOut(true);
-      return;
-    }
     onDone(keptRoles(), shownSkills());
   }
 
@@ -669,7 +661,6 @@ export function AllResumesVerify({
           year: yearLabel(row.item),
           start: row.item.startDate,
           opened: opened.includes(row.id),
-          pending: pointOut && !opened.includes(row.id) && !isBlankOnboardingCheckItem(row.item),
           hint: match
             ? hintCopy(match.hint.reason, match.earlierItem)
             : asideHit && !row.adopted
@@ -757,9 +748,9 @@ export function AllResumesVerify({
           {error}
         </p>
       ) : null}
-      {pointOut && unopenedCount > 0 ? (
-        <p className="onboarding-alert" role="status">
-          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Open them, or continue again to keep them.
+      {unopenedCount > 0 ? (
+        <p className="onboarding-quiet" role="status">
+          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Worth a look before you continue.
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">

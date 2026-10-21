@@ -3,7 +3,6 @@ import { isHttpUrl, OPENAI_BASE_URL, type ModelHosting } from "@core/model-conne
 import {
   LOCAL_SCAN_PORT_MAX,
   LOCAL_SCAN_PORT_MIN,
-  modelCountLabel,
   preparePortRange,
   presentModelId,
   presentRangeHits,
@@ -38,7 +37,13 @@ import { CityStateFields, StreetField } from "./OnboardingAddress";
 import { ResumePreview } from "./OnboardingCheck";
 import { AllResumesVerify, ResumeCompare, type ResumeBundle } from "./OnboardingCompare";
 import { ResumeReview } from "./ResumeReview";
-import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingTimelineRow } from "./onboarding-session";
+import {
+  clearOnboardingDraft,
+  loadOnboardingDraft,
+  saveOnboardingDraft,
+  type OnboardingModelChoice,
+  type OnboardingTimelineRow,
+} from "./onboarding-session";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { IntegrationSettings } from "./IntegrationSettings";
 import "./onboarding.css";
@@ -130,6 +135,28 @@ export function Onboarding({
   filesRef.current = files;
   const previewDialogRef = useRef<HTMLDialogElement>(null);
 
+  function modelChoiceForDraft(): OnboardingModelChoice | null {
+    if (wantsModel === null) return null;
+    return {
+      skipped: wantsModel === false,
+      hosting,
+      model: selected,
+      baseUrl: endpointMode === "custom" ? localUrl.trim() : baseUrl,
+      endpoint: endpointMode,
+    };
+  }
+
+  function restoreModelChoice(choice: OnboardingModelChoice | null | undefined) {
+    if (!choice) return;
+    setWantsModel(choice.skipped ? false : true);
+    setHosting(choice.hosting);
+    setSelected(choice.model);
+    setBaseUrl(choice.baseUrl);
+    setEndpointMode(choice.endpoint);
+    if (choice.endpoint === "custom") setLocalUrl(choice.baseUrl);
+    if (choice.endpoint === "scanned" && choice.model) setFoundPick(`${choice.baseUrl} ${choice.model}`);
+  }
+
   useEffect(() => {
     if (!photo) return;
     const url = URL.createObjectURL(photo);
@@ -170,6 +197,7 @@ export function Onboarding({
         setDeclinedPairs(draft.declinedPairs ?? []);
         setProfileExtract(draft.profileExtract);
         setExtracted(draft.extracts.find((row) => row.digest === draft.files[draft.cursor]?.digest)?.data ?? null);
+        restoreModelChoice(draft.modelChoice);
         setStep(draft.step);
       })
       .catch(() => undefined)
@@ -209,6 +237,7 @@ export function Onboarding({
         timeline,
         declinedPairs,
         profileExtract,
+        modelChoice: modelChoiceForDraft(),
       });
       } catch {
         /* the questions still continue in this page */
@@ -217,7 +246,7 @@ export function Onboarding({
     return () => {
       cancel = true;
     };
-  }, [draftReady, files, readDigests, held, heldSkills, setAsides, cursor, pass, step, items, timeline, declinedPairs, profileExtract]);
+  }, [draftReady, files, readDigests, held, heldSkills, setAsides, cursor, pass, step, items, timeline, declinedPairs, profileExtract, wantsModel, hosting, selected, baseUrl, endpointMode, localUrl]);
 
   useEffect(() => {
     let cancel = false;
@@ -290,6 +319,19 @@ export function Onboarding({
   const foundKey = foundPick || (foundModels[0] ? `${foundModels[0].address} ${foundModels[0].id}` : "");
   const usingFound =
     wantsModel === true && hosting === "local" && endpointMode === "scanned" && `${baseUrl} ${selected}` === foundKey;
+
+  function pickHosting(next: "local" | "cloud") {
+    if (hosting === next) return;
+    setWantsModel(true);
+    setHosting(next);
+    setSelected("");
+    setEndpointMode(null);
+    setLocalUrl("");
+    setBaseUrl("");
+    setAdvancedOpen(false);
+    setError(null);
+    if (next === "local") setCloudKey("");
+  }
 
   function chooseLocal(address: string, id: string) {
     setWantsModel(true);
@@ -374,14 +416,38 @@ export function Onboarding({
     if (held.length > 0 && index < cursor) return;
     setError(null);
     const digest = files[index]?.digest;
+    const nextFiles = files.filter((_, row) => row !== index);
     if (digest) {
       extractsRef.current.delete(digest);
       setReadDigests((current) => current.filter((row) => row !== digest));
     }
-    setFiles((current) => current.filter((_, row) => row !== index));
+    filesRef.current = nextFiles;
+    setFiles(nextFiles);
+    const nextFirst = nextFiles[0];
+    setProfileExtract(nextFirst ? (extractsRef.current.get(nextFirst.digest)?.profile ?? null) : null);
+    setTimeline((current) =>
+      current
+        ?.filter((row) => row.fileIndex !== index)
+        .map((row) => {
+          if (row.fileIndex < index) return row;
+          const fileIndex = row.fileIndex - 1;
+          return { ...row, fileIndex, id: row.id.replace(/^file-\d+/, `file-${fileIndex}`) };
+        }) ?? null,
+    );
+    setDeclinedPairs((current) =>
+      current.flatMap((id) => {
+        const match = /^file-(\d+)-/.exec(id);
+        if (!match) return [id];
+        const fileIndex = Number(match[1]);
+        if (fileIndex === index) return [];
+        return [fileIndex > index ? id.replace(/^file-\d+/, `file-${fileIndex - 1}`) : id];
+      }),
+    );
     if (previewIndex === index) {
       setPreviewOpen(false);
       setPreviewIndex(null);
+    } else if (previewIndex != null && previewIndex > index) {
+      setPreviewIndex(previewIndex - 1);
     }
   }
 
@@ -465,6 +531,18 @@ export function Onboarding({
     setCursor(index);
     setPass(index === 0 ? "verify" : "compare");
     setStep("check");
+  }
+
+  function openReadFiles() {
+    setError(null);
+    if (held.length === 0 && timeline && timeline.length > 0) {
+      const first = files[0] ? extractsRef.current.get(files[0].digest) : undefined;
+      if (first) setProfileExtract(first.profile);
+      setPass("verify");
+      setStep("check");
+      return;
+    }
+    startQuestions();
   }
 
   function startQuestions() {
@@ -644,6 +722,7 @@ export function Onboarding({
     }
   }
 
+  const filesRead = files.length > 0 && files.every((row) => readDigests.includes(row.digest));
   const notes = notesForStep();
 
   function notesForStep(): string[] {
@@ -653,7 +732,7 @@ export function Onboarding({
     if (step === "integrations") {
       return ["You can connect these later in Settings."];
     }
-    if (step === "file" && !extracting && wantsModel !== true) {
+    if (step === "file" && !extracting && wantsModel !== true && !filesRead) {
       return [
         "Without a model, the resume is stored but not read. Jobs and schools can be added later from Career History.",
         "It can be done later if now is not the right time.",
@@ -711,12 +790,10 @@ export function Onboarding({
               name={name}
               photoPreview={photoPreview}
               place={place}
-              links={links}
               error={error}
               onName={setName}
               onPhoto={pickPhoto}
               onPlace={setPlace}
-              onLinks={setLinks}
               onContinue={() => {
                 const checked = prepareProfile({ fullName: name, ...links });
                 if (!checked.ok && checked.error === "url-invalid") {
@@ -739,6 +816,35 @@ export function Onboarding({
                 A model reads your resume and lists your jobs and schools for you to check. You can also skip this and
                 add them yourself.
               </p>
+              <div className="onboarding-choices onboarding-host" role="group" aria-label="Where the model runs">
+                <button
+                  type="button"
+                  className="onboarding-choice"
+                  data-active={hosting === "local" ? "true" : undefined}
+                  aria-pressed={hosting === "local"}
+                  onClick={() => pickHosting("local")}
+                >
+                  <strong>Local</strong>
+                  <span>
+                    {localProbe !== "ready"
+                      ? "Looking on this computer…"
+                      : foundModels.length > 0
+                        ? "A model is on this computer."
+                        : "Scan this computer for a model."}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="onboarding-choice"
+                  data-active={hosting === "cloud" ? "true" : undefined}
+                  aria-pressed={hosting === "cloud"}
+                  onClick={() => pickHosting("cloud")}
+                >
+                  <strong>Cloud</strong>
+                  <span>A cloud provider may read, keep, report, and train on what you send.</span>
+                </button>
+              </div>
+              {hosting === "local" ? (
               <section
                 className="onboarding-found"
                 data-state={localProbe === "scanning" || localProbe === "idle" ? "scanning" : foundModels.length > 0 ? "found" : "missing"}
@@ -752,7 +858,38 @@ export function Onboarding({
                       ? "Found a model on this computer"
                       : "No model found on this computer"}
                 </p>
-                {localProbe === "ready" && foundModels.length > 0 ? (
+                {advancedOpen ? (
+                  <LocalModels
+                    localProbe={localProbe}
+                    scanned={scanned}
+                    endpointMode={hosting === "local" ? endpointMode : null}
+                    selected={selected}
+                    localUrl={localUrl}
+                    scanError={scanError}
+                    onScan={(from, to) => {
+                      setSelected("");
+                      setEndpointMode(null);
+                      setLocalUrl("");
+                      setBaseUrl("");
+                      setError(null);
+                      void scanRange(from, to);
+                    }}
+                    onCustomUrl={(value) => {
+                      setWantsModel(true);
+                      setHosting("local");
+                      setLocalUrl(value);
+                      setEndpointMode("custom");
+                      setBaseUrl(value.trim());
+                    }}
+                    onCustomModel={(value) => {
+                      setWantsModel(true);
+                      setHosting("local");
+                      setSelected(value);
+                      setEndpointMode("custom");
+                    }}
+                  />
+                ) : null}
+                {!advancedOpen && localProbe === "ready" && foundModels.length > 0 ? (
                   <>
                     <label className="onboarding-field">
                       <span>Model</span>
@@ -769,7 +906,16 @@ export function Onboarding({
                         ))}
                       </select>
                     </label>
-                    <div className="onboarding-found-actions">
+                  </>
+                ) : null}
+                {!advancedOpen && localProbe === "ready" && foundModels.length === 0 ? (
+                  <p className="onboarding-quiet">
+                    Use Advanced to scan other ports or enter an address.
+                  </p>
+                ) : null}
+                {localProbe === "ready" ? (
+                  <div className="onboarding-found-actions">
+                    {!advancedOpen && foundModels.length > 0 ? (
                       <button
                         type="button"
                         className="onboarding-btn onboarding-btn-solid"
@@ -781,109 +927,41 @@ export function Onboarding({
                       >
                         {usingFound ? "Using this model" : "Use this model"}
                       </button>
-                      <button type="button" className="onboarding-link" onClick={() => setAdvancedOpen(true)}>
-                        Use a different one
-                      </button>
-                    </div>
-                  </>
-                ) : null}
-                {localProbe === "ready" && foundModels.length === 0 ? (
-                  <p className="onboarding-quiet">
-                    Open Advanced to scan other ports or enter an address, or use a cloud model below.
-                  </p>
-                ) : null}
-              </section>
-              <details
-                className="onboarding-advanced"
-                open={advancedOpen}
-                onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
-              >
-                <summary>Advanced: ports and address</summary>
-                <LocalModels
-                  localProbe={localProbe}
-                  scanned={scanned}
-                  endpointMode={hosting === "local" ? endpointMode : null}
-                  selected={selected}
-                  baseUrl={baseUrl}
-                  localUrl={localUrl}
-                  scanError={scanError}
-                  onScan={(from, to) => {
-                    clearModel();
-                    void scanRange(from, to);
-                  }}
-                  onPickScanned={(address, id) => {
-                    setFoundPick(`${address} ${id}`);
-                    chooseLocal(address, id);
-                  }}
-                  onOpenCustom={() => {
-                    setWantsModel(true);
-                    setHosting("local");
-                    setEndpointMode("custom");
-                    setSelected("");
-                    setCloudKey("");
-                    setLocalUrl("");
-                    setBaseUrl("");
-                  }}
-                  onCloseCustom={clearModel}
-                  onCustomUrl={(value) => {
-                    setWantsModel(true);
-                    setHosting("local");
-                    setLocalUrl(value);
-                    setEndpointMode("custom");
-                    setBaseUrl(value.trim());
-                  }}
-                  onCustomModel={(value) => {
-                    setWantsModel(true);
-                    setHosting("local");
-                    setSelected(value);
-                    setEndpointMode("custom");
-                  }}
-                />
-              </details>
-              <section className="onboarding-cloud" data-open={hosting === "cloud" ? "true" : "false"}>
-                <button
-                  type="button"
-                  className="onboarding-cloud-head"
-                  aria-expanded={hosting === "cloud"}
-                  onClick={() => {
-                    if (hosting === "cloud") {
-                      clearModel();
-                      return;
-                    }
-                    setWantsModel(true);
-                    setHosting("cloud");
-                    setSelected("");
-                    setEndpointMode(null);
-                    setLocalUrl("");
-                    setBaseUrl("");
-                  }}
-                >
-                  <strong>Cloud</strong>
-                  <span>A cloud provider may read, keep, report, and train on what you send.</span>
-                </button>
-                {hosting === "cloud" ? (
-                  <div className="onboarding-detect-body">
-                    <label className="onboarding-field">
-                      <span>Model</span>
-                      <input
-                        value={selected}
-                        autoComplete="off"
-                        placeholder="model name"
-                        onChange={(event) => setSelected(event.target.value)}
-                      />
-                    </label>
-                    <label className="onboarding-field">
-                      <span>Key</span>
-                      <input
-                        type="password"
-                        value={cloudKey}
-                        autoComplete="off"
-                        onChange={(event) => setCloudKey(event.target.value)}
-                      />
-                    </label>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="onboarding-btn onboarding-btn-ghost onboarding-advanced"
+                      aria-pressed={advancedOpen}
+                      onClick={() => setAdvancedOpen((open) => !open)}
+                    >
+                      Advanced
+                    </button>
                   </div>
                 ) : null}
               </section>
+              ) : null}
+              {hosting === "cloud" ? (
+                <section className="onboarding-found">
+                  <label className="onboarding-field">
+                    <span>Model</span>
+                    <input
+                      value={selected}
+                      autoComplete="off"
+                      placeholder="model name"
+                      onChange={(event) => setSelected(event.target.value)}
+                    />
+                  </label>
+                  <label className="onboarding-field">
+                    <span>Key</span>
+                    <input
+                      type="password"
+                      value={cloudKey}
+                      autoComplete="off"
+                      onChange={(event) => setCloudKey(event.target.value)}
+                    />
+                  </label>
+                </section>
+              ) : null}
               {error ? (
                 <p className="onboarding-alert" role="alert">
                   {error}
@@ -1017,7 +1095,8 @@ export function Onboarding({
                                 <span className="onboarding-file-state">Read</span>
                               ) : reading ? (
                                 <span className="onboarding-file-state">Reading</span>
-                              ) : (
+                              ) : null}
+                              {reading || (held.length > 0 && index < cursor) ? null : (
                                 <button
                                   type="button"
                                   className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
@@ -1104,14 +1183,17 @@ export function Onboarding({
                       Back
                     </button>
                     <div className="onboarding-action-pair">
-                      {wantsModel === true && files.length > 0 ? (
+                      {(wantsModel === true || (wantsModel !== false && filesRead)) && files.length > 0 ? (
                         <button
                           type="button"
                           className="onboarding-btn onboarding-btn-solid"
-                          disabled={!selected || extracting}
-                          onClick={() => void readAll()}
+                          disabled={extracting || (!filesRead && (!selected || (hosting === "cloud" && !cloudKey.trim())))}
+                          onClick={() => {
+                            if (filesRead) openReadFiles();
+                            else void readAll();
+                          }}
                         >
-                          {files.some((row) => !readDigests.includes(row.digest))
+                          {!filesRead
                             ? files.length > 1
                               ? "Read the resumes"
                               : "Extract job data"
@@ -1242,13 +1324,9 @@ function LocalModels({
   scanned,
   endpointMode,
   selected,
-  baseUrl,
   localUrl,
   scanError,
   onScan,
-  onPickScanned,
-  onOpenCustom,
-  onCloseCustom,
   onCustomUrl,
   onCustomModel,
 }: {
@@ -1256,22 +1334,15 @@ function LocalModels({
   scanned: LocalScanHit[];
   endpointMode: "scanned" | "custom" | null;
   selected: string;
-  baseUrl: string;
   localUrl: string;
   scanError: string | null;
   onScan: (from: string, to: string) => void;
-  onPickScanned: (address: string, id: string) => void;
-  onOpenCustom: () => void;
-  onCloseCustom: () => void;
   onCustomUrl: (value: string) => void;
   onCustomModel: (value: string) => void;
 }) {
   const [portFrom, setPortFrom] = useState(String(LOCAL_SCAN_PORT_MIN));
   const [portTo, setPortTo] = useState(String(LOCAL_SCAN_PORT_MAX));
   const customUrl = localUrl.trim();
-  const hasModels = scanned.some((hit) => hit.models.length > 0);
-  const showCustom = endpointMode === "custom" || (localProbe === "ready" && !hasModels);
-  const showAnother = hasModels || localProbe === "idle" || endpointMode === "custom";
   return (
     <div className="onboarding-detect-body">
       <p className="onboarding-quiet">Scan checks ports on this machine.</p>
@@ -1311,69 +1382,25 @@ function LocalModels({
       {localProbe === "ready" && scanned.length === 0 ? (
         <p className="onboarding-quiet">No models listed.</p>
       ) : null}
-      {scanned.map((hit) => {
-        const address = presentScanAddress(hit.baseUrl);
-        const pickedHere = endpointMode === "scanned" && hit.baseUrl === baseUrl;
-        return (
-          <div key={hit.baseUrl} className="onboarding-detect-address">
-            <p className="onboarding-detect-address-head">
-              <span>{address}</span>
-              <span>{modelCountLabel(hit.models.length)}</span>
-            </p>
-            <label className="onboarding-field">
-              <select
-                className="onboarding-model-select"
-                aria-label={`Models on ${address}`}
-                value={pickedHere ? selected : ""}
-                onChange={(event) => {
-                  const id = event.target.value;
-                  if (id) onPickScanned(hit.baseUrl, id);
-                }}
-              >
-                <option value="">Select a model</option>
-                {hit.models.map((id) => (
-                  <option key={id} value={id}>
-                    {presentModelId(id)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        );
-      })}
-      {showAnother ? (
-        <button
-          type="button"
-          className="onboarding-detect-model"
-          aria-pressed={endpointMode === "custom"}
-          onClick={() => (endpointMode === "custom" ? onCloseCustom() : onOpenCustom())}
-        >
-          <span>Another endpoint</span>
-        </button>
-      ) : null}
-      {showCustom ? (
-        <>
-          <label className="onboarding-field">
-            <span>Base URL</span>
-            <input
-              value={localUrl}
-              autoComplete="off"
-              placeholder="http://127.0.0.1:8080/v1"
-              onChange={(event) => onCustomUrl(event.target.value)}
-            />
-          </label>
-          <label className="onboarding-field">
-            <span>Model</span>
-            <input
-              value={endpointMode === "custom" ? selected : ""}
-              autoComplete="off"
-              placeholder="model name"
-              onChange={(event) => onCustomModel(event.target.value)}
-            />
-          </label>
-          {customUrl && !isHttpUrl(customUrl) ? <p className="onboarding-quiet">Use an http(s) URL.</p> : null}
-        </>
-      ) : null}
+      <label className="onboarding-field">
+        <span>Address</span>
+        <input
+          value={localUrl}
+          autoComplete="off"
+          placeholder="http://127.0.0.1:8080/v1"
+          onChange={(event) => onCustomUrl(event.target.value)}
+        />
+      </label>
+      <label className="onboarding-field">
+        <span>Model</span>
+        <input
+          value={endpointMode === "custom" ? selected : ""}
+          autoComplete="off"
+          placeholder="model name"
+          onChange={(event) => onCustomModel(event.target.value)}
+        />
+      </label>
+      {customUrl && !isHttpUrl(customUrl) ? <p className="onboarding-quiet">Use an http(s) URL.</p> : null}
     </div>
   );
 }
@@ -1574,30 +1601,22 @@ function ProfileStep({
   name,
   photoPreview,
   place,
-  links,
   error,
   onName,
   onPhoto,
   onPlace,
-  onLinks,
   onContinue,
 }: {
   name: string;
   photoPreview: string | null;
   place: OnboardingPlaceAnswer;
-  links: OnboardingLinkAnswer;
   error: string | null;
   onName: (value: string) => void;
   onPhoto: (file: File | null) => void;
   onPlace: (place: OnboardingPlaceAnswer) => void;
-  onLinks: (links: OnboardingLinkAnswer) => void;
   onContinue: () => void;
 }) {
-  const linkFields: Array<[keyof OnboardingLinkAnswer, string, string]> = [
-    ["linkedinUrl", "LinkedIn", "https://www.linkedin.com/in/…"],
-    ["githubUrl", "GitHub", "https://github.com/…"],
-    ["portfolioUrl", "Website", "https://"],
-  ];
+  const [addressOpen, setAddressOpen] = useState(false);
   return (
     <>
       <p className="onboarding-kicker">Profile</p>
@@ -1624,24 +1643,21 @@ function ProfileStep({
           onPlace={onPlace}
           note="A published page shows your state. It shows the city only when you publish exact locations."
         />
-        {linkFields.map(([key, label, placeholder]) => (
-          <label key={key} className="onboarding-field">
-            <span>{label}</span>
-            <input
-              type="url"
-              inputMode="url"
-              value={links[key]}
-              autoComplete="url"
-              placeholder={placeholder}
-              onChange={(event) => onLinks({ ...links, [key]: event.target.value })}
-            />
-          </label>
-        ))}
       </fieldset>
-      <fieldset className="onboarding-group" data-private="true">
-        <legend>Only for you · never published</legend>
-        <StreetField place={place} onPlace={onPlace} note="Used to place your home on the map." />
-      </fieldset>
+      {addressOpen ? (
+        <fieldset className="onboarding-group" data-private="true">
+          <legend>Only for you · never published</legend>
+          <StreetField place={place} onPlace={onPlace} note="Used to place your home on the map." />
+        </fieldset>
+      ) : (
+        <button
+          type="button"
+          className="onboarding-btn onboarding-btn-ghost onboarding-add-address"
+          onClick={() => setAddressOpen(true)}
+        >
+          Add address
+        </button>
+      )}
       {error ? (
         <p className="onboarding-alert" role="alert">
           {error}
