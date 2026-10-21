@@ -416,7 +416,15 @@ describe("publishing relay", () => {
 
       const publicPage = await app.request("/r/systems?view=journey");
       expect(publicPage.status).toBe(200);
+      expect(publicPage.headers.get("content-security-policy")).toBe(
+        "frame-ancestors *",
+      );
       expect(await publicPage.text()).toContain("Cut recovery");
+
+      const embed = await app.request("/r/systems?embed=1");
+      const embedHtml = await embed.text();
+      expect(embedHtml).toContain('class="embed"');
+      expect(embedHtml).toContain('href="?view=journey&embed=1"');
 
       const revoke = await app.request("/relay/publications/systems", {
         method: "DELETE",

@@ -18,6 +18,7 @@ import {
   nominatimAddressLine,
   presentWorkMapPlace,
   publicationAllowsSnapshot,
+  publicationEmbed,
   publicationNeedsAudienceConfirm,
   previewRoleMark,
   recruiterWorkMapSnapshot,
@@ -944,6 +945,65 @@ describe("Work Map publication settings", () => {
     expect(publicationAllowsSnapshot("private")).toBe(false);
     expect(publicationAllowsSnapshot("unlisted")).toBe(true);
     expect(publicationAllowsSnapshot("public")).toBe(true);
+  });
+
+  it("builds a frame for a career anyone with the address can open", () => {
+    expect(
+      publicationEmbed({
+        origin: "https://relay.example/extra",
+        slug: "Career Map",
+        visibility: "unlisted",
+      }),
+    ).toEqual({
+      ok: true,
+      page: "https://relay.example/r/career-map?embed=1",
+      code: '<iframe src="https://relay.example/r/career-map?embed=1" title="Career" width="100%" height="640" style="border:0"></iframe>',
+    });
+    expect(
+      publicationEmbed({
+        origin: "http://127.0.0.1:3100/",
+        slug: "systems",
+        visibility: "stealth",
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("withholds a frame when the career is private, gated, or the address is missing", () => {
+    expect(
+      publicationEmbed({
+        origin: "https://relay.example",
+        slug: "systems",
+        visibility: "private",
+      }),
+    ).toEqual({ ok: false, reason: "private" });
+    expect(
+      publicationEmbed({
+        origin: "https://relay.example",
+        slug: "systems",
+        visibility: "access-controlled",
+      }),
+    ).toEqual({ ok: false, reason: "access-controlled" });
+    expect(
+      publicationEmbed({
+        origin: "https://relay.example",
+        slug: " ",
+        visibility: "public",
+      }),
+    ).toEqual({ ok: false, reason: "slug" });
+    expect(
+      publicationEmbed({
+        origin: "javascript:alert(1)",
+        slug: "systems",
+        visibility: "public",
+      }),
+    ).toEqual({ ok: false, reason: "origin" });
+    expect(
+      publicationEmbed({
+        origin: "https://user:secret@relay.example",
+        slug: "systems",
+        visibility: "public",
+      }),
+    ).toEqual({ ok: false, reason: "origin" });
   });
 
   it("asks for audience before the first live snapshot", () => {
