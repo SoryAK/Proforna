@@ -62,7 +62,7 @@ export function readWorkMap(db: DatabaseSync, occupantId: string) {
     .prepare(
       `SELECT id, kind, title, company, location, start_date, end_date,
               is_current, description, achievements_json
-       FROM work_history WHERE occupant_id = ?`,
+       FROM work_history WHERE occupant_id = ? ORDER BY created_at, rowid`,
     )
     .all(occupantId) as JsonObject[];
   const roles = records.map((row) =>

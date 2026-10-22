@@ -1521,36 +1521,58 @@ function DoneStep({
       {saved.length > 0 ? (
         <div className="onboarding-saved">
           <p>These were saved with your profile. A blank field took the value from a resume.</p>
-          <label className="onboarding-field">
-            <span>Headline</span>
-            <input value={fields.headline} onChange={(event) => setFields({ ...fields, headline: event.target.value })} />
-          </label>
-          <div className="onboarding-field-row">
+          {profile.headline.trim() ? (
+            <label className="onboarding-field">
+              <span>Headline</span>
+              <input value={fields.headline} onChange={(event) => setFields({ ...fields, headline: event.target.value })} />
+            </label>
+          ) : null}
+          {profile.city.trim() && profile.state.trim() ? (
+            <div className="onboarding-field-row">
+              <label className="onboarding-field">
+                <span>City</span>
+                <input value={fields.city} onChange={(event) => setFields({ ...fields, city: event.target.value })} />
+              </label>
+              <label className="onboarding-field">
+                <span>State</span>
+                <input value={fields.state} onChange={(event) => setFields({ ...fields, state: event.target.value })} />
+              </label>
+            </div>
+          ) : profile.city.trim() ? (
             <label className="onboarding-field">
               <span>City</span>
               <input value={fields.city} onChange={(event) => setFields({ ...fields, city: event.target.value })} />
             </label>
+          ) : profile.state.trim() ? (
             <label className="onboarding-field">
               <span>State</span>
               <input value={fields.state} onChange={(event) => setFields({ ...fields, state: event.target.value })} />
             </label>
-          </div>
-          <label className="onboarding-field">
-            <span>LinkedIn</span>
-            <input value={fields.linkedinUrl} onChange={(event) => setFields({ ...fields, linkedinUrl: event.target.value })} />
-          </label>
-          <label className="onboarding-field">
-            <span>GitHub</span>
-            <input value={fields.githubUrl} onChange={(event) => setFields({ ...fields, githubUrl: event.target.value })} />
-          </label>
-          <label className="onboarding-field">
-            <span>Website</span>
-            <input value={fields.portfolioUrl} onChange={(event) => setFields({ ...fields, portfolioUrl: event.target.value })} />
-          </label>
-          <label className="onboarding-field">
-            <span>Bio</span>
-            <textarea rows={3} value={fields.bio} onChange={(event) => setFields({ ...fields, bio: event.target.value })} />
-          </label>
+          ) : null}
+          {profile.linkedinUrl.trim() ? (
+            <label className="onboarding-field">
+              <span>LinkedIn</span>
+              <input value={fields.linkedinUrl} onChange={(event) => setFields({ ...fields, linkedinUrl: event.target.value })} />
+            </label>
+          ) : null}
+          {profile.githubUrl.trim() ? (
+            <label className="onboarding-field">
+              <span>GitHub</span>
+              <input value={fields.githubUrl} onChange={(event) => setFields({ ...fields, githubUrl: event.target.value })} />
+            </label>
+          ) : null}
+          {profile.portfolioUrl.trim() ? (
+            <label className="onboarding-field">
+              <span>Website</span>
+              <input value={fields.portfolioUrl} onChange={(event) => setFields({ ...fields, portfolioUrl: event.target.value })} />
+            </label>
+          ) : null}
+          {profile.bio.trim() ? (
+            <label className="onboarding-field">
+              <span>Bio</span>
+              <textarea rows={3} value={fields.bio} onChange={(event) => setFields({ ...fields, bio: event.target.value })} />
+            </label>
+          ) : null}
         </div>
       ) : null}
       {choices.length > 1 ? (

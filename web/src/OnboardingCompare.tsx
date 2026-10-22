@@ -333,13 +333,21 @@ function CompareDialog({
   );
 }
 
-function CompareColumn({ item, fileLabel }: { item: OnboardingCheckItem; fileLabel: string }) {
+export function CompareColumn({
+  item,
+  fileLabel,
+  kicker = "Extracted",
+}: {
+  item: OnboardingCheckItem;
+  fileLabel: string;
+  kicker?: string;
+}) {
   const [workFull, setWorkFull] = useState(false);
   const job = item.kind === "Job";
   const placed = item.lat != null && item.lng != null;
   return (
     <div className="onboarding-review-body" data-work={workFull ? "full" : "split"}>
-      <p className="onboarding-kicker">Extracted</p>
+      <p className="onboarding-kicker">{kicker}</p>
       <p className="onboarding-meta">{fileLabel}</p>
       {workFull ? null : (
         <>
@@ -402,7 +410,7 @@ type IdentityChoice = {
   takes: ResumeFieldTake[];
 };
 
-function identityChoices(kept: OnboardingCheckItem, incoming: OnboardingCheckItem): IdentityChoice[] {
+export function identityChoices(kept: OnboardingCheckItem, incoming: OnboardingCheckItem): IdentityChoice[] {
   const diffs = roleFieldDiffs(kept, incoming);
   const choices: IdentityChoice[] = [];
   for (const diff of diffs) {
@@ -431,7 +439,7 @@ function identityChoices(kept: OnboardingCheckItem, incoming: OnboardingCheckIte
   return choices;
 }
 
-function lineTakes(kept: OnboardingCheckItem, incoming: OnboardingCheckItem): ResumeFieldTake[] {
+export function lineTakes(kept: OnboardingCheckItem, incoming: OnboardingCheckItem): ResumeFieldTake[] {
   const takes: ResumeFieldTake[] = [];
   for (const diff of roleFieldDiffs(kept, incoming)) {
     if (diff.field === "achievement") takes.push({ field: "achievement", text: diff.incoming });
@@ -451,6 +459,10 @@ function textOf(diff: ResumeFieldDiff, side: "kept" | "incoming"): string {
   if (diff.field === "achievement" || diff.field === "isCurrent") return "";
   const text = side === "kept" ? diff.kept : diff.incoming;
   return text || "Blank";
+}
+
+export function resumeMatchCopy(reason: ResumeMatchReason, kept: OnboardingCheckItem): string {
+  return hintCopy(reason, kept);
 }
 
 function hintCopy(reason: ResumeMatchReason, kept: OnboardingCheckItem): string {

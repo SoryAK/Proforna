@@ -86,6 +86,14 @@ describe("career timeline", () => {
     expect(frame.alsoOpen.map((item) => item.id)).toEqual(["sharp"]);
   });
 
+  it("follows a chosen role that is still open that month", () => {
+    const frame = careerFrame(roles, moments, "2026-09", [], "sharp");
+    expect(frame.lead?.id).toBe("sharp");
+    expect(frame.alsoOpen.map((item) => item.id)).toEqual(["giants"]);
+    expect(frame.tone).toBe("underway");
+    expect(careerFrame(roles, moments, "2026-09", [], "school").lead?.id).toBe("giants");
+  });
+
   it("lands on the milestone month and the gap between roles", () => {
     expect(careerFrame(roles, moments, "2023-09").moment?.title).toBe("Shift lead");
     expect(careerFrame(roles, moments, "2022-01").tone).toBe("between");

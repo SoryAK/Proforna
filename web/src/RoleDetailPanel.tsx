@@ -36,6 +36,9 @@ export function RoleDetailPanel({
   placement,
   onStartPlacement,
   onLocationSaved,
+  reviewCount = 0,
+  onOpenReview,
+  onHoldDuplicate,
 }: {
   role: WorkMapRole;
   tab: DetailTab;
@@ -47,6 +50,19 @@ export function RoleDetailPanel({
   placement: SitePlacement | null;
   onStartPlacement: (locationId?: string) => void;
   onLocationSaved: () => void;
+  reviewCount?: number;
+  onOpenReview?: () => void;
+  onHoldDuplicate?: (draft: {
+    kind: "job" | "internship" | "school";
+    title: string;
+    organization: string;
+    locationLabel: string;
+    startDate: string;
+    endDate: string;
+    isCurrent: boolean;
+    description: string;
+    achievements: string[];
+  }) => boolean;
 }) {
   const [message, setMessage] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
@@ -56,20 +72,27 @@ export function RoleDetailPanel({
   async function saveRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const draft = {
+      kind: roleKind(String(form.get("kind") ?? role.kind)),
+      title: String(form.get("title") ?? ""),
+      organization: String(form.get("organization") ?? ""),
+      locationLabel: String(form.get("locationLabel") ?? ""),
+      startDate: String(form.get("startDate") ?? ""),
+      endDate: String(form.get("endDate") ?? ""),
+      isCurrent: form.get("isCurrent") === "on",
+      description: String(form.get("description") ?? ""),
+      achievements: lines(form.get("achievements")),
+    };
+    if (onHoldDuplicate?.(draft)) {
+      setMessage(
+        "This matches a role already in your history. It was not added. Open Review duplicates to compare it before it is saved.",
+      );
+      return;
+    }
     const response = await fetch(`/api/work-map/roles/${role.id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        title: form.get("title"),
-        organization: form.get("organization"),
-        kind: form.get("kind"),
-        locationLabel: form.get("locationLabel"),
-        startDate: form.get("startDate"),
-        endDate: form.get("endDate"),
-        isCurrent: form.get("isCurrent") === "on",
-        description: form.get("description"),
-        achievements: lines(form.get("achievements")),
-      }),
+      body: JSON.stringify(draft),
     });
     await finish(response, "Role story saved.");
   }
@@ -342,6 +365,11 @@ export function RoleDetailPanel({
           Back to history
         </button>
         <div className="role-detail-actions">
+          {onOpenReview ? (
+            <button type="button" onClick={onOpenReview}>
+              Review duplicates{reviewCount > 0 ? ` (${reviewCount})` : ""}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onToggleMap}
@@ -838,6 +866,11 @@ export function RoleDetailPanel({
       {message ? <p className="role-save-message">{message}</p> : null}
     </aside>
   );
+}
+
+function roleKind(value: string): "job" | "internship" | "school" {
+  if (value === "school" || value === "internship") return value;
+  return "job";
 }
 
 function lines(value: FormDataEntryValue | null): string[] {

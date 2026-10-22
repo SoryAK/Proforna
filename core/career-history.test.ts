@@ -5,6 +5,7 @@ import {
   classifyCareerHistorySection,
   clusterCareerHistory,
   flagIdenticalRoles,
+  identicalRoleReviews,
   formatHistoryGist,
   formatHistoryPlace,
   groupCareerHistory,
@@ -247,6 +248,16 @@ describe("flagIdenticalRoles", () => {
     expect(flags.get("keep")).toEqual({ count: 2, keeper: true });
     expect(flags.get("same")).toEqual({ count: 2, keeper: false });
     expect(flags.get("other-place")).toEqual({ count: 1, keeper: true });
+    expect(identicalRoleReviews([
+      item({ id: "keep", ...shared }),
+      item({ id: "same", ...shared, startDate: "2024-06-20" }),
+      item({
+        id: "other-place",
+        ...shared,
+        locationLabel: "Philadelphia",
+        locations: [{ address: "Philadelphia, PA", latitude: 39.9, longitude: -75.1 }],
+      }),
+    ])).toEqual([{ id: "same", matchesId: "keep" }]);
     expect(careerHistoryIdentityKey(item({ id: "keep", ...shared }))).toBe(
       careerHistoryIdentityKey(
         item({

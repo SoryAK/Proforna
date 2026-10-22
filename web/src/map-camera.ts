@@ -4,6 +4,8 @@ export type MapCamera = {
   zoom: number;
 };
 
+export type MapFitMode = "pin" | "hold" | "visible";
+
 const cameras = new Map<string, MapCamera>();
 
 export function readMapCamera(key: string): MapCamera | null {

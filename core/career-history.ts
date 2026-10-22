@@ -203,6 +203,30 @@ export function flagIdenticalRoles(
   return flags;
 }
 
+export type IdenticalRoleReview = {
+  id: string;
+  matchesId: string;
+};
+
+/** Copies after the first match. The first role in `items` stays the one already listed. */
+export function identicalRoleReviews(items: CareerHistoryIdentity[]): IdenticalRoleReview[] {
+  const flags = flagIdenticalRoles(items);
+  const keeperByKey = new Map<string, string>();
+  for (const item of items) {
+    const flag = flags.get(item.id);
+    if (flag?.keeper && flag.count > 1) keeperByKey.set(careerHistoryIdentityKey(item), item.id);
+  }
+  const reviews: IdenticalRoleReview[] = [];
+  for (const item of items) {
+    const flag = flags.get(item.id);
+    if (!flag || flag.keeper || flag.count < 2) continue;
+    const matchesId = keeperByKey.get(careerHistoryIdentityKey(item));
+    if (!matchesId) continue;
+    reviews.push({ id: item.id, matchesId });
+  }
+  return reviews;
+}
+
 export function presentCareerHistoryStats(
   items: CareerHistoryIdentity[],
   now = new Date(),
