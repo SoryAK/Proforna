@@ -1,6 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { groupLinkedEvidence, type PublishedLinkedEvidence } from "../core/index";
 import { handleMcp, type PublicationRead, type PublicationSnapshot } from "./mcp";
 
@@ -134,9 +135,14 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
     );
     if (!projection) {
       if (requiresAccess(db, c.req.param("slug"))) {
-        return c.html(renderAccessRequestHtml(c.req.param("slug")), 403);
+        return framedHtml(
+          c,
+          renderAccessRequestHtml(c.req.param("slug")),
+          403,
+        );
       }
-      return c.html(
+      return framedHtml(
+        c,
         "<!doctype html><title>Not available</title><h1>This publication is not available.</h1>",
         404,
       );
@@ -146,10 +152,12 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
         (id, slug, event_type, section, occurred_at)
        VALUES (?, ?, 'view', NULL, ?)`,
     ).run(randomUUID(), projection.slug, new Date().toISOString());
-    return c.html(
+    return framedHtml(
+      c,
       renderProjectionHtml(
         projection,
         c.req.query("view") === "journey" ? "journey" : "list",
+        c.req.query("embed") === "1",
       ),
     );
   });
@@ -301,6 +309,11 @@ function parseProjection(value: unknown): RelayProjection | null {
   return projection as RelayProjection;
 }
 
+function framedHtml(c: Context, body: string, status: ContentfulStatusCode = 200) {
+  c.header("Content-Security-Policy", "frame-ancestors *");
+  return c.html(body, status);
+}
+
 function renderLinkedEvidence(item: PublishedLinkedEvidence): string {
   const title = escapeHtml(item.title);
   const link = /^https?:\/\//i.test(item.url)
@@ -320,6 +333,7 @@ function renderLinkedEvidence(item: PublishedLinkedEvidence): string {
 function renderProjectionHtml(
   projection: RelayProjection,
   view: "list" | "journey",
+  embed = false,
 ): string {
   const experience = projection.roles
     .map((role) => {
@@ -357,7 +371,7 @@ function renderProjectionHtml(
   );
   const mapData = JSON.stringify(mapPoints).replaceAll("<", "\\u003c");
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<html lang="en"${embed ? ' class="embed"' : ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>${escapeHtml(projection.profile.displayName)} — ${escapeHtml(projection.targetRole)}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -375,9 +389,17 @@ h2{font:italic 1.6rem Georgia,serif;margin:.3rem 0}p,li{line-height:1.65;color:#
 .evidence-title{font:600 .75rem system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#b89772;margin:1rem 0 0}
 figure{margin:1rem 0}figure img{width:100%;max-height:18rem;object-fit:cover}figcaption{color:#87735f;font-size:.75rem}
 @media(max-width:800px){header{display:block}.shell{display:flex;flex-direction:column;height:auto}.map{order:-1;height:48vh}.history{overflow:visible}}
+html.embed,html.embed body{height:100%;overflow:hidden}
+html.embed main{display:flex;flex-direction:column;height:100%;min-height:0}
+html.embed header{flex:none;padding:.7rem 1rem;gap:1rem}
+html.embed h1{font-size:clamp(1.4rem,4vw,2.2rem)}
+html.embed .shell{flex:1;height:auto;min-height:0}
+html.embed .history{overflow:auto}
+html.embed .map{min-height:0;height:100%}
+@media(max-width:800px){html.embed .shell{height:100%;overflow:hidden}html.embed .map{flex:none;height:42%;min-height:8rem}html.embed .history{flex:1;min-height:0;overflow:auto}}
 </style></head><body><main class="${view}">
 <header><div><h1>${escapeHtml(projection.profile.displayName)}</h1><p>${escapeHtml(projection.targetRole || projection.profile.headline)}</p></div>
-<nav><a href="?view=list">List</a><a href="?view=journey">Journey</a></nav></header>
+<nav><a href="?view=list${embed ? "&embed=1" : ""}">List</a><a href="?view=journey${embed ? "&embed=1" : ""}">Journey</a></nav></header>
 <div class="shell"><section class="history">${projection.profile.bio ? `<p>${escapeHtml(projection.profile.bio)}</p>` : ""}
 ${experience}
 ${projection.skills.length ? `<section><h2>Skills</h2><p class="skills">${projection.skills.map(escapeHtml).join(" · ")}</p></section>` : ""}
@@ -388,6 +410,8 @@ const points=${mapData};const map=L.map('map',{zoomControl:true}).setView(points
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
 const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const bounds=[];for(const point of points){const marker=L.marker([point.latitude,point.longitude]).addTo(map).bindPopup('<b>'+esc(point.title)+'</b><br>'+esc(point.organization)+'<br>'+esc(point.label));bounds.push([point.latitude,point.longitude]);marker.on('click',()=>{document.querySelector('[data-role="'+CSS.escape(point.roleId)+'"]')?.scrollIntoView({behavior:'smooth'});fetch('/r/${encodeURIComponent(projection.slug)}/events',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({eventType:'section',section:'role:'+point.roleId})});});}if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40]});
+addEventListener('resize',()=>map.invalidateSize());
+requestAnimationFrame(()=>{map.invalidateSize();if(bounds.length>1)map.fitBounds(bounds,{padding:[24,24]});});
 </script></body></html>`;
 }
 

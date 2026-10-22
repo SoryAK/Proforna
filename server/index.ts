@@ -19,6 +19,7 @@ const relay =
 const app = createApp(db, {
   uploadsDir: process.env.UPLOADS_DIR ?? "data/uploads",
   relay,
+  relayPublicOrigin: process.env.RELAY_URL ?? null,
 });
 
 const staticRoot = process.env.PROFORNA_STATIC_ROOT ?? "web/dist";
