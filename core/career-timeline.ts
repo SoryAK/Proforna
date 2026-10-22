@@ -178,6 +178,7 @@ export function careerFrame(
   moments: CareerMoment[],
   month: string,
   residences: CareerTimelineResidence[] = [],
+  leadId: string | null = null,
 ): CareerFrame {
   const active = rolesActiveAt(roles, month);
   const atMonth = moments.filter((item) => item.at === month);
@@ -186,10 +187,16 @@ export function careerFrame(
   const moveMoment = home
     ? (atMonth.find((item) => item.residenceId === home.id) ?? null)
     : null;
-  const moment = roleMoment ?? moveMoment;
-  const lead = roleMoment
+  const naturalLead = roleMoment
     ? (roles.find((role) => role.id === roleMoment.roleId) ?? null)
     : ([...active].sort((a, b) => b.startDate.localeCompare(a.startDate))[0] ?? null);
+  const preferred = leadId ? (active.find((role) => role.id === leadId) ?? null) : null;
+  const lead = preferred ?? naturalLead;
+  const moment = preferred
+    ? roleMoment?.roleId === preferred.id
+      ? roleMoment
+      : null
+    : (roleMoment ?? moveMoment);
   const earlier = lead
     ? null
     : (roles

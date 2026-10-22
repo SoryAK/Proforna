@@ -160,6 +160,17 @@ describe("resume compare", () => {
     expect(roleFieldDiffs(roles[0].item, item({ ...engineer, achievements: ["Kept a line", "New duty"] }))).toEqual([
       { field: "achievement", incoming: "New duty" },
     ]);
+    const noted = item({ ...engineer, description: "Kept the notes", achievements: ["Kept a line"] });
+    expect(
+      roleFieldDiffs(
+        noted,
+        item({
+          ...engineer,
+          description: "Kept the notes.",
+          achievements: ["Kept a line.", "New duty!"],
+        }),
+      ),
+    ).toEqual([{ field: "achievement", incoming: "New duty!" }]);
     const taken = applySameRole(roles[0], item({ ...engineer, achievements: ["New duty"] }), 1, [
       { field: "achievement", text: "New duty" },
     ]);

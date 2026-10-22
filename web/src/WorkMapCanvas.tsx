@@ -12,7 +12,7 @@ import {
 } from "react-leaflet";
 import { roleCoverPhoto, workSitePublicationNote, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
-import { readMapCamera, writeMapCamera } from "./map-camera";
+import { readMapCamera, writeMapCamera, type MapFitMode } from "./map-camera";
 import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
 import "leaflet/dist/leaflet.css";
 
@@ -70,6 +70,8 @@ export function WorkMapCanvas({
   searchRadius = null,
   viewKey,
   fitKey = "",
+  fitMode,
+  cameraNonce = 0,
   publicationMarks = false,
   exactLocations = false,
 }: {
@@ -90,6 +92,8 @@ export function WorkMapCanvas({
   searchRadius?: SearchRadius | null;
   viewKey?: string;
   fitKey?: string;
+  fitMode?: MapFitMode;
+  cameraNonce?: number;
   publicationMarks?: boolean;
   exactLocations?: boolean;
 }) {
@@ -145,7 +149,9 @@ export function WorkMapCanvas({
         />
         <RememberCamera viewKey={viewKey} />
         <FitPoints
+          cameraNonce={cameraNonce}
           fitKey={fitKey}
+          fitMode={fitMode}
           hold={holdView}
           viewKey={viewKey}
           allPoints={[
@@ -202,6 +208,9 @@ export function WorkMapCanvas({
             currentRing: pinTheme.currentRing,
             withheld,
           });
+          const name = [role.organization, role.title, location.label]
+            .filter(Boolean)
+            .join(", ");
           return (
             <Marker
               eventHandlers={{ click: () => onSelect(role.id) }}
@@ -211,8 +220,10 @@ export function WorkMapCanvas({
                 iconAnchor: [pin.size / 2, pin.size / 2],
                 iconSize: [pin.size, pin.size],
               })}
+              keyboard
               key={location.id}
               position={[location.latitude, location.longitude]}
+              title={name}
             >
               <Tooltip className="work-map-tip" direction="top" offset={[0, -8]}>
                 {cover ? <img src={cover.url} alt="" /> : null}
@@ -348,6 +359,8 @@ function FitPoints({
   hold,
   viewKey,
   fitKey,
+  fitMode,
+  cameraNonce,
 }: {
   allPoints: Array<[number, number]>;
   focusPoints: Array<[number, number]>;
@@ -355,11 +368,23 @@ function FitPoints({
   hold: boolean;
   viewKey?: string;
   fitKey: string;
+  fitMode?: MapFitMode;
+  cameraNonce: number;
 }) {
   const map = useMap();
   const boot = useRef<"pending" | "ready">("pending");
   const seen = useRef<string | null>(null);
-  const target = focusPoints.length > 0 ? focusPoints : allPoints;
+  const nonceSeen = useRef(0);
+  const target =
+    fitMode === "hold"
+      ? []
+      : fitMode === "pin"
+        ? focusPoints
+        : fitMode === "visible"
+          ? allPoints
+          : focusPoints.length > 0
+            ? focusPoints
+            : allPoints;
   const frame = target.map((point) => point.join(",")).join("|");
 
   useEffect(() => {
@@ -370,7 +395,6 @@ function FitPoints({
           return [lat, lng] as [number, number];
         })
       : [];
-    const fitChanged = seen.current !== null && fitKey !== seen.current;
     const place = () => {
       if (points.length === 1) {
         map.setView(points[0], selectedId ? 12 : 11);
@@ -381,10 +405,26 @@ function FitPoints({
         });
       }
     };
+    if (cameraNonce !== nonceSeen.current) {
+      nonceSeen.current = cameraNonce;
+      const restored = viewKey ? readMapCamera(viewKey) : null;
+      if (cameraNonce > 0 && restored) {
+        map.setView([restored.latitude, restored.longitude], restored.zoom, {
+          animate: false,
+        });
+        boot.current = "ready";
+        seen.current = fitKey;
+        return;
+      }
+    }
+    const fitChanged = seen.current !== null && fitKey !== seen.current;
     if (boot.current === "pending") {
       const saved = viewKey ? readMapCamera(viewKey) : null;
-      if (saved) {
+      if (saved && !selectedId && fitMode !== "pin") {
         map.setView([saved.latitude, saved.longitude], saved.zoom, { animate: false });
+        boot.current = "ready";
+        seen.current = fitKey;
+      } else if (fitMode === "hold") {
         boot.current = "ready";
         seen.current = fitKey;
       } else if (points.length > 0) {
@@ -398,7 +438,7 @@ function FitPoints({
       place();
       seen.current = fitKey;
     }
-  }, [map, frame, selectedId, hold, fitKey, viewKey]);
+  }, [map, frame, selectedId, hold, fitKey, fitMode, viewKey, cameraNonce]);
 
   return null;
 }

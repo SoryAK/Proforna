@@ -5,7 +5,7 @@ import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
 import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
 import type { MapAnchorPin, MapSearchPin, WorkMapHome } from "./WorkMapCanvas";
 import { loadGoogleMaps } from "./google-maps";
-import { readMapCamera, writeMapCamera } from "./map-camera";
+import { readMapCamera, writeMapCamera, type MapFitMode } from "./map-camera";
 
 type MapPoint = {
   role: WorkMapRole;
@@ -35,6 +35,8 @@ export function GoogleWorkMap({
   searchRadius = null,
   viewKey,
   fitKey = "",
+  fitMode,
+  cameraNonce = 0,
   zoomCorner = "start",
   publicationMarks = false,
   exactLocations = false,
@@ -57,6 +59,8 @@ export function GoogleWorkMap({
   searchRadius?: SearchRadius | null;
   viewKey?: string;
   fitKey?: string;
+  fitMode?: MapFitMode;
+  cameraNonce?: number;
   zoomCorner?: "start" | "end";
   publicationMarks?: boolean;
   exactLocations?: boolean;
@@ -65,6 +69,7 @@ export function GoogleWorkMap({
   const mapRef = useRef<GoogleMapHandle | null>(null);
   const cameraBoot = useRef<"pending" | "ready">("pending");
   const fitSeen = useRef<string | null>(null);
+  const cameraNonceSeen = useRef(0);
   const cameraListener = useRef<{ remove: () => void } | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const points = roles.flatMap((role) =>
@@ -145,6 +150,8 @@ export function GoogleWorkMap({
     ]),
     searchRadius,
     fitKey,
+    fitMode,
+    cameraNonce,
     viewKey,
   });
 
@@ -220,14 +227,18 @@ export function GoogleWorkMap({
       points.length || overlays.length || anchors.length || home || searchRadius,
     );
     if (!holdView) {
-      const fitChanged = fitSeen.current !== null && fitKey !== fitSeen.current;
-      if (cameraBoot.current === "pending") {
-        if (savedCamera) {
-          map.panTo({ lat: savedCamera.latitude, lng: savedCamera.longitude });
-          map.setZoom(savedCamera.zoom);
+      if (cameraNonce !== cameraNonceSeen.current) {
+        cameraNonceSeen.current = cameraNonce;
+        const restored = viewKey ? readMapCamera(viewKey) : null;
+        if (cameraNonce > 0 && restored) {
+          map.panTo({ lat: restored.latitude, lng: restored.longitude });
+          map.setZoom(restored.zoom);
           cameraBoot.current = "ready";
           fitSeen.current = fitKey;
-        } else if (hasFrame) {
+        }
+      } else {
+        const fitChanged = fitSeen.current !== null && fitKey !== fitSeen.current;
+        const fit = () =>
           fitMap(
             map,
             maps,
@@ -238,23 +249,26 @@ export function GoogleWorkMap({
             selectedOverlayId,
             anchors,
             searchRadius,
+            fitMode,
           );
-          cameraBoot.current = "ready";
+        if (cameraBoot.current === "pending") {
+          if (savedCamera && !selectedId && fitMode !== "pin") {
+            map.panTo({ lat: savedCamera.latitude, lng: savedCamera.longitude });
+            map.setZoom(savedCamera.zoom);
+            cameraBoot.current = "ready";
+            fitSeen.current = fitKey;
+          } else if (fitMode === "hold") {
+            cameraBoot.current = "ready";
+            fitSeen.current = fitKey;
+          } else if (hasFrame) {
+            fit();
+            cameraBoot.current = "ready";
+            fitSeen.current = fitKey;
+          }
+        } else if (fitChanged) {
+          fit();
           fitSeen.current = fitKey;
         }
-      } else if (fitChanged) {
-        fitMap(
-          map,
-          maps,
-          points,
-          home ?? null,
-          selectedId,
-          overlays,
-          selectedOverlayId,
-          anchors,
-          searchRadius,
-        );
-        fitSeen.current = fitKey;
       }
     }
     return () => {
@@ -412,7 +426,9 @@ function fitMap(
   selectedOverlayId: string | null,
   anchors: MapAnchorPin[],
   searchRadius: SearchRadius | null,
+  fitMode?: MapFitMode,
 ) {
+  if (fitMode === "hold") return;
   const selectedOverlay = overlays.find((pin) => pin.id === selectedOverlayId);
   if (selectedOverlay) {
     map.panTo({ lat: selectedOverlay.latitude, lng: selectedOverlay.longitude });
@@ -436,15 +452,20 @@ function fitMap(
     map.fitBounds(bounds, 48);
     return;
   }
-  const focus = selectedId ? points.filter((point) => point.role.id === selectedId) : [];
+  const frameAll = fitMode === "visible" || !selectedId;
+  const focus =
+    fitMode === "visible" || !selectedId
+      ? []
+      : points.filter((point) => point.role.id === selectedId);
+  if (fitMode === "pin" && focus.length === 0) return;
   const shown = focus.length ? focus : points;
   const positions = [
     ...shown.map((point) => ({ lat: point.latitude, lng: point.longitude })),
-    ...(!selectedId
+    ...(frameAll
       ? anchors.map((anchor) => ({ lat: anchor.latitude, lng: anchor.longitude }))
       : []),
-    ...(home && !selectedId ? [{ lat: home.latitude, lng: home.longitude }] : []),
-    ...(!selectedId ? radiusPositions(searchRadius) : []),
+    ...(home && frameAll ? [{ lat: home.latitude, lng: home.longitude }] : []),
+    ...(frameAll ? radiusPositions(searchRadius) : []),
   ];
   if (positions.length === 0) return;
   if (positions.length === 1) {
@@ -553,15 +574,20 @@ function mountRolePins(
       withheld: point.withheld,
     });
     const node = document.createElement("div");
+    const name = [point.role.organization, point.role.title, point.label]
+      .filter(Boolean)
+      .join(", ");
+    node.className = "work-map-pin-hit";
     node.style.position = "absolute";
     node.style.width = `${pin.size}px`;
     node.style.height = `${pin.size}px`;
     node.style.transform = "translate(-50%, -50%)";
     node.style.zIndex = focused ? "3" : "1";
     node.style.cursor = "pointer";
-    node.title = [point.role.organization || point.role.title, point.publicationNote]
-      .filter(Boolean)
-      .join(". ");
+    node.tabIndex = 0;
+    node.setAttribute("role", "button");
+    node.setAttribute("aria-label", name);
+    node.title = name;
     node.innerHTML = pin.html;
     const cover = roleCoverPhoto(point.role.media);
     const html = tipHtml(point, cover?.url);
@@ -569,7 +595,15 @@ function mountRolePins(
       tip.show({ lat: point.latitude, lng: point.longitude }, html),
     );
     node.addEventListener("mouseleave", () => tip.hide());
-    node.addEventListener("click", () => onSelect(point.role.id));
+    node.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onSelect(point.role.id);
+    });
+    node.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      onSelect(point.role.id);
+    });
     return { node, point };
   });
   overlay.onAdd = () => {

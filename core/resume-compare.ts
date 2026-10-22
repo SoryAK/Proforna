@@ -248,10 +248,10 @@ export function roleFieldDiffs(kept: OnboardingCheckItem, incoming: OnboardingCh
     pushText(diffs, "endDate", kept.endDate, incoming.endDate);
   }
   pushText(diffs, "description", kept.description, incoming.description);
-  const have = new Set(kept.achievements.map((line) => line.trim().toLowerCase()).filter(Boolean));
+  const have = new Set(kept.achievements.map((line) => lineKey(line)).filter(Boolean));
   for (const line of incoming.achievements) {
     const text = line.trim();
-    if (!text || have.has(text.toLowerCase())) continue;
+    if (!lineKey(text) || have.has(lineKey(text))) continue;
     diffs.push({ field: "achievement", incoming: text });
   }
   return diffs;
@@ -481,8 +481,19 @@ function pushText(
   kept: string,
   incoming: string,
 ) {
-  if (kept.trim() === incoming.trim()) return;
+  const same = field === "description" ? lineKey(kept) === lineKey(incoming) : kept.trim() === incoming.trim();
+  if (same) return;
   diffs.push({ field, kept: kept.trim(), incoming: incoming.trim() });
+}
+
+/** Comparison key for a duty or description. A trailing period does not make a new line. */
+function lineKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[\s."'“”‘’!?,;:…]+$/g, "")
+    .trim();
 }
 
 function displayPlace(item: OnboardingCheckItem): string {

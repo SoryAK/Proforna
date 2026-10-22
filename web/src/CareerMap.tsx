@@ -1,6 +1,7 @@
 import type { SearchRadius } from "@core/job-search";
 import { DEFAULT_MAP_ICONS, MAP_THEMES, type MapSettings } from "@core/map-settings";
 import type { WorkMapRole } from "@core/work-map";
+import type { MapFitMode } from "./map-camera";
 import { GoogleWorkMap } from "./GoogleWorkMap";
 import {
   WorkMapCanvas,
@@ -27,6 +28,8 @@ export function CareerMap({
   searchRadius = null,
   viewKey,
   fitKey = "",
+  fitMode,
+  cameraNonce = 0,
   zoomCorner = "start",
   publicationMarks = false,
   exactLocations = false,
@@ -47,6 +50,8 @@ export function CareerMap({
   searchRadius?: SearchRadius | null;
   viewKey?: string;
   fitKey?: string;
+  fitMode?: MapFitMode;
+  cameraNonce?: number;
   zoomCorner?: "start" | "end";
   publicationMarks?: boolean;
   exactLocations?: boolean;
@@ -73,6 +78,8 @@ export function CareerMap({
         emptyNote={emptyNote}
         suppressEmpty={suppressEmpty}
         fitKey={fitKey}
+        fitMode={fitMode}
+        cameraNonce={cameraNonce}
         viewKey={viewKey}
         zoomCorner={zoomCorner}
         publicationMarks={publicationMarks}
@@ -98,6 +105,8 @@ export function CareerMap({
       emptyNote={emptyNote}
       suppressEmpty={suppressEmpty}
       fitKey={fitKey}
+      fitMode={fitMode}
+      cameraNonce={cameraNonce}
       viewKey={viewKey}
       publicationMarks={publicationMarks}
       exactLocations={exactLocations}

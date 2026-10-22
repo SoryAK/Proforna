@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ResumeImport } from "./ResumeImport";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
   classifyCareerHistorySection,
   flagIdenticalRoles,
+  identicalRoleReviews,
+  careerHistoryIdentityKey,
   formatHistoryGist,
   formatHistoryPeriod,
   formatHistoryPlace,
@@ -14,6 +16,7 @@ import {
   searchCareerHistory,
   tenureMonths,
   sortCareerHistory,
+  type CareerHistoryIdentity,
   type CareerHistoryItem,
   type CareerHistorySectionKey,
 } from "@core/career-history";
@@ -39,6 +42,8 @@ import { CareerTimelineScrubber } from "./CareerTimelineScrubber";
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
 import { CareerMap } from "./CareerMap";
+import { DuplicateReview, duplicateReviewCount, type MergeRequest, type ReviewDraft } from "./DuplicateReview";
+import { readMapCamera, writeMapCamera, type MapCamera, type MapFitMode } from "./map-camera";
 import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
 import {
   notifyPreviewRefresh,
@@ -118,6 +123,12 @@ export function WorkMap({
   const [placingLocationId, setPlacingLocationId] = useState<string | null>(
     null,
   );
+  const [cameraNonce, setCameraNonce] = useState(0);
+  const cameraBeforePlace = useRef<MapCamera | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewDrafts, setReviewDrafts] = useState<ReviewDraft[]>([]);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [reviewFocus, setReviewFocus] = useState<string | null>(null);
   const [pendingPlacement, setPendingPlacement] = useState<{
     roleId: string;
     locationId?: string;
@@ -130,6 +141,12 @@ export function WorkMap({
   const [publications, setPublications] = useState<Publication[]>([]);
   const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (!message) return;
+    const life = message.length > 90 ? 5200 : 2800;
+    const timer = window.setTimeout(() => setMessage(""), life);
+    return () => window.clearTimeout(timer);
+  }, [message]);
   const [publishing, setPublishing] = useState(false);
   const [preview, setPreview] = useState<{
     snapshot: PublicWorkMapSnapshot;
@@ -284,6 +301,14 @@ export function WorkMap({
       }),
     );
   }, [data, sort]);
+  const listedReviews = useMemo(
+    () => (data ? identicalRoleReviews(data.roles.map(roleIdentity)) : []),
+    [data],
+  );
+  const duplicateCount = useMemo(
+    () => duplicateReviewCount(data?.roles ?? [], reviewDrafts, listedReviews),
+    [data, reviewDrafts, listedReviews],
+  );
   const identicalExtraIds = useMemo(
     () =>
       [...identicalFlags.entries()]
@@ -331,14 +356,59 @@ export function WorkMap({
     ? timelineMonth
     : (timelineMonths.at(-1) ?? timelineMonth);
   const timelineReading = useMemo(
-    () => careerFrame(timelineRoles, timelineMoments, shownMonth, timelineResidences),
-    [timelineRoles, timelineMoments, shownMonth, timelineResidences],
+    () =>
+      careerFrame(
+        timelineRoles,
+        timelineMoments,
+        shownMonth,
+        timelineResidences,
+        selectedId,
+      ),
+    [timelineRoles, timelineMoments, shownMonth, timelineResidences, selectedId],
   );
   const mapRoles = timelineActive
     ? visibleRoles.filter((role) =>
         rolesStartedBy(timelineRoles, shownMonth).some((item) => item.id === role.id),
       )
     : visibleRoles;
+  const selectedOnMap = selectedId
+    ? (mapRoles.find((role) => role.id === selectedId) ?? null)
+    : null;
+  const fitMode: MapFitMode = !selectedOnMap
+    ? "visible"
+    : selectedOnMap.locations.some(
+          (location) =>
+            Number.isFinite(location.latitude) && Number.isFinite(location.longitude),
+        )
+      ? "pin"
+      : "hold";
+  const cameraFitKey = [
+    selectedId ?? "",
+    timelineActive ? shownMonth : "map",
+    fitMode,
+    mapRoles
+      .flatMap((role) =>
+        role.locations.map(
+          (location) =>
+            `${role.id}:${location.latitude.toFixed(5)}:${location.longitude.toFixed(5)}`,
+        ),
+      )
+      .sort()
+      .join("|"),
+  ].join(":");
+
+  const selectRole = useCallback(
+    (id: string, month?: string, keepPlaying = false) => {
+      setSelectedId(id);
+      const role = data?.roles.find((entry) => entry.id === id);
+      const start = role ? careerMonth(role.startDate) : null;
+      const next = month ?? start;
+      if (!next) return;
+      if (!keepPlaying) setTimelinePlaying(false);
+      setTimelineMonth(next);
+    },
+    [data],
+  );
 
   useEffect(() => {
     if (!timelinePlaying || !timelineActive) return;
@@ -348,10 +418,29 @@ export function WorkMap({
         setTimelinePlaying(false);
         return;
       }
-      setTimelineMonth(upcoming.at);
+      const frame = careerFrame(
+        timelineRoles,
+        timelineMoments,
+        upcoming.at,
+        timelineResidences,
+      );
+      if (frame.lead) selectRole(frame.lead.id, upcoming.at, true);
+      else {
+        setTimelinePlaying(false);
+        setTimelineMonth(upcoming.at);
+        setSelectedId(null);
+      }
     }, 900);
     return () => window.clearInterval(timer);
-  }, [timelinePlaying, timelineActive, timelineMoments, shownMonth]);
+  }, [
+    timelinePlaying,
+    timelineActive,
+    timelineMoments,
+    timelineRoles,
+    timelineResidences,
+    shownMonth,
+    selectRole,
+  ]);
 
   const selected = data?.roles.find((role) => role.id === selectedId) ?? null;
   const latest = publications.find(
@@ -375,15 +464,30 @@ export function WorkMap({
     await load();
   }
 
-  function selectFromMap(id: string) {
-    setSelectedId(id);
-    if (view !== "timeline" || placingForId) return;
-    const role = data?.roles.find((entry) => entry.id === id);
-    const start = role ? careerMonth(role.startDate) : null;
-    if (!start) return;
+  function selectMonth(month: string) {
+    const frame = careerFrame(timelineRoles, timelineMoments, month, timelineResidences);
+    if (frame.lead) {
+      selectRole(frame.lead.id, month);
+      return;
+    }
     setTimelinePlaying(false);
-    setTimelineMonth(start);
+    setTimelineMonth(month);
+    setSelectedId(null);
   }
+
+  const searchPick = useRef("");
+  useEffect(() => {
+    const query = search.trim();
+    const id = historyItems.length === 1 ? historyItems[0]?.id : undefined;
+    if (!query || !id) {
+      searchPick.current = "";
+      return;
+    }
+    const pick = `${query}:${id}`;
+    if (searchPick.current === pick) return;
+    searchPick.current = pick;
+    selectRole(id);
+  }, [search, historyItems, selectRole]);
 
   function openSettings() {
     setConfirmOpen(false);
@@ -592,6 +696,191 @@ export function WorkMap({
     await load();
   }
 
+  function holdDuplicate(
+    role: WorkMapRole,
+    draft: Omit<ReviewDraft, "localId" | "sourceRoleId" | "matchesId">,
+  ): boolean {
+    if (!data) return false;
+    const candidate = {
+      ...roleIdentity(role),
+      ...draft,
+      id: role.id,
+    };
+    const savedKey = careerHistoryIdentityKey(roleIdentity(role));
+    const others = data.roles
+      .filter((item) => item.id !== role.id)
+      .map(roleIdentity);
+    const review = identicalRoleReviews([...others, candidate]).find((item) => item.id === role.id);
+    if (!review) return false;
+    if (savedKey === careerHistoryIdentityKey(candidate)) {
+      setReviewFocus(role.id);
+      setReviewNotice(null);
+      setReviewOpen(true);
+      return true;
+    }
+    const match = data.roles.find((item) => item.id === review.matchesId);
+    const name = match?.organization || match?.title || "a role already in your history";
+    const shell =
+      !role.title.trim() &&
+      !role.organization.trim() &&
+      !role.description.trim() &&
+      role.achievements.length === 0 &&
+      !role.startDate.trim() &&
+      role.locations.length === 0 &&
+      role.media.length === 0;
+    const held: ReviewDraft = {
+      localId: crypto.randomUUID(),
+      sourceRoleId: shell ? null : role.id,
+      matchesId: review.matchesId,
+      ...draft,
+    };
+    setReviewDrafts((current) => [...current, held]);
+    setReviewFocus(held.localId);
+    setReviewNotice(
+      `This matches ${name}, already in Career History. It was not added to the list. Compare it here, then change it or discard it before saving.`,
+    );
+    setReviewOpen(true);
+    if (shell) {
+      setSelectedId(null);
+      void fetch(`/api/work-map/roles/${role.id}`, { method: "DELETE" }).then(() => load());
+    }
+    return true;
+  }
+
+  async function commitDraft(draft: ReviewDraft) {
+    if (!data) return;
+    const source = draft.sourceRoleId
+      ? data.roles.find((role) => role.id === draft.sourceRoleId)
+      : null;
+    const candidate = {
+      id: draft.sourceRoleId ?? draft.localId,
+      kind: draft.kind,
+      title: draft.title,
+      organization: draft.organization,
+      locationLabel: draft.locationLabel,
+      startDate: draft.startDate,
+      endDate: draft.endDate,
+      isCurrent: draft.isCurrent,
+      description: draft.description,
+      achievements: draft.achievements,
+      locations: (source?.locations ?? []).map((location) => ({
+        address: location.address,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      })),
+    };
+    const still = identicalRoleReviews([
+      ...data.roles.filter((role) => role.id !== draft.sourceRoleId).map(roleIdentity),
+      candidate,
+    ]).some((item) => item.id === candidate.id);
+    if (still) {
+      setReviewNotice(
+        "This still matches a role already in Career History. Change it here before it can be saved.",
+      );
+      return;
+    }
+    let roleId = draft.sourceRoleId;
+    if (!roleId) {
+      const created = await fetch("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: draft.kind }),
+      });
+      if (!created.ok) {
+        setReviewNotice("Could not save that role.");
+        return;
+      }
+      const body = (await created.json()) as { role: { id: string } };
+      roleId = body.role.id;
+    }
+    const saved = await fetch(`/api/work-map/roles/${roleId}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(draft),
+    });
+    if (!saved.ok) {
+      setReviewNotice("Could not save that role.");
+      return;
+    }
+    setReviewDrafts((current) => current.filter((item) => item.localId !== draft.localId));
+    setReviewNotice(null);
+    await load();
+  }
+
+  async function deleteReviewed(roleIds: string[], draftIds: string[]) {
+    if (draftIds.length > 0) {
+      setReviewDrafts((current) => current.filter((item) => !draftIds.includes(item.localId)));
+    }
+    if (roleIds.length === 0) {
+      setReviewNotice(draftIds.length > 0 ? "Discarded the unsaved copies." : null);
+      return;
+    }
+    await removeRoles(roleIds);
+  }
+
+  async function mergeReviewed(request: MergeRequest) {
+    let keeperId = request.keeperRoleId;
+    if (request.keeperPatch && keeperId) {
+      const saved = await fetch(`/api/work-map/roles/${keeperId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(request.keeperPatch),
+      });
+      if (!saved.ok) {
+        setReviewNotice("Could not keep the values you chose.");
+        return;
+      }
+    }
+    if (request.keeperDraft) {
+      const draft = request.keeperDraft;
+      let roleId = draft.sourceRoleId;
+      if (!roleId) {
+        const created = await fetch("/api/work-map/roles", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind: draft.kind }),
+        });
+        if (!created.ok) {
+          setReviewNotice("Could not keep that copy.");
+          return;
+        }
+        const body = (await created.json()) as { role: { id: string } };
+        roleId = body.role.id;
+      }
+      const saved = await fetch(`/api/work-map/roles/${roleId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      if (!saved.ok) {
+        setReviewNotice("Could not keep that copy.");
+        return;
+      }
+      keeperId = roleId;
+      setReviewDrafts((current) => current.filter((item) => item.localId !== draft.localId));
+    }
+    const protectedId = request.keeperDraft?.sourceRoleId ?? keeperId;
+    const dropIds = request.dropRoleIds.filter((id) => id && id !== keeperId && id !== protectedId);
+    const failed: string[] = [];
+    for (const id of dropIds) {
+      const response = await fetch(`/api/work-map/roles/${id}`, { method: "DELETE" });
+      if (!response.ok) failed.push(id);
+    }
+    setReviewDrafts((current) =>
+      current.filter((item) => !request.dropDraftIds.includes(item.localId)),
+    );
+    if (selectedId && dropIds.includes(selectedId) && !failed.includes(selectedId)) {
+      setSelectedId(null);
+    }
+    setReviewNotice(
+      failed.length > 0
+        ? "Kept the role you chose. Some other copies could not be removed."
+        : "Merged into the role you chose to keep.",
+    );
+    if (keeperId) setReviewFocus(keeperId);
+    await load();
+  }
+
   if (!data) {
     return (
       <section className="work-map-loading">
@@ -645,7 +934,10 @@ export function WorkMap({
   return (
     <section className="work-map">
       {message ? (
-        <p className="work-map-message" role="status">
+        <p
+          className={message.length > 90 ? "work-map-toast is-long" : "work-map-toast"}
+          role="status"
+        >
           {message}
         </p>
       ) : null}
@@ -660,10 +952,7 @@ export function WorkMap({
         />
       ) : null}
       <div
-        className={[
-          "work-map-layout",
-          mapVisible ? "is-map" : "is-record",
-        ].join(" ")}
+        className={["work-map-layout", mapVisible ? "is-map" : "is-record"].join(" ")}
         hidden={preview !== null}
       >
         <div className="work-map-float">
@@ -677,10 +966,14 @@ export function WorkMap({
             onToggleMap={() => setMapOverride(mapVisible ? "hide" : "show")}
             onClose={() => setSelectedId(null)}
             onSaved={load}
+            reviewCount={duplicateCount.active}
+            onOpenReview={duplicateCount.total > 0 ? () => setReviewOpen(true) : undefined}
             placement={
               pendingPlacement?.roleId === selected.id ? pendingPlacement : null
             }
+            onHoldDuplicate={(draft) => holdDuplicate(selected, draft)}
             onStartPlacement={(locationId) => {
+              cameraBeforePlace.current = readMapCamera("history");
               setDetailTab("places");
               setMapOverride("show");
               setView("map");
@@ -693,6 +986,16 @@ export function WorkMap({
         <aside className="work-map-ledger">
           <header className="history-panel-head">
             <h2>Career History</h2>
+            {duplicateCount.total > 0 ? (
+              <button
+                type="button"
+                className="history-review-open"
+                onClick={() => setReviewOpen(true)}
+              >
+                Review duplicates
+                {duplicateCount.active > 0 ? ` (${duplicateCount.active})` : ""}
+              </button>
+            ) : null}
             <div className="history-publish">
               <span
                 title={
@@ -911,7 +1214,7 @@ export function WorkMap({
                   disabled={checkedIds.size !== 1}
                   onClick={() => {
                     const id = [...checkedIds][0];
-                    if (id) setSelectedId(id);
+                    if (id) selectRole(id);
                   }}
                 >
                   Edit
@@ -980,7 +1283,7 @@ export function WorkMap({
                           selecting={selecting}
                           checked={checkedIds.has(item.id)}
                           onToggle={() => toggleChecked(item.id)}
-                          onOpen={() => setSelectedId(item.id)}
+                          onOpen={() => selectRole(item.id)}
                         />
                       ))
                     : null}
@@ -1012,24 +1315,36 @@ export function WorkMap({
             </button>
             <button
               className={view === "timeline" ? "is-active" : ""}
-              onClick={() => setView("timeline")}
+              onClick={() => {
+                if (view === "timeline") return;
+                setView("timeline");
+                const frame = careerFrame(
+                  timelineRoles,
+                  timelineMoments,
+                  shownMonth,
+                  timelineResidences,
+                );
+                if (frame.lead) selectRole(frame.lead.id, shownMonth);
+              }}
               type="button"
             >
               Timeline
             </button>
           </div>
           <CareerMap
-            fitKey={timelineActive ? "timeline" : (selectedId ?? "")}
-            holdView={timelineActive}
+            cameraNonce={cameraNonce}
+            fitKey={cameraFitKey}
+            fitMode={fitMode}
+            holdView={Boolean(placingForId)}
             home={
               timelineActive
                 ? homePinForTimeline(data.residences, timelineReading.home)
                 : homePin(data.residences, selected)
             }
             onMapClick={placingForId ? dropPin : undefined}
-            onSelect={selectFromMap}
+            onSelect={selectRole}
             roles={mapRoles}
-            selectedId={timelineActive ? null : selectedId}
+            selectedId={selectedId}
             settings={mapSettings}
             emptyNote={
               search.trim() && historyItems.length === 0
@@ -1048,15 +1363,24 @@ export function WorkMap({
               month={shownMonth}
               moments={timelineMoments}
               months={timelineMonths}
-              onMonth={(next) => {
-                setTimelinePlaying(false);
-                setTimelineMonth(next);
-              }}
+              onMonth={selectMonth}
               onPlay={() => {
                 const upcoming = nextCareerMoment(timelineMoments, shownMonth);
                 if (!upcoming) {
                   const first = timelineMoments[0];
-                  if (first) setTimelineMonth(first.at);
+                  if (first) {
+                    const frame = careerFrame(
+                      timelineRoles,
+                      timelineMoments,
+                      first.at,
+                      timelineResidences,
+                    );
+                    if (frame.lead) selectRole(frame.lead.id, first.at, true);
+                    else {
+                      setTimelineMonth(first.at);
+                      setSelectedId(null);
+                    }
+                  }
                 }
                 setTimelinePlaying((value) => !value);
               }}
@@ -1070,8 +1394,12 @@ export function WorkMap({
               <button
                 type="button"
                 onClick={() => {
+                  const shot = cameraBeforePlace.current;
                   setPlacingForId(null);
                   setPlacingLocationId(null);
+                  if (!shot) return;
+                  writeMapCamera("history", shot);
+                  setCameraNonce((value) => value + 1);
                 }}
               >
                 Cancel
@@ -1139,6 +1467,28 @@ export function WorkMap({
               setImportOpen(false);
               void load();
             }}
+          />
+        ) : null}
+        {reviewOpen ? (
+          <DuplicateReview
+            drafts={reviewDrafts}
+            focusId={reviewFocus}
+            listedPairs={listedReviews}
+            notice={reviewNotice}
+            roles={data.roles}
+            onClose={() => setReviewOpen(false)}
+            onChangeDraft={(localId, patch) =>
+              setReviewDrafts((current) =>
+                current.map((item) => (item.localId === localId ? { ...item, ...patch } : item)),
+              )
+            }
+            onCommitDraft={(draft) => void commitDraft(draft)}
+            onDiscardDraft={(localId) => {
+              setReviewDrafts((current) => current.filter((item) => item.localId !== localId));
+              setReviewNotice(null);
+            }}
+            onBulkDelete={(roleIds, draftIds) => deleteReviewed(roleIds, draftIds)}
+            onMerge={(request) => mergeReviewed(request)}
           />
         ) : null}
       </div>
@@ -1714,6 +2064,14 @@ function SelectIcon() {
       <path d="m8 12.2 2.6 2.6L16.2 9" />
     </svg>
   );
+}
+
+function roleIdentity(role: WorkMapRole): CareerHistoryIdentity {
+  return {
+    ...asHistoryItem(role),
+    description: role.description,
+    achievements: role.achievements,
+  };
 }
 
 function asHistoryItem(role: WorkMapRole): CareerHistoryItem {
