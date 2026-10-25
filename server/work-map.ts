@@ -12,6 +12,7 @@ import {
   linkedEvidenceFromPage,
   normalizeWorkMapDetails,
   workMapColleagues,
+  workMapOverviewFields,
   workMapLink,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
@@ -300,6 +301,10 @@ export function saveWorkMapDetails(
       "colleagues" in input
         ? workMapColleagues(input.colleagues)
         : current.colleagues,
+    overviewFields:
+      "overviewFields" in input
+        ? workMapOverviewFields(input.overviewFields)
+        : current.overviewFields,
   };
   db.prepare(
     `INSERT INTO work_history_details

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { ResumeImport } from "./ResumeImport";
 import type { CareerFile } from "@core/career-file";
 import {
@@ -21,8 +21,11 @@ import {
   type CareerHistorySectionKey,
 } from "@core/career-history";
 import {
+  DEFAULT_WORK_MAP_OVERVIEW_FIELDS,
+  WORK_MAP_OVERVIEW_FIELDS,
   publicationEmbed,
   roleCoverPhoto,
+  type WorkMapOverviewField,
   type WorkMapPublicationSettings,
   type WorkMapPublishSection,
   type WorkMapRole,
@@ -117,6 +120,7 @@ export function WorkMap({
   const [closedSections, setClosedSections] = useState<
     Set<CareerHistorySectionKey>
   >(new Set());
+  const [overviewOpen, setOverviewOpen] = useState(true);
   const [view, setView] = useState<"map" | "timeline">("map");
   const [timelineMonth, setTimelineMonth] = useState(currentCareerMonth);
   const [timelinePlaying, setTimelinePlaying] = useState(false);
@@ -1038,6 +1042,22 @@ export function WorkMap({
             </div>
           }
         />
+        <HistoryOverview
+          figures={
+            recordOpen && selected
+              ? roleOverviewFigures(selected)
+              : [
+                  { label: "Total Tenure", value: stats.tenure || "—" },
+                  { label: "Roles", value: String(stats.roles) },
+                  { label: "Miles Traveled", value: String(stats.miles) },
+                  { label: "Cities", value: String(stats.cities) },
+                ]
+          }
+          open={overviewOpen}
+          role={recordOpen ? selected : null}
+          onSaved={load}
+          onToggle={() => setOverviewOpen((open) => !open)}
+        />
           {recordOpen && selected ? (
           <RoleDetailPanel
             role={selected}
@@ -1099,24 +1119,6 @@ export function WorkMap({
               </button>
             </div>
           </header>
-          <div className="work-map-stats">
-            <div>
-              <span>Total Tenure</span>
-              <strong>{stats.tenure || "—"}</strong>
-            </div>
-            <div>
-              <span>Roles</span>
-              <strong>{stats.roles}</strong>
-            </div>
-            <div>
-              <span>Miles Traveled</span>
-              <strong>{stats.miles}</strong>
-            </div>
-            <div>
-              <span>Cities</span>
-              <strong>{stats.cities}</strong>
-            </div>
-          </div>
           <div className="work-map-tools" ref={toolsRef}>
             <input
               value={search}
@@ -2272,6 +2274,199 @@ function asHistoryItem(role: WorkMapRole): CareerHistoryItem {
       longitude: location.longitude,
     })),
   };
+}
+
+function roleOverviewFigures(role: WorkMapRole): { label: string; value: string }[] {
+  const keys = role.details.overviewFields ?? DEFAULT_WORK_MAP_OVERVIEW_FIELDS;
+  return keys.map((key) => ({
+    label: WORK_MAP_OVERVIEW_FIELDS.find((field) => field.key === key)?.label ?? key,
+    value: overviewFieldValue(role, key),
+  }));
+}
+
+function overviewFieldValue(role: WorkMapRole, key: WorkMapOverviewField): string {
+  switch (key) {
+    case "achievements":
+      return String(role.achievements.length);
+    case "events":
+      return String(role.details.events.length);
+    case "media":
+      return String(role.media.length);
+    case "tools":
+      return String(role.details.techStack.length);
+    case "milestones":
+      return String(role.details.milestones.length);
+    case "skills":
+      return String(role.details.skills.length);
+    case "equipment":
+      return String(role.details.equipment.length);
+    case "colleagues":
+      return String(role.details.colleagues.length);
+  }
+}
+
+function HistoryOverview({
+  figures,
+  open,
+  role,
+  onSaved,
+  onToggle,
+}: {
+  figures: { label: string; value: string }[];
+  open: boolean;
+  role: WorkMapRole | null;
+  onSaved: () => void | Promise<void>;
+  onToggle: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [picked, setPicked] = useState<WorkMapOverviewField[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (editing && !dialog.open) dialog.showModal();
+    if (!editing && dialog.open) dialog.close();
+  }, [editing]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const onClose = () => setEditing(false);
+    dialog.addEventListener("close", onClose);
+    return () => dialog.removeEventListener("close", onClose);
+  }, []);
+
+  function openEditor() {
+    if (!role) return;
+    setError("");
+    setPicked([...(role.details.overviewFields ?? DEFAULT_WORK_MAP_OVERVIEW_FIELDS)]);
+    setEditing(true);
+  }
+
+  function toggleField(key: WorkMapOverviewField) {
+    setPicked((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+    );
+  }
+
+  async function saveFields(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!role) return;
+    setSaving(true);
+    setError("");
+    const ordered = WORK_MAP_OVERVIEW_FIELDS.map((field) => field.key).filter((key) =>
+      picked.includes(key),
+    );
+    const response = await fetch(`/api/work-map/roles/${role.id}/details`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ overviewFields: ordered }),
+    });
+    setSaving(false);
+    if (!response.ok) {
+      setError("Could not save these overview fields.");
+      return;
+    }
+    setEditing(false);
+    await onSaved();
+  }
+
+  const columns =
+    role && figures.length > 0 ? Math.min(figures.length, 4) : undefined;
+
+  return (
+    <section
+      className={[
+        "history-overview",
+        open ? "" : "is-collapsed",
+        role ? "is-role" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      aria-label="Overview"
+    >
+      <div className="history-overview-bar">
+        <button
+          className="history-overview-toggle"
+          type="button"
+          aria-expanded={open}
+          aria-controls="history-overview-stats"
+          onClick={onToggle}
+        >
+          <span>Overview</span>
+          <i className="history-overview-chevron" aria-hidden="true" />
+        </button>
+        {role ? (
+          <button className="focus-edit" type="button" onClick={openEditor}>
+            Edit
+          </button>
+        ) : null}
+      </div>
+      {figures.length === 0 ? (
+        <p className="history-overview-empty" id="history-overview-stats">
+          No fields highlighted.
+        </p>
+      ) : (
+        <div
+          className="work-map-stats"
+          id="history-overview-stats"
+          style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
+        >
+          {figures.map((figure) => (
+            <div key={figure.label}>
+              <span>{figure.label}</span>
+              <strong>{figure.value}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+      {role ? (
+        <dialog
+          ref={dialogRef}
+          className="focus-pop"
+          aria-label="Overview fields"
+          onClick={(event: MouseEvent<HTMLDialogElement>) => {
+            if (event.target === event.currentTarget) setEditing(false);
+          }}
+        >
+          <div className="sheet">
+            <div className="sheet-head">
+              <div>
+                <h2>Overview</h2>
+                <p>{role.organization || role.title || "This role"}</p>
+              </div>
+              <button className="close" type="button" onClick={() => setEditing(false)}>
+                Close
+              </button>
+            </div>
+            <form className="role-form" onSubmit={(event) => void saveFields(event)}>
+              <p>Choose the fields to show for this role.</p>
+              {WORK_MAP_OVERVIEW_FIELDS.map((field) => (
+                <label className="role-check" key={field.key}>
+                  <input
+                    type="checkbox"
+                    checked={picked.includes(field.key)}
+                    onChange={() => toggleField(field.key)}
+                  />
+                  <span>
+                    {field.label}
+                    <em> · {overviewFieldValue(role, field.key)}</em>
+                  </span>
+                </label>
+              ))}
+              {error ? <p>{error}</p> : null}
+              <button disabled={saving} type="submit">
+                {saving ? "Saving…" : "Save overview"}
+              </button>
+            </form>
+          </div>
+        </dialog>
+      ) : null}
+    </section>
+  );
 }
 
 function HistoryRow({
