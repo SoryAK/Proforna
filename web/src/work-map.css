@@ -160,7 +160,6 @@
   border: 1px solid rgba(199, 164, 123, 0.28);
   border-radius: 16px;
   background: #0d0b09;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
 }
 
 .work-map-float .work-map-ledger {
@@ -181,7 +180,6 @@
   border: 1px solid rgba(199, 164, 123, 0.28);
   border-radius: 16px;
   background: #0d0b09;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
 }
 
 .career-bio-home {
@@ -895,6 +893,80 @@
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.publication-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.15rem 0.15rem 0.45rem;
+  background: transparent;
+}
+
+.publication-pill {
+  display: flex;
+  align-items: center;
+  height: 2.25rem;
+  padding: 0.15rem 0.15rem 0.15rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(167, 139, 113, 0.1);
+  font: 600 0.875rem/1 var(--sans);
+}
+
+.publication-pill .status,
+.publication-pill .quiet {
+  color: rgba(185, 170, 151, 0.72);
+  font-weight: 500;
+}
+
+.publication-pill .status {
+  padding-right: 0.35rem;
+}
+
+.work-map .publication-pill button {
+  height: 1.95rem;
+  min-height: 1.95rem;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+}
+
+.work-map .publication-pill .quiet:hover {
+  border: 0;
+  background: transparent;
+  color: rgba(201, 184, 160, 0.92);
+}
+
+.work-map .publication-pill button.is-primary {
+  background: var(--gold);
+  color: #090806;
+  font-weight: 650;
+}
+
+.work-map .publication-pill button.is-primary:hover {
+  border: 0;
+  background: var(--gold-hover);
+  color: #090806;
+}
+
+.work-map .publication-revoke {
+  height: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #e6a196;
+  font: 500 0.875rem/1 var(--sans);
+}
+
+.work-map .publication-revoke:hover {
+  background: rgba(205, 103, 86, 0.12);
 }
 
 .work-map-stats {
@@ -2231,6 +2303,42 @@
   font-size: 0.7rem;
 }
 
+.publication-menu-anchor {
+  position: relative;
+}
+
+.publication-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  display: grid;
+  min-width: 11rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 12px;
+  background: #13100d;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.work-map .publication-pill .publication-menu button {
+  height: auto;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold-light);
+  font: 500 0.875rem/1.2 var(--sans);
+  text-align: left;
+}
+
+.work-map .publication-pill .publication-menu button:hover {
+  border: 0;
+  background: rgba(167, 139, 113, 0.12);
+  color: var(--gold-hover);
+}
+
 .publication-settings form {
   display: grid;
   flex: 1;
@@ -2745,4 +2853,758 @@
   margin: 0.2rem 0 0;
   color: var(--wm-muted);
   font-size: 0.85rem;
+}
+
+.work-map .work-map-layout {
+  display: block;
+  background: #0a0a0a;
+}
+
+.work-map .work-map-stage {
+  position: absolute;
+  inset: 0.75rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px;
+  background: #0a0a0a;
+}
+
+.work-map .work-map-stage .work-map-canvas,
+.work-map .work-map-stage .work-map-google,
+.work-map .work-map-stage .gm-style {
+  border-radius: 16px;
+}
+
+.work-map .work-map-float {
+  position: absolute;
+  z-index: 3;
+  top: 1.75rem;
+  right: auto;
+  bottom: 1.75rem;
+  left: 1.75rem;
+  width: min(24rem, 38vw);
+  overflow: auto;
+}
+
+.work-map .work-map-view-switch,
+.work-map .career-timeline-card {
+  left: auto;
+  right: 0.8rem;
+}
+
+.work-map .career-map-timeline {
+  padding-left: calc(min(24rem, 38vw) + 1.75rem);
+}
+
+.work-map .career-timeline-float {
+  left: calc((min(24rem, 38vw) + 1.75rem + 100%) / 2);
+}
+
+.profile-links {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.profile-bar,
+.focus-title-row,
+.focus-editor-bar,
+.focus-pop > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.profile-bar .career-bio-home,
+.focus-card > .role-back {
+  align-self: flex-start;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold-light);
+  font: 600 0.8125rem/1 var(--sans);
+}
+
+.focus-card > .role-back {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 999px;
+  background: #0d0b09;
+}
+
+.focus-edit,
+.job-more-toggle {
+  flex: none;
+  min-height: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-light);
+  font: 600 0.75rem/1.2 var(--sans);
+}
+
+.focus-edit:hover,
+.job-more-toggle:hover {
+  border-color: var(--gold-hover);
+  background: rgba(167, 139, 113, 0.16);
+  color: var(--text);
+}
+
+.role-detail.is-inline.focus-card {
+  gap: 0.65rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.focus-job,
+.focus-hub {
+  border: 1px solid rgba(199, 164, 123, 0.22);
+  border-radius: 16px;
+  background: #0d0b09;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.focus-job {
+  overflow: hidden;
+}
+
+.focus-job .role-focus {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.focus-job .role-focus-body {
+  padding: 0.7rem 0.9rem 0;
+}
+
+.focus-job .job-pills {
+  margin: 0.45rem 0.9rem 0.85rem;
+}
+
+.focus-title-row h2 {
+  min-width: 0;
+  margin: 0;
+}
+
+.focus-gist {
+  margin: 0.35rem 0 0;
+  overflow: hidden;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.job-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.4rem;
+  max-height: 4.75rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.job-pills > * {
+  flex: none;
+  white-space: nowrap;
+}
+
+.gallery-card {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.gallery-card:hover {
+  background: rgba(167, 139, 113, 0.08);
+}
+
+.gallery-strip {
+  display: grid;
+  grid-template-columns: 1.7fr 0.72fr 0.72fr;
+  gap: 0.35rem;
+  height: 4.5rem;
+}
+
+.gallery-strip.is-one {
+  grid-template-columns: 1fr;
+}
+
+.gallery-strip.is-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.gallery-strip {
+  overflow: hidden;
+}
+
+.gallery-strip img,
+.gallery-strip .focus-gallery-chip {
+  display: block;
+  width: 100%;
+  height: 4.5rem;
+  min-height: 0;
+  max-height: 4.5rem;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.job-pills a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 999px;
+  color: var(--gold-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.job-pills a svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+}
+
+.job-pills a span {
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(199, 164, 123, 0.35);
+}
+
+.people-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.person {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 12px;
+}
+
+.person span,
+.person p {
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+}
+
+.person a {
+  color: var(--gold-light);
+}
+
+.gallery-card b {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.gallery-label {
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.social-mark {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold-light);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.focus-gallery-open {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 12px;
+  background: #13100d;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+.focus-gallery-strip {
+  display: flex;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+}
+
+.focus-gallery-strip img,
+.focus-gallery-chip {
+  width: 3.25rem;
+  height: 2.5rem;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.focus-gallery-chip {
+  display: grid;
+  place-items: center;
+  background: #1a1510;
+  color: var(--gold-light);
+  font-size: 0.6875rem;
+}
+
+.focus-editor,
+.focus-pop {
+  width: min(42rem, calc(100vw - 2rem));
+  max-height: min(40rem, calc(100vh - 2rem));
+  overflow: auto;
+  padding: 0.9rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 16px;
+  background: #0d0b09;
+  color: var(--text);
+}
+
+.focus-pop {
+  width: min(32rem, calc(100vw - 2rem));
+}
+
+.focus-editor::backdrop,
+.focus-pop::backdrop {
+  background: rgba(8, 7, 6, 0.72);
+}
+
+.focus-gallery-full {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.focus-gallery-full img,
+.focus-gallery-full video {
+  width: 100%;
+  max-height: 16rem;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #1a1510;
+}
+
+.focus-gallery-full figcaption {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+}
+
+.focus-events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.focus-events li + li {
+  margin-top: 0.45rem;
+}
+
+.focus-events button {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.focus-events p {
+  margin: 0.45rem 0;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .work-map .work-map-layout {
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+  }
+
+  .work-map .work-map-stage {
+    position: relative;
+    inset: auto;
+    height: 55vh;
+    min-height: 18rem;
+    border: 1px solid rgba(167, 139, 113, 0.22);
+    border-radius: 16px;
+  }
+
+  .work-map .work-map-float {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .work-map .work-map-view-switch,
+  .work-map .career-timeline-card {
+    left: 0.8rem;
+  }
+
+  .work-map .career-map-timeline {
+    padding-left: clamp(1rem, 5vw, 5rem);
+  }
+
+  .work-map .career-timeline-float {
+    left: 50%;
+  }
+}
+
+.focus-card,
+.work-map .career-bio,
+.focus-editor,
+.focus-pop {
+  color: #f5f2ee;
+  font-family: "Geist Variable", "Geist", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.work-map .career-bio h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.work-map .career-bio p,
+.work-map .career-bio-place,
+.work-map .career-bio-about {
+  font-size: 0.875rem;
+}
+
+.work-map .career-bio-home {
+  font: 600 0.8125rem/1 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.profile-bar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.profile-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.publication-cluster {
+  display: contents;
+}
+
+.profile-controls .publication-status,
+.profile-controls .publication-cluster > button,
+.profile-controls .publication-menu-anchor > button,
+.work-map .career-bio .profile-controls .focus-edit {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #c9b8a0;
+  font: 600 0.8125rem/1 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.profile-controls .publication-cluster > button:hover,
+.profile-controls .publication-menu-anchor > button:hover,
+.work-map .career-bio .profile-controls .focus-edit:hover {
+  border: 0;
+  background: transparent;
+  color: #f5f2ee;
+}
+
+.profile-controls .publication-menu-anchor > button.is-primary,
+.profile-controls .publication-menu-anchor > button.is-primary:hover {
+  border: 0;
+  background: transparent;
+  color: #e8d5b7;
+}
+
+.profile-controls .publication-revoke,
+.profile-controls .publication-revoke:hover {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #e6a196;
+}
+
+.profile-controls .publication-menu button {
+  height: auto;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: #c9b8a0;
+  font: 500 0.875rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
+  text-align: left;
+}
+
+.profile-controls .publication-menu button:hover {
+  border: 0;
+  background: rgba(167, 139, 113, 0.16);
+  color: #f5f2ee;
+}
+
+.focus-job .focus-edit,
+.focus-job .job-more-toggle,
+.focus-editor button,
+.focus-pop button,
+.focus-editor .role-cover-file,
+.focus-pop a.close {
+  min-height: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 999px;
+  background: #13100d;
+  box-shadow: none;
+  color: #c9b8a0;
+  font: 600 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-editor .close,
+.focus-pop .close {
+  padding: 0.4rem 0.7rem;
+  border-color: rgba(199, 164, 123, 0.22);
+  background: transparent;
+  font: 600 0.8125rem/1 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-job .focus-edit:hover,
+.focus-job .job-more-toggle:hover,
+.focus-editor button:hover,
+.focus-pop button:hover,
+.focus-editor .role-cover-file:hover {
+  border-color: #e8d5b7;
+  background: rgba(167, 139, 113, 0.16);
+  color: #f5f2ee;
+}
+
+.focus-editor,
+.focus-pop {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: min(32rem, calc(100vh - 2rem));
+  padding: 0;
+  border: 1px solid rgba(199, 164, 123, 0.4);
+  border-radius: 16px;
+  background: #13100d;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+}
+
+.focus-editor .sheet,
+.focus-pop .sheet {
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.focus-editor .sheet-head,
+.focus-pop .sheet-head,
+.sheet-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sheet-actions {
+  flex: none;
+}
+
+.focus-editor .sheet h2,
+.focus-pop .sheet h2 {
+  margin: 0;
+  color: #f5f2ee;
+  font: 600 1.15rem/1.25 "Geist Variable", "Geist", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.focus-editor .sheet-head p,
+.focus-pop .sheet-head p {
+  margin: 0.25rem 0 0;
+  color: #c9b8a0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.focus-editor nav.panes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1rem 0;
+  border: 0;
+}
+
+.focus-editor nav.panes button {
+  flex: none;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font: 600 0.875rem/1 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-editor nav.panes button.is-active {
+  border-color: #a78b71;
+  background: #1c1814;
+  box-shadow: none;
+  color: #e8d5b7;
+}
+
+.focus-editor .role-detail-scroll {
+  padding: 0;
+  overflow: visible;
+}
+
+.focus-editor .role-form,
+.focus-pop .role-form {
+  gap: 0.75rem;
+  padding-bottom: 0;
+}
+
+.focus-editor .role-form + .role-form,
+.focus-editor .role-form + .role-existing,
+.focus-editor .role-existing + .role-form {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(199, 164, 123, 0.22);
+}
+
+.focus-editor h3,
+.focus-pop h3,
+.focus-editor .role-form h3,
+.focus-editor .role-existing h3 {
+  margin: 0 0 0.75rem;
+  color: #f5f2ee;
+  font: 600 0.875rem/1.3 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-editor .role-form label,
+.focus-pop .role-form label {
+  color: #c9b8a0;
+  font-size: 0.75rem;
+}
+
+.focus-editor .role-form input:not([type="checkbox"]):not([type="file"]),
+.focus-editor .role-form textarea,
+.focus-editor .role-form select,
+.focus-pop .role-form input:not([type="checkbox"]):not([type="file"]),
+.focus-pop .role-form textarea,
+.focus-pop .role-form select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.22);
+  border-radius: 10px;
+  background: #0b0908;
+  color: #f5f2ee;
+  color-scheme: dark;
+  font: 0.875rem/1.4 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-editor .role-form .role-check,
+.focus-pop .role-form .role-check {
+  color: #f5f2ee;
+  font-size: 0.875rem;
+}
+
+.focus-editor .role-form button[type="submit"],
+.focus-pop .role-form button[type="submit"] {
+  border: 0;
+  background: #a78b71;
+  color: #090806;
+  font: 600 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-editor button.is-danger,
+.focus-pop button.is-danger {
+  border-color: rgba(205, 103, 86, 0.55);
+  background: #13100d;
+  color: #e6a196;
+}
+
+.focus-pop .focus-events > li > button {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.focus-editor .role-form-note,
+.focus-pop .role-form-note,
+.focus-pop .sheet > p {
+  color: #c9b8a0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.focus-editor .role-form button[type="submit"]:hover,
+.focus-pop .role-form button[type="submit"]:hover {
+  border: 0;
+  background: #c9b8a0;
+  color: #090806;
+}
+
+.focus-editor .role-form input[type="file"],
+.focus-pop .role-form input[type="file"] {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #c9b8a0;
+  font: 0.75rem/1.4 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.focus-editor .role-form input[type="file"]::file-selector-button,
+.focus-pop .role-form input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 999px;
+  background: #13100d;
+  color: #c9b8a0;
+  font: 600 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
 }

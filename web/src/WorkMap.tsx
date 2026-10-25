@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ResumeImport } from "./ResumeImport";
 import type { CareerFile } from "@core/career-file";
 import {
@@ -21,9 +21,7 @@ import {
   type CareerHistorySectionKey,
 } from "@core/career-history";
 import {
-  publicationAllowsSnapshot,
   publicationEmbed,
-  publicationNeedsAudienceConfirm,
   roleCoverPhoto,
   type WorkMapPublicationSettings,
   type WorkMapPublishSection,
@@ -69,6 +67,9 @@ type WorkMapResponse = {
     city: string;
     state: string;
     bio: string;
+    linkedinUrl: string;
+    githubUrl: string;
+    portfolioUrl: string;
     avatarUrl: string | null;
   };
   roles: WorkMapRole[];
@@ -120,7 +121,8 @@ export function WorkMap({
   const [timelineMonth, setTimelineMonth] = useState(currentCareerMonth);
   const [timelinePlaying, setTimelinePlaying] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [publishMenu, setPublishMenu] = useState(false);
+  const publishMenuRef = useRef<HTMLDivElement>(null);
   const [placingForId, setPlacingForId] = useState<string | null>(null);
   const [placingLocationId, setPlacingLocationId] = useState<string | null>(
     null,
@@ -157,8 +159,8 @@ export function WorkMap({
   } | null>(null);
   const previewRef = useRef(preview);
   previewRef.current = preview;
-  const [previewAsk, setPreviewAsk] = useState(false);
-  const [rememberPreview, setRememberPreview] = useState(false);
+  const [previewMenu, setPreviewMenu] = useState(false);
+  const previewMenuRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
@@ -492,42 +494,34 @@ export function WorkMap({
   }, [search, historyItems, selectRole]);
 
   function openSettings() {
-    setConfirmOpen(false);
+    setPublishMenu(false);
     setSettingsOpen(true);
   }
 
   function requestPublish() {
-    if (!settings) return;
-    if (
-      publicationNeedsAudienceConfirm({
-        visibility: settings.visibility,
-        liveStatus: latest?.status,
-      })
-    ) {
-      setSettingsOpen(false);
-      setConfirmOpen(true);
-      return;
-    }
+    if (!settings || publishing) return;
+    setPreviewMenu(false);
+    setPublishMenu((open) => !open);
+  }
+
+  function confirmPublish() {
+    setPublishMenu(false);
     void publish();
   }
 
   async function requestPreview() {
+    setPublishMenu(false);
     const choice = readPreviewPlacement();
     if (choice === "ask") {
-      setRememberPreview(false);
-      setPreviewAsk(true);
+      setPreviewMenu((open) => !open);
       return;
     }
+    setPreviewMenu(false);
     await showPreview(choice);
   }
 
   async function choosePreview(where: "here" | "window") {
-    if (rememberPreview) {
-      writePreviewPlacement(where);
-      setPlacement(where);
-    }
-    setPreviewAsk(false);
-    setRememberPreview(false);
+    setPreviewMenu(false);
     await showPreview(where);
   }
 
@@ -883,6 +877,21 @@ export function WorkMap({
     await load();
   }
 
+  useEffect(() => {
+    if (!previewMenu && !publishMenu) return;
+    function onPointer(event: PointerEvent) {
+      const target = event.target as Node;
+      if (previewMenu && !previewMenuRef.current?.contains(target)) {
+        setPreviewMenu(false);
+      }
+      if (publishMenu && !publishMenuRef.current?.contains(target)) {
+        setPublishMenu(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [previewMenu, publishMenu]);
+
   if (!data) {
     return (
       <section className="work-map-loading">
@@ -958,7 +967,77 @@ export function WorkMap({
         hidden={preview !== null}
       >
         <div className="work-map-float">
-          <CareerBio profile={data.profile} onHome={onHome} />
+          <CareerBio
+          profile={data.profile}
+          onHome={onHome}
+          onHistory={recordOpen ? () => setSelectedId(null) : undefined}
+          onSaved={load}
+          controls={
+            <div className="publication-cluster" role="group" aria-label="Publication">
+              <span
+                className="publication-status"
+                title={
+                  latest
+                    ? `${latest.analytics.events} events · ${latest.analytics.accessRequests} requests`
+                    : "Nothing leaves the vault until you publish"
+                }
+              >
+                {latest?.status === "published"
+                  ? "Published"
+                  : latest?.status === "revoked"
+                    ? "Revoked"
+                    : "Private"}
+              </span>
+              <div className="publication-menu-anchor" ref={previewMenuRef}>
+                <button
+                  type="button"
+                  aria-expanded={previewMenu}
+                  aria-haspopup="menu"
+                  onClick={() => void requestPreview()}
+                >
+                  Preview
+                </button>
+                {previewMenu ? (
+                  <div className="publication-menu" role="menu" aria-label="Open preview">
+                    <button type="button" role="menuitem" onClick={() => void choosePreview("here")}>
+                      This window
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => void choosePreview("window")}>
+                      New window
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="publication-menu-anchor" ref={publishMenuRef}>
+                <button
+                  className="is-primary"
+                  disabled={publishing}
+                  type="button"
+                  aria-expanded={publishMenu}
+                  aria-haspopup="menu"
+                  onClick={requestPublish}
+                >
+                  {publishLabel}
+                </button>
+                {publishMenu ? (
+                  <div className="publication-menu" role="menu" aria-label="Publish">
+                    <button type="button" role="menuitem" onClick={confirmPublish}>
+                      Confirm publish
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => setPublishMenu(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              {latest?.status === "published" ? (
+                <button className="publication-revoke" type="button" onClick={revoke}>
+                  Revoke
+                </button>
+              ) : null}
+            </div>
+          }
+        />
           {recordOpen && selected ? (
           <RoleDetailPanel
             role={selected}
@@ -999,19 +1078,6 @@ export function WorkMap({
               </button>
             ) : null}
             <div className="history-publish">
-              <span
-                title={
-                  latest
-                    ? `${latest.analytics.events} events · ${latest.analytics.accessRequests} requests`
-                    : "Nothing leaves the vault until you publish"
-                }
-              >
-                {latest?.status === "published"
-                  ? "Published"
-                  : latest?.status === "revoked"
-                    ? "Revoked"
-                    : "Private"}
-              </span>
               <button
                 className="history-icon"
                 type="button"
@@ -1031,24 +1097,6 @@ export function WorkMap({
               >
                 <SettingsIcon />
               </button>
-              <button type="button" onClick={() => void requestPreview()}>
-                Preview
-              </button>
-              <button
-                className="history-icon"
-                disabled={publishing}
-                type="button"
-                aria-label={publishLabel}
-                title={publishLabel}
-                onClick={requestPublish}
-              >
-                <PublishIcon />
-              </button>
-              {latest?.status === "published" ? (
-                <button className="is-danger" type="button" onClick={revoke}>
-                  Revoke
-                </button>
-              ) : null}
             </div>
           </header>
           <div className="work-map-stats">
@@ -1438,34 +1486,6 @@ export function WorkMap({
             />
           </>
         ) : null}
-        {confirmOpen && settings ? (
-          <>
-            <button
-              className="publication-settings-backdrop"
-              type="button"
-              aria-label="Close publish confirmation"
-              onClick={() => setConfirmOpen(false)}
-            />
-            <PublishConfirm
-              publishing={publishing}
-              visibility={settings.visibility}
-              onClose={() => setConfirmOpen(false)}
-              onOpenSettings={openSettings}
-              onPublish={() => {
-                setConfirmOpen(false);
-                void publish();
-              }}
-            />
-          </>
-        ) : null}
-        {previewAsk ? (
-          <PreviewAsk
-            remember={rememberPreview}
-            onRemember={setRememberPreview}
-            onChoose={(where) => void choosePreview(where)}
-            onClose={() => setPreviewAsk(false)}
-          />
-        ) : null}
         {importOpen ? (
           <ResumeImport
             onClose={() => setImportOpen(false)}
@@ -1544,10 +1564,21 @@ function toHomePin(residence: Residence): (WorkMapHome & { id: string }) | null 
 function CareerBio({
   profile,
   onHome,
+  onHistory,
+  onSaved,
+  controls,
 }: {
   profile: WorkMapResponse["profile"];
   onHome: () => void;
+  onHistory?: () => void;
+  onSaved: () => Promise<void>;
+  controls?: ReactNode;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const editorRef = useRef<HTMLDialogElement>(null);
+  const githubRef = useRef<HTMLDialogElement>(null);
   const place = [
     profile.address,
     [profile.city, profile.state].filter(Boolean).join(", "),
@@ -1560,12 +1591,95 @@ function CareerBio({
     .map((part) => part[0] ?? "")
     .join("")
     .toUpperCase();
+  const socials = [
+    profile.githubUrl
+      ? { name: "GitHub", url: profile.githubUrl, github: true }
+      : null,
+    profile.linkedinUrl
+      ? { name: "LinkedIn", url: profile.linkedinUrl, github: false }
+      : null,
+    profile.portfolioUrl
+      ? { name: "Site", url: profile.portfolioUrl, github: false }
+      : null,
+  ].filter((item) => item !== null);
+
+  useEffect(() => {
+    const dialog = editorRef.current;
+    if (!dialog) return;
+    if (editing && !dialog.open) dialog.showModal();
+    if (!editing && dialog.open) dialog.close();
+  }, [editing]);
+
+  useEffect(() => {
+    const dialog = githubRef.current;
+    if (!dialog) return;
+    if (githubOpen && !dialog.open) dialog.showModal();
+    if (!githubOpen && dialog.open) dialog.close();
+  }, [githubOpen]);
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNote("");
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        fullName: String(form.get("fullName") ?? ""),
+        headline: String(form.get("headline") ?? ""),
+        address: String(form.get("address") ?? ""),
+        city: String(form.get("city") ?? ""),
+        state: String(form.get("state") ?? ""),
+        bio: String(form.get("bio") ?? ""),
+        linkedinUrl: String(form.get("linkedinUrl") ?? ""),
+        githubUrl: String(form.get("githubUrl") ?? ""),
+        portfolioUrl: String(form.get("portfolioUrl") ?? ""),
+      }),
+    });
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setNote(body.error ?? "Could not save this profile.");
+      return;
+    }
+    const photo = form.get("avatar");
+    if (photo instanceof File && photo.size > 0) {
+      const upload = new FormData();
+      upload.set("avatar", photo);
+      const avatar = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: upload,
+      });
+      if (!avatar.ok) {
+        const body = (await avatar.json()) as { error?: string };
+        setNote(body.error ?? "The profile saved, but the photo did not.");
+        await onSaved();
+        return;
+      }
+    }
+    setEditing(false);
+    await onSaved();
+  }
 
   return (
     <section className="career-bio" aria-label="Profile">
-      <button className="career-bio-home" type="button" onClick={onHome}>
-        Home
-      </button>
+      <div className="profile-bar">
+        <span className="profile-links">
+          <button className="career-bio-home" type="button" onClick={onHome}>
+            Home
+          </button>
+          {onHistory ? (
+            <button className="career-bio-home" type="button" onClick={onHistory}>
+              History
+            </button>
+          ) : null}
+        </span>
+        <div className="profile-controls">
+          {controls}
+          <button className="focus-edit" type="button" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        </div>
+      </div>
       <div className="career-bio-row">
         {profile.avatarUrl ? (
           <img src={profile.avatarUrl} alt="" />
@@ -1581,8 +1695,138 @@ function CareerBio({
           {profile.bio ? <p className="career-bio-about">{profile.bio}</p> : null}
         </div>
       </div>
+      {socials.length > 0 ? (
+        <div className="socials">
+          {socials.map((item) =>
+            item.github ? (
+              <button
+                key={item.name}
+                className="social-mark"
+                type="button"
+                onClick={() => setGithubOpen(true)}
+              >
+                {item.name}
+              </button>
+            ) : (
+              <a
+                key={item.name}
+                className="social-mark"
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {item.name}
+              </a>
+            ),
+          )}
+        </div>
+      ) : null}
+
+      <dialog
+        ref={githubRef}
+        className="focus-pop"
+        aria-label="GitHub"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setGithubOpen(false);
+        }}
+        onClose={() => setGithubOpen(false)}
+      >
+        <div className="sheet">
+          <div className="sheet-head">
+            <div>
+              <h2>GitHub</h2>
+              <p>{githubHandle(profile.githubUrl)}</p>
+            </div>
+            <button className="close" type="button" onClick={() => setGithubOpen(false)}>
+              Close
+            </button>
+          </div>
+          <a className="close" href={profile.githubUrl} target="_blank" rel="noreferrer">
+            Open GitHub
+          </a>
+        </div>
+      </dialog>
+
+      <dialog
+        ref={editorRef}
+        className="focus-editor"
+        aria-label="Edit profile"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setEditing(false);
+        }}
+        onClose={() => setEditing(false)}
+      >
+        <div className="sheet">
+        <div className="sheet-head">
+          <div>
+            <h2>Edit profile</h2>
+            <p>{profile.fullName}</p>
+          </div>
+          <button className="close" type="button" onClick={() => setEditing(false)}>
+            Close
+          </button>
+        </div>
+        <form className="role-form" onSubmit={(event) => void saveProfile(event)}>
+          <label>
+            Photo
+            <input name="avatar" type="file" accept="image/*" />
+          </label>
+          <label>
+            Name
+            <input name="fullName" defaultValue={profile.fullName} />
+          </label>
+          <label>
+            Headline
+            <input name="headline" defaultValue={profile.headline} />
+          </label>
+          <label>
+            Address
+            <input name="address" defaultValue={profile.address} />
+          </label>
+          <div className="role-form-pair">
+            <label>
+              City
+              <input name="city" defaultValue={profile.city} />
+            </label>
+            <label>
+              State
+              <input name="state" defaultValue={profile.state} />
+            </label>
+          </div>
+          <label>
+            Short bio
+            <textarea name="bio" defaultValue={profile.bio} rows={3} />
+          </label>
+          <h3>Social links</h3>
+          <label>
+            GitHub
+            <input name="githubUrl" defaultValue={profile.githubUrl} />
+          </label>
+          <label>
+            LinkedIn
+            <input name="linkedinUrl" defaultValue={profile.linkedinUrl} />
+          </label>
+          <label>
+            Site
+            <input name="portfolioUrl" defaultValue={profile.portfolioUrl} />
+          </label>
+          {note ? <p className="role-form-note">{note}</p> : null}
+          <button type="submit">Save profile</button>
+        </form>
+        </div>
+      </dialog>
     </section>
   );
+}
+
+function githubHandle(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const name = parsed.pathname.split("/").filter(Boolean)[0];
+    return name || url;
+  } catch {
+    return url;
+  }
 }
 
 function RoleSheet({
@@ -1946,123 +2190,6 @@ function PublicationSettings({
   );
 }
 
-function PreviewAsk({
-  remember,
-  onRemember,
-  onChoose,
-  onClose,
-}: {
-  remember: boolean;
-  onRemember: (remember: boolean) => void;
-  onChoose: (where: "here" | "window") => void;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <aside className="publication-confirm" role="dialog" aria-label="Open preview">
-      <h2>Open preview</h2>
-      <p>
-        The preview stays in this window unless you choose a new window, or set
-        that as the default.
-      </p>
-      <label className="publication-check">
-        <input
-          type="checkbox"
-          checked={remember}
-          onChange={(event) => onRemember(event.target.checked)}
-        />
-        Use this choice from now on
-      </label>
-      <div className="publication-confirm-actions">
-        <button type="button" onClick={() => onChoose("here")}>
-          This window
-        </button>
-        <button type="button" onClick={() => onChoose("window")}>
-          New window
-        </button>
-      </div>
-    </aside>
-  );
-}
-
-function PublishConfirm({
-  publishing,
-  visibility,
-  onClose,
-  onOpenSettings,
-  onPublish,
-}: {
-  publishing: boolean;
-  visibility: WorkMapPublicationSettings["visibility"];
-  onClose: () => void;
-  onOpenSettings: () => void;
-  onPublish: () => void;
-}) {
-  const canPublish = publicationAllowsSnapshot(visibility);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <aside className="publication-confirm" role="dialog" aria-label="Publish snapshot">
-      <h2>Publish snapshot</h2>
-      <p>
-        {canPublish
-          ? `This sends the current career record to the relay as ${visibilityLabel(visibility)}.`
-          : "Visibility is Private, so nothing is sent. Choose an audience in settings, then publish."}
-      </p>
-      <div className="publication-confirm-actions">
-        <button type="button" onClick={onClose}>
-          Cancel
-        </button>
-        {canPublish ? (
-          <button
-            className="is-primary"
-            disabled={publishing}
-            type="button"
-            onClick={onPublish}
-          >
-            {publishing ? "Publishing…" : "Publish snapshot"}
-          </button>
-        ) : (
-          <button className="is-primary" type="button" onClick={onOpenSettings}>
-            Open settings
-          </button>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function visibilityLabel(visibility: WorkMapPublicationSettings["visibility"]) {
-  switch (visibility) {
-    case "public":
-      return "Public";
-    case "unlisted":
-      return "Unlisted";
-    case "access-controlled":
-      return "Access controlled";
-    case "stealth":
-      return "Stealth";
-    case "anonymous":
-      return "Anonymous";
-    case "private":
-      return "Private";
-  }
-}
-
 function currentCareerMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -2211,12 +2338,3 @@ function SettingsIcon() {
   );
 }
 
-function PublishIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 15.5V5" />
-      <path d="M8 8.5 12 4.5l4 4" />
-      <path d="M5 15.5v4h14v-4" />
-    </svg>
-  );
-}

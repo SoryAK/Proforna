@@ -225,7 +225,19 @@ export type WorkMapMoment = {
   isPublic: boolean;
 };
 
+export type WorkMapColleague = {
+  id: string;
+  name: string;
+  title: string;
+  note: string;
+  url: string;
+};
+
 export type WorkMapRoleDetails = {
+  summary: string;
+  website: string;
+  linkedin: string;
+  colleagues: WorkMapColleague[];
   techStack: string[];
   milestones: WorkMapMoment[];
   events: WorkMapMoment[];
@@ -446,6 +458,10 @@ export type WorkMapSnapshot = {
 };
 
 export const EMPTY_WORK_MAP_DETAILS: WorkMapRoleDetails = {
+  summary: "",
+  website: "",
+  linkedin: "",
+  colleagues: [],
   techStack: [],
   milestones: [],
   events: [],
@@ -489,7 +505,35 @@ export function normalizeWorkMapDetails(
     compensation: { ...empty.compensation, ...details?.compensation },
     schedule: { ...empty.schedule, ...details?.schedule },
     share: { ...empty.share, ...details?.share },
+    summary: typeof details?.summary === "string" ? details.summary.trim() : "",
+    website: workMapLink(details?.website),
+    linkedin: workMapLink(details?.linkedin),
+    colleagues: workMapColleagues(details?.colleagues),
   };
+}
+
+export function workMapLink(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  return trimmed && isLinkedEvidenceUrl(trimmed) ? trimmed : "";
+}
+
+export function workMapColleagues(value: unknown): WorkMapColleague[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    const id = typeof row.id === "string" ? row.id.trim() : "";
+    if (!name || !id) return [];
+    return [{
+      id,
+      name,
+      title: typeof row.title === "string" ? row.title.trim() : "",
+      note: typeof row.note === "string" ? row.note.trim() : "",
+      url: workMapLink(row.url),
+    }];
+  });
 }
 
 export function buildWorkMapSnapshot(input: {
