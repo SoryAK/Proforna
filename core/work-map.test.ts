@@ -20,7 +20,9 @@ import {
   publicationAllowsSnapshot,
   publicationEmbed,
   publicationNeedsAudienceConfirm,
+  normalizeWorkMapDetails,
   previewRoleMark,
+  workMapOverviewFields,
   recruiterWorkMapSnapshot,
   workSitePublicationNote,
   type WorkMapPublicationSettings,
@@ -1229,3 +1231,14 @@ function sampleFact(
     ...overrides,
   };
 }
+
+describe("overview fields", () => {
+  it("keeps an explicit selection and leaves a missing selection unset", () => {
+    expect(workMapOverviewFields(["media", "tools", "nope", "media"])).toEqual([
+      "media",
+      "tools",
+    ]);
+    expect(normalizeWorkMapDetails({}).overviewFields).toBeNull();
+    expect(normalizeWorkMapDetails({ overviewFields: [] }).overviewFields).toEqual([]);
+  });
+});

@@ -233,11 +233,33 @@ export type WorkMapColleague = {
   url: string;
 };
 
+export const WORK_MAP_OVERVIEW_FIELDS = [
+  { key: "achievements", label: "Achievements" },
+  { key: "events", label: "Events" },
+  { key: "media", label: "Media" },
+  { key: "tools", label: "Tools" },
+  { key: "milestones", label: "Milestones" },
+  { key: "skills", label: "Skills" },
+  { key: "equipment", label: "Equipment" },
+  { key: "colleagues", label: "Worked with" },
+] as const;
+
+export type WorkMapOverviewField =
+  (typeof WORK_MAP_OVERVIEW_FIELDS)[number]["key"];
+
+export const DEFAULT_WORK_MAP_OVERVIEW_FIELDS: WorkMapOverviewField[] = [
+  "achievements",
+  "events",
+  "media",
+  "tools",
+];
+
 export type WorkMapRoleDetails = {
   summary: string;
   website: string;
   linkedin: string;
   colleagues: WorkMapColleague[];
+  overviewFields: WorkMapOverviewField[] | null;
   techStack: string[];
   milestones: WorkMapMoment[];
   events: WorkMapMoment[];
@@ -462,6 +484,7 @@ export const EMPTY_WORK_MAP_DETAILS: WorkMapRoleDetails = {
   website: "",
   linkedin: "",
   colleagues: [],
+  overviewFields: null,
   techStack: [],
   milestones: [],
   events: [],
@@ -509,7 +532,24 @@ export function normalizeWorkMapDetails(
     website: workMapLink(details?.website),
     linkedin: workMapLink(details?.linkedin),
     colleagues: workMapColleagues(details?.colleagues),
+    overviewFields: workMapOverviewFields(details?.overviewFields),
   };
+}
+
+export function workMapOverviewFields(
+  value: unknown,
+): WorkMapOverviewField[] | null {
+  if (value == null) return null;
+  if (!Array.isArray(value)) return null;
+  const allowed = new Set<string>(WORK_MAP_OVERVIEW_FIELDS.map((field) => field.key));
+  const seen = new Set<string>();
+  const fields: WorkMapOverviewField[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !allowed.has(item) || seen.has(item)) continue;
+    seen.add(item);
+    fields.push(item as WorkMapOverviewField);
+  }
+  return fields;
 }
 
 export function workMapLink(value: unknown): string {
