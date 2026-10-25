@@ -11,6 +11,8 @@ import {
   isLinkedEvidenceUrl,
   linkedEvidenceFromPage,
   normalizeWorkMapDetails,
+  workMapColleagues,
+  workMapLink,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
@@ -291,6 +293,13 @@ export function saveWorkMapDetails(
     equipment: arrayOrCurrent(input.equipment, current.equipment),
     skills: arrayOrCurrent(input.skills, current.skills),
     share: shareOrCurrent(input.share, current.share),
+    summary: "summary" in input ? text(input.summary) : current.summary,
+    website: linkOrCurrent(input.website, current.website, "website" in input),
+    linkedin: linkOrCurrent(input.linkedin, current.linkedin, "linkedin" in input),
+    colleagues:
+      "colleagues" in input
+        ? workMapColleagues(input.colleagues)
+        : current.colleagues,
   };
   db.prepare(
     `INSERT INTO work_history_details
@@ -1262,6 +1271,15 @@ function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function linkOrCurrent(value: unknown, current: string, present: boolean): string {
+  if (!present) return current;
+  const next = text(value);
+  if (!next) return "";
+  const link = workMapLink(next);
+  if (!link) throw new WorkMapStoreError("url-invalid");
+  return link;
 }
 
 function isObject(value: unknown): value is JsonObject {

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import {
   formatHistoryPeriod,
   formatHistoryPlace,
@@ -8,8 +8,10 @@ import {
 } from "@core/career-history";
 import {
   LINKED_EVIDENCE_KINDS,
+  isLinkedEvidenceUrl,
   roleCoverPhoto,
   type LinkedEvidence,
+  type WorkMapColleague,
   type WorkMapLocation,
   type WorkMapMoment,
   type WorkMapRole,
@@ -65,6 +67,15 @@ export function RoleDetailPanel({
   }) => boolean;
 }) {
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
+  const editorRef = useRef<HTMLDialogElement>(null);
+  const moreRef = useRef<HTMLDialogElement>(null);
+  const peopleRef = useRef<HTMLDialogElement>(null);
+  const galleryRef = useRef<HTMLDialogElement>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [matches, setMatches] = useState<PlaceHit[]>([]);
   const lookupForm = useRef<HTMLFormElement | null>(null);
@@ -355,35 +366,234 @@ export function RoleDetailPanel({
     }
   }
 
+  useDialog(editorRef, editing, setEditing);
+  useDialog(moreRef, moreOpen, setMoreOpen);
+  useDialog(peopleRef, peopleOpen, setPeopleOpen);
+  useDialog(galleryRef, galleryOpen, setGalleryOpen);
+
+  const photos = role.media.filter((item) => item.kind === "photo" || item.kind === "video");
+  const stripClass =
+    photos.length >= 3 ? "" : photos.length === 2 ? " is-two" : " is-one";
+
   return (
     <aside
-      className="role-detail is-inline"
+      className="role-detail is-inline focus-card"
       aria-label={`${role.title || "Untitled"} details`}
     >
-      <header>
-        <button className="role-back" type="button" onClick={onClose}>
-          Back to history
-        </button>
-        <div className="role-detail-actions">
-          {onOpenReview ? (
-            <button type="button" onClick={onOpenReview}>
-              Review duplicates{reviewCount > 0 ? ` (${reviewCount})` : ""}
+      <article className="focus-job">
+        <RoleFocus
+          quiet
+          role={role}
+          onChanged={onSaved}
+          onEdit={() => setEditing(true)}
+        />
+        <div className="job-pills">
+          {role.details.website ? (
+            <a href={role.details.website} target="_blank" rel="noreferrer">
+              <GlobeIcon />
+              <span>Website</span>
+            </a>
+          ) : null}
+          {role.details.linkedin ? (
+            <a href={role.details.linkedin} target="_blank" rel="noreferrer">
+              <PersonIcon />
+              <span>LinkedIn</span>
+            </a>
+          ) : null}
+          <button className="job-more-toggle" type="button" onClick={() => setPeopleOpen(true)}>
+            Worked with
+          </button>
+          <button className="job-more-toggle" type="button" onClick={() => setMoreOpen(true)}>
+            More about this role
+          </button>
+          {onOpenReview && reviewCount > 0 ? (
+            <button className="job-more-toggle" type="button" onClick={onOpenReview}>
+              Review duplicates ({reviewCount})
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={onToggleMap}
-            aria-label={mapVisible ? "Hide map" : "Show map"}
-            title={mapVisible ? "Hide map" : "Show map"}
-          >
-            <MapIcon crossed={mapVisible} />
-          </button>
         </div>
-      </header>
+      </article>
 
-      <RoleFocus role={role} onChanged={onSaved} />
+      <section className="focus-hub">
+        <button
+          className="gallery-card"
+          type="button"
+          onClick={() => setGalleryOpen(true)}
+        >
+          <span className={`gallery-strip${stripClass}`} aria-hidden="true">
+            {photos.slice(0, 3).map((item) =>
+              item.kind === "photo" ? (
+                <img key={item.id} src={item.url} alt="" />
+              ) : (
+                <span key={item.id} className="focus-gallery-chip">Video</span>
+              ),
+            )}
+          </span>
+          <b>Media and events</b>
+          <span className="gallery-label">
+            {photos.length === 0 && role.details.events.length === 0
+              ? "No media yet."
+              : "Photos, video, and events. The full view opens over the map."}
+          </span>
+        </button>
+      </section>
 
-      <nav aria-label="Role detail sections">
+      <dialog
+        ref={peopleRef}
+        className="focus-pop"
+        aria-label="Worked with"
+        onClick={closeIfBackdrop(setPeopleOpen)}
+      >
+        <div className="sheet">
+        <div className="sheet-head">
+          <div>
+            <h2>Worked with</h2>
+            <p>{role.organization || "This role"}</p>
+          </div>
+          <button className="close" type="button" onClick={() => setPeopleOpen(false)}>Close</button>
+        </div>
+        {role.details.colleagues.length === 0 ? (
+          <p>No one listed on this role yet.</p>
+        ) : (
+          <ul className="people-list">
+            {role.details.colleagues.map((person) => (
+              <li className="person" key={person.id}>
+                <strong>{person.name}</strong>
+                {person.title ? <span>{person.title}</span> : null}
+                {person.note ? <p>{person.note}</p> : null}
+                {person.url ? (
+                  <a href={person.url} target="_blank" rel="noreferrer">
+                    Link
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        </div>
+      </dialog>
+
+      <dialog
+        ref={moreRef}
+        className="focus-pop"
+        aria-label="More about this role"
+        onClick={closeIfBackdrop(setMoreOpen)}
+      >
+        <div className="sheet">
+        <div className="sheet-head">
+          <div>
+            <h2>More about this role</h2>
+            <p>{[role.title, role.organization].filter(Boolean).join(" · ")}</p>
+          </div>
+          <button className="close" type="button" onClick={() => setMoreOpen(false)}>Close</button>
+        </div>
+        {role.description ? <p>{role.description}</p> : <p>No description yet.</p>}
+        {role.achievements.length > 0 ? (
+          <ul>
+            {role.achievements.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : null}
+        </div>
+      </dialog>
+
+      <dialog
+        ref={galleryRef}
+        className="focus-pop"
+        aria-label="Photos, video, and events"
+        onClick={closeIfBackdrop(setGalleryOpen)}
+      >
+        <div className="sheet">
+        <div className="sheet-head">
+          <div>
+            <h2>Photos, video, and events</h2>
+            <p>{role.organization || "This role"}</p>
+          </div>
+          <button className="close" type="button" onClick={() => setGalleryOpen(false)}>Close</button>
+        </div>
+        {role.media.length === 0 ? (
+          <p>No photos or video on this role yet. Edit the role to attach some.</p>
+        ) : (
+          <div className="focus-gallery-full">
+            {role.media.map((item) => (
+              <figure key={item.id}>
+                {item.kind === "photo" ? <img src={item.url} alt="" /> : null}
+                {item.kind === "video" ? (
+                  <video controls src={item.url} />
+                ) : null}
+                {item.kind === "attachment" ? <span className="focus-gallery-chip">File</span> : null}
+                <figcaption>
+                  <strong>{item.title || item.kind}</strong>
+                  {item.caption ? <span>{item.caption}</span> : null}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        )}
+        <h3>Events</h3>
+        {role.details.events.length === 0 ? (
+          <p>No events on this role yet.</p>
+        ) : (
+          <ul className="focus-events">
+            {role.details.events.map((event) => {
+              const open = openEventId === event.id;
+              return (
+                <li key={event.id}>
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenEventId(open ? null : event.id)}
+                  >
+                    <strong>{event.title || "Event"}</strong>
+                    <span>{event.date}</span>
+                  </button>
+                  {open ? (
+                    <div>
+                      {event.detail ? <p>{event.detail}</p> : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!mapVisible) onToggleMap();
+                          setGalleryOpen(false);
+                        }}
+                      >
+                        Show on map
+                      </button>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        </div>
+      </dialog>
+
+      <dialog
+        ref={editorRef}
+        className="focus-editor"
+        aria-label="Edit role"
+        onClick={closeIfBackdrop(setEditing)}
+      >
+        <div className="sheet">
+        <div className="sheet-head">
+          <div>
+            <h2>Edit role</h2>
+            <p>{[role.title, role.organization].filter(Boolean).join(" · ")}</p>
+          </div>
+          <div className="sheet-actions">
+            <button className="close" type="button" onClick={onToggleMap}>
+              {mapVisible ? "Hide map" : "Show map"}
+            </button>
+            <button className="close" type="button" onClick={() => setEditing(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+        <CardFields role={role} onSaved={onSaved} />
+        <RoleFocus role={role} onChanged={onSaved} />
+        <nav className="panes" aria-label="Role detail sections">
         {(
           [
             ["story", "Story"],
@@ -864,8 +1074,46 @@ export function RoleDetailPanel({
         ) : null}
       </div>
       {message ? <p className="role-save-message">{message}</p> : null}
+        </div>
+      </dialog>
     </aside>
   );
+}
+
+function useDialog(
+  ref: { current: HTMLDialogElement | null },
+  open: boolean,
+  setOpen: (open: boolean) => void,
+) {
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open, ref]);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    const onClose = () => setOpen(false);
+    dialog.addEventListener("close", onClose);
+    return () => dialog.removeEventListener("close", onClose);
+  }, [ref, setOpen]);
+}
+
+function closeIfBackdrop(setOpen: (open: boolean) => void) {
+  return (event: MouseEvent<HTMLDialogElement>) => {
+    if (event.target === event.currentTarget) setOpen(false);
+  };
+}
+
+function roleGist(description: string): string {
+  const line = description
+    .split("\n")
+    .map((item) => item.trim())
+    .find(Boolean);
+  if (!line) return "";
+  return line.length > 140 ? `${line.slice(0, 137)}…` : line;
 }
 
 function roleKind(value: string): "job" | "internship" | "school" {
@@ -1251,12 +1499,208 @@ function linkedEvidenceMessage(code: string | undefined): string {
   return (code && messages[code]) || "Could not save this evidence.";
 }
 
+function CardFields({
+  role,
+  onSaved,
+}: {
+  role: WorkMapRole;
+  onSaved: () => Promise<void>;
+}) {
+  const [summary, setSummary] = useState(role.details.summary);
+  const [website, setWebsite] = useState(role.details.website);
+  const [linkedin, setLinkedin] = useState(role.details.linkedin);
+  const [people, setPeople] = useState(role.details.colleagues);
+  const [draft, setDraft] = useState({ name: "", title: "", note: "", url: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    setSummary(role.details.summary);
+    setWebsite(role.details.website);
+    setLinkedin(role.details.linkedin);
+    setPeople(role.details.colleagues);
+  }, [role]);
+
+  async function persist(nextPeople: WorkMapColleague[]) {
+    if (
+      (website.trim() && !isLinkedEvidenceUrl(website.trim())) ||
+      (linkedin.trim() && !isLinkedEvidenceUrl(linkedin.trim()))
+    ) {
+      setNote("Use a full web link that starts with http:// or https://.");
+      return;
+    }
+    setNote("");
+    const response = await fetch(`/api/work-map/roles/${role.id}/details`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        summary,
+        website: website.trim(),
+        linkedin: linkedin.trim(),
+        colleagues: nextPeople,
+      }),
+    });
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setNote(
+        body.error === "url-invalid"
+          ? "Use a full web link that starts with http:// or https://."
+          : "Could not save this card.",
+      );
+      return;
+    }
+    setPeople(nextPeople);
+    setDraft({ name: "", title: "", note: "", url: "" });
+    setEditingId(null);
+    await onSaved();
+  }
+
+  function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = draft.name.trim();
+    if (draft.url.trim() && !isLinkedEvidenceUrl(draft.url.trim())) {
+      setNote("Use a full web link that starts with http:// or https://.");
+      return;
+    }
+    const next = name
+      ? editingId
+        ? people.map((person) =>
+            person.id === editingId
+              ? {
+                  id: editingId,
+                  name,
+                  title: draft.title.trim(),
+                  note: draft.note.trim(),
+                  url: draft.url.trim(),
+                }
+              : person,
+          )
+        : [
+            ...people,
+            {
+              id: `person-${Date.now().toString(36)}`,
+              name,
+              title: draft.title.trim(),
+              note: draft.note.trim(),
+              url: draft.url.trim(),
+            },
+          ]
+      : people;
+    void persist(next);
+  }
+
+  return (
+    <form className="role-form" onSubmit={save}>
+      <h3>On the card</h3>
+      <label>
+        Short summary
+        <input value={summary} onChange={(event) => setSummary(event.target.value)} />
+      </label>
+      <label>
+        Website
+        <input value={website} onChange={(event) => setWebsite(event.target.value)} />
+      </label>
+      <label>
+        LinkedIn
+        <input value={linkedin} onChange={(event) => setLinkedin(event.target.value)} />
+      </label>
+      <h3>Worked with</h3>
+      {people.length === 0 ? (
+        <p className="role-form-note">No one listed on this role yet.</p>
+      ) : (
+        <ul className="people-list">
+          {people.map((person) => (
+            <li className="person" key={person.id}>
+              <strong>{person.name}</strong>
+              <span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(person.id);
+                    setDraft({
+                      name: person.name,
+                      title: person.title,
+                      note: person.note,
+                      url: person.url,
+                    });
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="is-danger"
+                  type="button"
+                  onClick={() => void persist(people.filter((item) => item.id !== person.id))}
+                >
+                  Remove
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <label>
+        Name
+        <input
+          value={draft.name}
+          onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+        />
+      </label>
+      <label>
+        Title
+        <input
+          value={draft.title}
+          onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+        />
+      </label>
+      <label>
+        Note
+        <input
+          value={draft.note}
+          onChange={(event) => setDraft({ ...draft, note: event.target.value })}
+        />
+      </label>
+      <label>
+        Link
+        <input
+          value={draft.url}
+          onChange={(event) => setDraft({ ...draft, url: event.target.value })}
+        />
+      </label>
+      {note ? <p className="role-form-note">{note}</p> : null}
+      <button type="submit">{draft.name.trim() ? "Save person" : "Save card"}</button>
+    </form>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M2.75 8h10.5M8 2.75c1.6 1.7 1.6 8.8 0 10.5M8 2.75c-1.6 1.7-1.6 8.8 0 10.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="5.2" r="2.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M3.5 13.2c.7-2.2 2.4-3.3 4.5-3.3s3.8 1.1 4.5 3.3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function RoleFocus({
   role,
   onChanged,
+  quiet = false,
+  onEdit,
 }: {
   role: WorkMapRole;
   onChanged: () => Promise<void>;
+  quiet?: boolean;
+  onEdit?: () => void;
 }) {
   const cover = roleCoverPhoto(role.media);
   const [busy, setBusy] = useState(false);
@@ -1324,26 +1768,36 @@ function RoleFocus({
   const tenure = formatTenureMonths(
     tenureMonths(role.startDate, role.endDate, role.isCurrent),
   );
+  const gist = role.details.summary.trim() || roleGist(role.description);
 
   return (
     <section className="role-focus" aria-label="Role">
       {cover ? (
         <div className="role-focus-photo">
           <img src={cover.url} alt="" />
-          <div className="role-cover-actions">
-            <CoverFile
-              busy={busy}
-              label={busy ? "Saving…" : "Change photo"}
-              onFile={(file) => void upload(file)}
-            />
-            <button disabled={busy} type="button" onClick={() => void remove()}>
-              Remove
-            </button>
-          </div>
+          {quiet ? null : (
+            <div className="role-cover-actions">
+              <CoverFile
+                busy={busy}
+                label={busy ? "Saving…" : "Change photo"}
+                onFile={(file) => void upload(file)}
+              />
+              <button disabled={busy} type="button" onClick={() => void remove()}>
+                Remove
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
       <div className="role-focus-body">
-        <h2>{role.organization || "Untitled"}</h2>
+        <div className="focus-title-row">
+          <h2>{role.organization || "Untitled"}</h2>
+          {onEdit ? (
+            <button className="focus-edit" type="button" onClick={onEdit}>
+              Edit
+            </button>
+          ) : null}
+        </div>
         {role.title ? <p className="role-focus-title">{role.title}</p> : null}
         {place || period ? (
           <p className="role-focus-meta">
@@ -1354,7 +1808,8 @@ function RoleFocus({
             {tenure ? <span className="role-focus-tenure">({tenure})</span> : null}
           </p>
         ) : null}
-        {cover ? (
+        {gist ? <p className="focus-gist">{gist}</p> : null}
+        {quiet ? null : cover ? (
           <label className="role-check">
             <input
               checked={cover.isPublic}
@@ -1371,7 +1826,7 @@ function RoleFocus({
             onFile={(file) => void upload(file)}
           />
         )}
-        {message ? <p className="role-form-note">{message}</p> : null}
+        {quiet || !message ? null : <p className="role-form-note">{message}</p>}
       </div>
     </section>
   );
@@ -1469,14 +1924,4 @@ function monthField(value: string): string {
   const month = Number(match[2]);
   if (month < 1 || month > 12) return "";
   return `${match[1]}-${match[2]}`;
-}
-
-function MapIcon({ crossed }: { crossed: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M9 5.2 3.8 7.2v11.6L9 16.8l6 2 5.2-2V7.2L15 5.2 9 7.2z" />
-      <path d="M9 7.2v9.6M15 5.2v9.6" />
-      {crossed ? <path d="M5 19 19 5" /> : null}
-    </svg>
-  );
 }
