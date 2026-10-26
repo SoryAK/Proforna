@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ResumeImport } from "./ResumeImport";
 import type { CareerFile } from "@core/career-file";
 import {
@@ -121,11 +121,17 @@ export function WorkMap({
     Set<CareerHistorySectionKey>
   >(new Set());
   const [overviewOpen, setOverviewOpen] = useState(true);
+  const [actionTabOpen, setActionTabOpen] = useState(true);
+  const actionDockRef = useRef<HTMLDivElement>(null);
+  const actionShellRef = useRef<HTMLDivElement>(null);
+  const actionGesture = useRef<{ id: number; y: number; moved: boolean } | null>(null);
+  const actionSwallow = useRef(false);
   const [view, setView] = useState<"map" | "timeline">("map");
   const [timelineMonth, setTimelineMonth] = useState(currentCareerMonth);
   const [timelinePlaying, setTimelinePlaying] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishMenu, setPublishMenu] = useState(false);
+  const [menuHost, setMenuHost] = useState<"bio" | "tab">("tab");
   const publishMenuRef = useRef<HTMLDivElement>(null);
   const [placingForId, setPlacingForId] = useState<string | null>(null);
   const [placingLocationId, setPlacingLocationId] = useState<string | null>(
@@ -502,10 +508,11 @@ export function WorkMap({
     setSettingsOpen(true);
   }
 
-  function requestPublish() {
+  function requestPublish(host: "bio" | "tab" = "tab") {
     if (!settings || publishing) return;
     setPreviewMenu(false);
-    setPublishMenu((open) => !open);
+    setMenuHost(host);
+    setPublishMenu((open) => (menuHost === host ? !open : true));
   }
 
   function confirmPublish() {
@@ -513,11 +520,12 @@ export function WorkMap({
     void publish();
   }
 
-  async function requestPreview() {
+  async function requestPreview(host: "bio" | "tab" = "tab") {
     setPublishMenu(false);
+    setMenuHost(host);
     const choice = readPreviewPlacement();
     if (choice === "ask") {
-      setPreviewMenu((open) => !open);
+      setPreviewMenu((open) => (menuHost === host ? !open : true));
       return;
     }
     setPreviewMenu(false);
@@ -882,6 +890,14 @@ export function WorkMap({
   }
 
   useEffect(() => {
+    const shell = actionShellRef.current;
+    if (!shell || !actionTabOpen) return;
+    shell.classList.remove("is-rising");
+    void shell.offsetWidth;
+    shell.classList.add("is-rising");
+  }, [actionTabOpen, selectedId]);
+
+  useEffect(() => {
     if (!previewMenu && !publishMenu) return;
     function onPointer(event: PointerEvent) {
       const target = event.target as Node;
@@ -917,6 +933,36 @@ export function WorkMap({
   function chooseDetailTab(next: DetailTab) {
     setDetailTab(next);
     setMapOverride("auto");
+  }
+
+  function collapseActionTab() {
+    setActionTabOpen(false);
+    setPreviewMenu(false);
+    setPublishMenu(false);
+  }
+
+  function moveActionTab(event: ReactPointerEvent<HTMLButtonElement>) {
+    const gesture = actionGesture.current;
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const dy = event.clientY - gesture.y;
+    const dock = actionDockRef.current;
+    if (Math.abs(dy) > 4) gesture.moved = true;
+    if (dock && ((actionTabOpen && dy > 0) || (!actionTabOpen && dy < 0))) {
+      const shift = actionTabOpen ? Math.min(dy, 40) : Math.max(dy, -40);
+      dock.style.transform = `translateY(${shift}px)`;
+    }
+    if (actionTabOpen && dy > 28) {
+      actionGesture.current = null;
+      actionSwallow.current = true;
+      if (dock) dock.style.transform = "";
+      collapseActionTab();
+    }
+    if (!actionTabOpen && dy < -28) {
+      actionGesture.current = null;
+      actionSwallow.current = true;
+      if (dock) dock.style.transform = "";
+      setActionTabOpen(true);
+    }
   }
 
   function dropPin(latitude: number, longitude: number) {
@@ -976,6 +1022,7 @@ export function WorkMap({
           onHome={onHome}
           onHistory={recordOpen ? () => setSelectedId(null) : undefined}
           onSaved={load}
+          editOnName={recordOpen}
           controls={
             <div className="publication-cluster" role="group" aria-label="Publication">
               <span
@@ -992,53 +1039,6 @@ export function WorkMap({
                     ? "Revoked"
                     : "Private"}
               </span>
-              <div className="publication-menu-anchor" ref={previewMenuRef}>
-                <button
-                  type="button"
-                  aria-expanded={previewMenu}
-                  aria-haspopup="menu"
-                  onClick={() => void requestPreview()}
-                >
-                  Preview
-                </button>
-                {previewMenu ? (
-                  <div className="publication-menu" role="menu" aria-label="Open preview">
-                    <button type="button" role="menuitem" onClick={() => void choosePreview("here")}>
-                      This window
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => void choosePreview("window")}>
-                      New window
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              <div className="publication-menu-anchor" ref={publishMenuRef}>
-                <button
-                  className="is-primary"
-                  disabled={publishing}
-                  type="button"
-                  aria-expanded={publishMenu}
-                  aria-haspopup="menu"
-                  onClick={requestPublish}
-                >
-                  {publishLabel}
-                </button>
-                {publishMenu ? (
-                  <div className="publication-menu" role="menu" aria-label="Publish">
-                    <button type="button" role="menuitem" onClick={confirmPublish}>
-                      Confirm publish
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => setPublishMenu(false)}>
-                      Cancel
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              {latest?.status === "published" ? (
-                <button className="publication-revoke" type="button" onClick={revoke}>
-                  Revoke
-                </button>
-              ) : null}
             </div>
           }
         />
@@ -1356,33 +1356,15 @@ export function WorkMap({
         </div>
 
         {mapVisible ? (
-        <main className="work-map-stage">
-          <div className="work-map-view-switch" aria-label="Career History view">
-            <button
-              className={view === "map" ? "is-active" : ""}
-              onClick={() => setView("map")}
-              type="button"
-            >
-              Map
-            </button>
-            <button
-              className={view === "timeline" ? "is-active" : ""}
-              onClick={() => {
-                if (view === "timeline") return;
-                setView("timeline");
-                const frame = careerFrame(
-                  timelineRoles,
-                  timelineMoments,
-                  shownMonth,
-                  timelineResidences,
-                );
-                if (frame.lead) selectRole(frame.lead.id, shownMonth);
-              }}
-              type="button"
-            >
-              Timeline
-            </button>
-          </div>
+        <main
+          className={[
+            "work-map-stage",
+            "has-action-tab",
+            !actionTabOpen ? "is-actions-collapsed" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           <CareerMap
             cameraNonce={cameraNonce}
             fitKey={cameraFitKey}
@@ -1458,6 +1440,117 @@ export function WorkMap({
               </button>
             </div>
           ) : null}
+          <div
+              className={actionTabOpen ? "action-dock" : "action-dock is-collapsed"}
+              ref={actionDockRef}
+            >
+              <div className="action-tab" ref={actionShellRef}>
+                <div className="action-bar" role="toolbar" aria-label="Actions">
+                  <div className="publication-menu-anchor" ref={menuHost === "tab" ? publishMenuRef : undefined}>
+                    <button
+                      disabled={publishing}
+                      type="button"
+                      aria-expanded={publishMenu && menuHost === "tab"}
+                      aria-haspopup="menu"
+                      onClick={() => requestPublish("tab")}
+                    >
+                      {publishLabel}
+                    </button>
+                    {publishMenu && menuHost === "tab" ? (
+                      <div className="publication-menu" role="menu" aria-label="Publish">
+                        <button type="button" role="menuitem" onClick={confirmPublish}>
+                          Confirm publish
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => setPublishMenu(false)}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  {latest?.status === "published" ? (
+                    <button type="button" onClick={revoke}>
+                      Revoke
+                    </button>
+                  ) : null}
+                  <div className="publication-menu-anchor" ref={menuHost === "tab" ? previewMenuRef : undefined}>
+                    <button
+                      type="button"
+                      aria-expanded={previewMenu && menuHost === "tab"}
+                      aria-haspopup="menu"
+                      onClick={() => void requestPreview("tab")}
+                    >
+                      Preview
+                    </button>
+                    {previewMenu && menuHost === "tab" ? (
+                      <div className="publication-menu" role="menu" aria-label="Open preview">
+                        <button type="button" role="menuitem" onClick={() => void choosePreview("here")}>
+                          This window
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => void choosePreview("window")}>
+                          New window
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    aria-pressed={view === "map"}
+                    onClick={() => setView("map")}
+                  >
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={view === "timeline"}
+                    onClick={() => {
+                      if (view === "timeline") return;
+                      setView("timeline");
+                      const frame = careerFrame(
+                        timelineRoles,
+                        timelineMoments,
+                        shownMonth,
+                        timelineResidences,
+                      );
+                      if (frame.lead) selectRole(frame.lead.id, shownMonth);
+                    }}
+                  >
+                    Timeline
+                  </button>
+                </div>
+                <button
+                  className="action-handle"
+                  type="button"
+                  aria-expanded={actionTabOpen}
+                  aria-label={actionTabOpen ? "Collapse actions" : "Show actions"}
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    actionGesture.current = { id: event.pointerId, y: event.clientY, moved: false };
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={moveActionTab}
+                  onPointerUp={(event) => {
+                    if (!actionGesture.current || event.pointerId !== actionGesture.current.id) return;
+                    if (actionGesture.current.moved) actionSwallow.current = true;
+                    actionGesture.current = null;
+                    if (actionDockRef.current) actionDockRef.current.style.transform = "";
+                  }}
+                  onPointerCancel={() => {
+                    actionGesture.current = null;
+                    if (actionDockRef.current) actionDockRef.current.style.transform = "";
+                  }}
+                  onClick={() => {
+                    if (actionSwallow.current) {
+                      actionSwallow.current = false;
+                      return;
+                    }
+                    if (actionTabOpen) collapseActionTab();
+                    else setActionTabOpen(true);
+                  }}
+                >
+                  <i aria-hidden="true" />
+                </button>
+              </div>
+            </div>
         </main>
         ) : selected ? (
           <RoleSheet role={selected} tab={detailTab} />
@@ -1569,12 +1662,14 @@ function CareerBio({
   onHistory,
   onSaved,
   controls,
+  editOnName = false,
 }: {
   profile: WorkMapResponse["profile"];
   onHome: () => void;
   onHistory?: () => void;
   onSaved: () => Promise<void>;
   controls?: ReactNode;
+  editOnName?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
@@ -1663,7 +1758,7 @@ function CareerBio({
   }
 
   return (
-    <section className="career-bio" aria-label="Profile">
+    <section className={editOnName ? "career-bio is-named-edit" : "career-bio"} aria-label="Profile">
       <div className="profile-bar">
         <span className="profile-links">
           <button className="career-bio-home" type="button" onClick={onHome}>
@@ -1677,9 +1772,11 @@ function CareerBio({
         </span>
         <div className="profile-controls">
           {controls}
-          <button className="focus-edit" type="button" onClick={() => setEditing(true)}>
-            Edit
-          </button>
+          {editOnName ? null : (
+            <button className="focus-edit" type="button" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          )}
         </div>
       </div>
       <div className="career-bio-row">
@@ -1696,6 +1793,11 @@ function CareerBio({
           {place ? <p className="career-bio-place">{place}</p> : null}
           {profile.bio ? <p className="career-bio-about">{profile.bio}</p> : null}
         </div>
+        {editOnName ? (
+          <button className="focus-edit" type="button" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        ) : null}
       </div>
       {socials.length > 0 ? (
         <div className="socials">
