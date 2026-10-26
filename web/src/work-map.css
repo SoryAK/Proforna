@@ -2995,6 +2995,160 @@
   left: calc((min(24rem, 38vw) + 1.75rem + 100%) / 2);
 }
 
+.work-map-stage .action-dock {
+  position: absolute;
+  z-index: 660;
+  bottom: 0;
+  left: calc(min(24rem, 38vw) + 1rem);
+  right: 0.5rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.work-map-stage .action-tab {
+  display: flex;
+  align-items: stretch;
+  max-width: 100%;
+  pointer-events: auto;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  background: #13100d;
+  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.work-map-stage .action-tab.is-rising {
+  animation: action-tab-rise 0.4s ease;
+}
+
+@keyframes action-tab-rise {
+  from { transform: translateY(160%); }
+  to { transform: translateY(0); }
+}
+
+.work-map-stage .action-dock.is-collapsed .action-bar {
+  display: none;
+}
+
+.work-map-stage .action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.35rem 0.4rem 0.55rem;
+}
+
+.work-map-stage .action-bar > button,
+.work-map-stage .action-tab .publication-menu-anchor > button {
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--gold-light);
+  font: 600 0.75rem/1.35 "Geist Variable", "Geist", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.work-map-stage .action-bar > button:hover,
+.work-map-stage .action-bar > button[aria-pressed="true"],
+.work-map-stage .action-tab .publication-menu-anchor > button:hover {
+  border-color: var(--gold-hover);
+  background: rgba(167, 139, 113, 0.2);
+  color: var(--text);
+}
+
+.work-map-stage .action-tab .publication-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 0.45rem);
+  left: 0;
+}
+
+.work-map-stage .action-tab .publication-menu button {
+  height: auto;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: #c9b8a0;
+  font: 500 0.875rem/1.35 "Geist Variable", "Geist", system-ui, sans-serif;
+  text-align: left;
+}
+
+.work-map-stage .action-tab .publication-menu button:hover {
+  border: 0;
+  background: rgba(167, 139, 113, 0.16);
+  color: #f5f2ee;
+}
+
+.work-map-stage .action-handle {
+  display: grid;
+  width: 2.4rem;
+  flex: none;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 0 12px 0 0;
+  background: #1c1814;
+  color: var(--gold-hover);
+  cursor: grab;
+  touch-action: none;
+}
+
+.work-map-stage .action-handle:hover {
+  color: var(--text);
+}
+
+.work-map-stage .action-handle i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-0.05rem, -0.05rem);
+}
+
+.work-map-stage .action-dock.is-collapsed .action-tab {
+  width: 4.5rem;
+  height: 1.2rem;
+}
+
+.work-map-stage .action-dock.is-collapsed .action-handle {
+  width: 100%;
+  border-left: 0;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+}
+
+.work-map-stage .action-dock.is-collapsed .action-handle i {
+  transform: rotate(-135deg) translate(-0.05rem, -0.05rem);
+}
+
+.work-map-stage.has-action-tab .career-timeline-float {
+  bottom: 4.6rem;
+}
+
+.work-map-stage.has-action-tab.is-actions-collapsed .career-timeline-float {
+  bottom: 2.15rem;
+}
+
+.career-bio.is-named-edit .career-bio-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.career-bio.is-named-edit .career-bio-row .focus-edit {
+  align-self: center;
+}
+
 .profile-links {
   display: flex;
   gap: 0.75rem;
@@ -3378,6 +3532,11 @@
 
   .work-map .career-timeline-float {
     left: 50%;
+  }
+
+  .work-map-stage .action-dock {
+    left: 0.5rem;
+    right: 0.5rem;
   }
 }
 
