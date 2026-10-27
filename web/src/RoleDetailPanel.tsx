@@ -17,6 +17,7 @@ import {
   type WorkMapRole,
 } from "@core/work-map";
 import { lookupNote, searchPlaces, type PlaceHit } from "./place-search";
+import { RoleCanvasEntry } from "./RoleCanvas";
 
 export type DetailTab = "story" | "conditions" | "media" | "evidence" | "places";
 
@@ -412,6 +413,7 @@ export function RoleDetailPanel({
             </button>
           ) : null}
         </div>
+        <RoleCanvasEntry role={role} />
       </article>
 
       <section className="focus-hub">

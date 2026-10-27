@@ -1,0 +1,600 @@
+.role-canvas-entry {
+  padding: 0 0.9rem 0.9rem;
+}
+
+.focus-job .job-pills:has(+ .role-canvas-entry) {
+  margin-bottom: 0.35rem;
+}
+
+.role-canvas-linked-label {
+  margin: 0.15rem 0 0.3rem;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.role-canvas-empty {
+  margin: 0 0 0.75rem;
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.role-canvas-linked {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.role-canvas-linked button {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0;
+  border: 0;
+  border-top: 1px solid rgba(199, 164, 123, 0.2);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-canvas-linked em {
+  display: block;
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.role-canvas-linked strong {
+  display: block;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.role-canvas-entry .job-more-toggle {
+  margin-top: 0.15rem;
+}
+
+.role-canvas,
+.role-canvas * {
+  box-sizing: border-box;
+}
+
+.role-canvas {
+  position: fixed;
+  z-index: 740;
+  top: 4.75rem;
+  left: max(0.75rem, min(22rem, calc(100vw - 43rem)));
+  display: flex;
+  flex-direction: column;
+  width: min(42rem, calc(100vw - 1.5rem));
+  height: min(30rem, calc(100vh - 6rem));
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 16px;
+  background: #100e0c;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.48);
+  color: var(--text, #f5f2ee);
+  overflow: visible;
+}
+
+.role-canvas.is-maximized {
+  border-radius: 16px;
+}
+
+.role-canvas.is-minimized {
+  width: auto;
+  height: auto;
+  border-radius: 999px;
+}
+
+.role-canvas.is-minimized .resize,
+.role-canvas.is-maximized .resize,
+.role-canvas.is-minimized .role-canvas-stage,
+.role-canvas.is-minimized .role-canvas-controls,
+.role-canvas.is-minimized .role-canvas-drawer {
+  display: none;
+}
+
+.role-canvas.is-minimized .role-canvas-bar {
+  border-bottom: 0;
+}
+
+.role-canvas .resize {
+  position: absolute;
+  z-index: 6;
+  touch-action: none;
+  cursor: default;
+}
+
+.role-canvas .resize.n,
+.role-canvas .resize.s {
+  left: 14px;
+  right: 14px;
+  height: 8px;
+}
+
+.role-canvas .resize.n {
+  top: 2.6rem;
+}
+
+.role-canvas .resize.s {
+  bottom: 0;
+}
+
+.role-canvas .resize.e,
+.role-canvas .resize.w {
+  top: 2.6rem;
+  bottom: 14px;
+  width: 8px;
+}
+
+.role-canvas .resize.e {
+  right: 0;
+}
+
+.role-canvas .resize.w {
+  left: 0;
+}
+
+.role-canvas .resize.nw,
+.role-canvas .resize.ne,
+.role-canvas .resize.sw,
+.role-canvas .resize.se {
+  width: 14px;
+  height: 14px;
+}
+
+.role-canvas .resize.nw {
+  top: 2.6rem;
+  left: 0;
+}
+
+.role-canvas .resize.ne {
+  top: 2.6rem;
+  right: 0;
+}
+
+.role-canvas .resize.sw {
+  bottom: 0;
+  left: 0;
+}
+
+.role-canvas .resize.se {
+  right: 0;
+  bottom: 0;
+}
+
+.role-canvas-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 16px 16px 0 0;
+  background: #0d0b09;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  position: relative;
+  z-index: 8;
+}
+
+.role-canvas.is-minimized .role-canvas-bar {
+  border-radius: 999px;
+}
+
+.role-canvas-bar h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.role-canvas-actions {
+  display: flex;
+  margin-left: auto;
+}
+
+.role-canvas-actions button {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.5rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--gold-hover);
+  cursor: pointer;
+}
+
+.role-canvas-actions button:hover {
+  background: rgba(167, 139, 113, 0.16);
+}
+
+.role-canvas-actions button[aria-label="Close"]:hover {
+  background: #e6a196;
+  color: #080706;
+}
+
+.role-canvas-actions svg,
+.role-canvas-all svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.role-canvas-controls {
+  position: absolute;
+  z-index: 5;
+  left: 0.75rem;
+  top: 3.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: min(18rem, calc(100% - 1.5rem));
+  max-height: calc(100% - 7rem);
+  padding: 0.5rem 0.65rem 0.6rem;
+  overflow: auto;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 12px;
+  background: #0d0b09;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+.role-canvas-controls-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: grab;
+  user-select: none;
+}
+
+.role-canvas-controls p {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.role-canvas-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.role-canvas-controls input,
+.role-canvas-controls textarea,
+.role-canvas-tools input {
+  min-height: 1.9rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 8px;
+  background: #100e0c;
+  color: inherit;
+  font: 0.8125rem/1.4 var(--sans);
+}
+
+.role-canvas-controls textarea {
+  min-height: 4.2rem;
+  resize: vertical;
+}
+
+.role-canvas-control-row,
+.role-canvas-outward {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.role-canvas-controls button,
+.role-canvas-tools button,
+.role-canvas-viewer button {
+  min-height: 1.9rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font: 600 0.75rem/1.35 var(--sans);
+  cursor: pointer;
+}
+
+.role-canvas-tabs button,
+.role-canvas-all,
+.role-canvas-actions button,
+.role-canvas-menu button,
+.role-canvas-link-menu button {
+  border-radius: 0;
+}
+
+.role-canvas-controls button:hover,
+.role-canvas-tools button:hover,
+.role-canvas-viewer button:hover {
+  border-color: var(--gold-hover);
+  background: rgba(167, 139, 113, 0.16);
+}
+
+.role-canvas-outward {
+  position: relative;
+}
+
+.role-canvas-link-menu {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + 0.3rem);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 9rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 10px;
+  background: #100e0c;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+.role-canvas-link-menu p {
+  margin: 0;
+  padding: 0.25rem 0.35rem;
+  font-weight: 500;
+}
+
+.role-canvas.is-focus .role-canvas-node {
+  opacity: 0.28;
+}
+
+.role-canvas.is-focus .role-canvas-node.is-selected {
+  opacity: 1;
+  border-color: var(--gold-hover);
+  box-shadow: 0 0 0 1px var(--gold-hover), 0 14px 32px rgba(0, 0, 0, 0.4);
+}
+
+.role-canvas.is-focus .role-canvas-wires path {
+  stroke: rgba(199, 164, 123, 0.16);
+}
+
+.role-canvas.is-focus .role-canvas-wires path.is-live {
+  stroke: rgba(232, 213, 183, 0.92);
+}
+
+.role-canvas-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background:
+    linear-gradient(rgba(199, 164, 123, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(199, 164, 123, 0.07) 1px, transparent 1px),
+    #100e0c;
+  background-size: 48px 48px;
+}
+
+.role-canvas-plane {
+  position: relative;
+  width: 64rem;
+  height: 28rem;
+  transform-origin: 0 0;
+}
+
+.role-canvas-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.role-canvas-wires path {
+  fill: none;
+  stroke: rgba(199, 164, 123, 0.55);
+  stroke-width: 1.5;
+}
+
+.role-canvas-node {
+  position: absolute;
+  width: 13rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 12px;
+  background: #0d0b09;
+  cursor: grab;
+}
+
+.role-canvas-node.is-selected {
+  border-color: var(--gold-hover);
+}
+
+.role-canvas-node.is-filtered {
+  opacity: 0.16;
+}
+
+.role-canvas-node .kind {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.role-canvas-node h3,
+.role-canvas-node p {
+  margin: 0.2rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.role-canvas-node p {
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.role-canvas-node .links {
+  color: var(--gold-hover);
+}
+
+.role-canvas-drawer {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
+  background: #0d0b09;
+  overflow: visible;
+  border-radius: 0 0 16px 16px;
+}
+
+.role-canvas-menu {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 100%;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  min-width: 8.5rem;
+  padding: 0.15rem 0;
+  background: #0d0b09;
+}
+
+.role-canvas-menu button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 600 0.75rem/1.4 var(--sans);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.role-canvas-menu button:hover,
+.role-canvas-menu button:focus-visible {
+  background: rgba(167, 139, 113, 0.2);
+  color: var(--gold-hover);
+}
+
+.role-canvas-tools {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.35rem 0.65rem;
+  border-top: 1px solid rgba(199, 164, 123, 0.28);
+  overflow-x: auto;
+}
+
+.role-canvas-tools input {
+  flex: 0 0 auto;
+  width: 8rem;
+  border-radius: 999px;
+}
+
+.role-canvas-tools > span {
+  min-width: 2.6rem;
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.role-canvas-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  border-left: 1px solid rgba(199, 164, 123, 0.28);
+}
+
+.role-canvas-tabs button,
+.role-canvas-all {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.role-canvas-tabs button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-canvas-tabs button[aria-selected="true"] {
+  box-shadow: inset 0 2px 0 var(--gold);
+}
+
+.role-canvas-all {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.role-canvas-drawer.is-open .role-canvas-all svg {
+  transform: rotate(180deg);
+}
+
+.role-canvas-viewer {
+  position: fixed;
+  z-index: 760;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 1.2rem;
+  background: #0d0b09;
+  color: var(--text, #f5f2ee);
+}
+
+.role-canvas-viewer header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.role-canvas-viewer h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.role-canvas-viewer header p {
+  margin: 0.15rem 0 0;
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.role-canvas-frame {
+  flex: 1;
+  min-height: 16rem;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: #080706;
+  object-fit: contain;
+}
