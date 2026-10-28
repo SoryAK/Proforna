@@ -883,6 +883,16 @@
   cursor: pointer;
 }
 
+.role-canvas-context-plus {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
 .role-canvas-context button kbd {
   margin-left: auto;
   color: #8e8e8e;

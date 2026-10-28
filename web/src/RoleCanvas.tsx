@@ -1431,6 +1431,13 @@ export function RoleCanvasEntry({
     grip.addEventListener("pointerup", up);
   }
 
+  function beginAdd() {
+    setSelectedId(null);
+    setLinkOpen(false);
+    setNodeError("");
+    setDraft({ id: null, kind: "Design", title: "", body: "", url: "" });
+  }
+
   function saveNode() {
     if (!draft || !canvas) return;
     const prepared = prepareCanvasNode(draft);
@@ -2216,6 +2223,14 @@ export function RoleCanvasEntry({
       {canvasMenu ? (
         <CanvasContextMenu x={canvasMenu.x} y={canvasMenu.y}>
           <MenuButton
+            label="Add"
+            icon={<PlusMark />}
+            onClick={() => {
+              closeMenus();
+              beginAdd();
+            }}
+          />
+          <MenuButton
             label="Paste"
             shortcut="Ctrl V"
             disabled={menuEpoch < 0 || copiedRef.current.length === 0}
@@ -2295,6 +2310,9 @@ export function RoleCanvasEntry({
               {canvas?.nodes.filter((node) => `${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase())).length ?? 0} of {canvas?.nodes.length ?? 0}
             </span>
           ) : null}
+          <button type="button" className="tool" aria-label="Add" onClick={beginAdd}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
+          </button>
           <div className="role-canvas-tabs" role="tablist" aria-label="Pinned canvases">
             {boards.filter((board) => board.id !== role.id && pinned.includes(board.id)).map((board) => (
               <button
@@ -2535,21 +2553,32 @@ function CanvasContextMenu({ x, y, children }: { x: number; y: number; children:
   );
 }
 
+function PlusMark() {
+  return (
+    <svg className="role-canvas-context-plus" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 3.25v9.5M3.25 8h9.5" />
+    </svg>
+  );
+}
+
 function MenuButton({
   label,
   shortcut,
   danger,
   disabled,
+  icon,
   onClick,
 }: {
   label: string;
   shortcut?: string;
   danger?: boolean;
   disabled?: boolean;
+  icon?: ReactNode;
   onClick: () => void;
 }) {
   return (
     <button type="button" role="menuitem" className={danger ? "is-danger" : undefined} disabled={disabled} onClick={onClick}>
+      {icon}
       <span>{label}</span>
       {shortcut ? <kbd>{shortcut}</kbd> : null}
     </button>
