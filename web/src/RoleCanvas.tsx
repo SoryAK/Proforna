@@ -40,6 +40,7 @@ type Chrome = { left: number; top: number; bottom: number; extraRight: number };
 
 const SNAP_KEY = "proforna-canvas-saves";
 const DESIGN_FILM = "https://www.youtube-nocookie.com/embed/xIZYqNS6so0?rel=0";
+const RELATION_KINDS = ["evidence", "example", "design", "outsource", "feedback", "approved"];
 const EMPTY_CHROME: Chrome = { left: 0, top: 0, bottom: 0, extraRight: 0 };
 type BoardSnap = { boardId: string; nodes: CanvasNode[]; groups: CanvasGroup[] };
 type CanvasCommands = {
@@ -247,6 +248,14 @@ export function RoleCanvasEntry({
   const [savedFlash, setSavedFlash] = useState(false);
   const [snaps, setSnaps] = useState(readSnaps);
   const [wireMenu, setWireMenu] = useState<{ fromId: string; toId: string; x: number; y: number } | null>(null);
+  const [relationPrompt, setRelationPrompt] = useState<{
+    fromId: string;
+    toId: string;
+    x: number;
+    y: number;
+    mode: "create" | "edit";
+    value: string;
+  } | null>(null);
   const [draftWire, setDraftWire] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [hotTarget, setHotTarget] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -272,22 +281,23 @@ export function RoleCanvasEntry({
   const commandRef = useRef<CanvasCommands | null>(null);
 
   useEffect(() => {
-    if (!allOpen && !historyOpen && !wireMenu && !nodeMenu && !canvasMenu) return;
+    if (!allOpen && !historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt) return;
     function onPointer(event: PointerEvent) {
       const target = event.target as HTMLElement | null;
       if (!target?.closest(".role-canvas-menu, .role-canvas-all")) setAllOpen(false);
       if (!target?.closest(".role-canvas-history-panel, .role-canvas-history, .role-canvas-save")) {
         setHistoryOpen(false);
       }
-      if (!target?.closest(".role-canvas-context")) {
+      if (!target?.closest(".role-canvas-context, .role-canvas-relation")) {
         setWireMenu(null);
         setNodeMenu(null);
         setCanvasMenu(null);
       }
+      if (!target?.closest(".role-canvas-relation")) setRelationPrompt(null);
     }
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, [allOpen, historyOpen, wireMenu, nodeMenu, canvasMenu]);
+  }, [allOpen, historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt]);
 
   useEffect(() => {
     try {
@@ -1318,6 +1328,46 @@ export function RoleCanvasEntry({
     closeMenus();
   }
 
+  function openRelation(fromId: string, toId: string, x: number, y: number, mode: "create" | "edit") {
+    const from = canvas?.nodes.find((node) => node.id === fromId);
+    const existing = from?.links.find((link) => link.id === toId);
+    if (mode === "create" && existing) return;
+    if (!from || !canvas?.nodes.some((node) => node.id === toId) || fromId === toId) return;
+    closeMenus();
+    setLinkOpen(false);
+    setRelationPrompt({ fromId, toId, x, y, mode, value: existing?.relation ?? "" });
+  }
+
+  function applyRelation(value: string) {
+    const prompt = relationPrompt;
+    if (!prompt || !canvas) return;
+    const relation = value.trim();
+    if (!relation) return;
+    const from = canvas.nodes.find((node) => node.id === prompt.fromId);
+    const to = canvas.nodes.find((node) => node.id === prompt.toId);
+    if (!from || !to || from.id === to.id) return;
+    const links =
+      prompt.mode === "create"
+        ? from.links.some((link) => link.id === to.id)
+          ? null
+          : [...from.links, { key: to.id, id: to.id, label: to.title || to.kind, relation }]
+        : from.links.map((link) => (link.id === to.id ? { ...link, relation } : link));
+    if (!links) {
+      setRelationPrompt(null);
+      return;
+    }
+    remember();
+    const boardId = canvas.id;
+    setBoards((current) =>
+      current.map((board) =>
+        board.id === boardId
+          ? { ...board, nodes: board.nodes.map((node) => (node.id === from.id ? { ...node, links } : node)) }
+          : board,
+      ),
+    );
+    setRelationPrompt(null);
+  }
+
   function startWire(event: ReactPointerEvent<HTMLButtonElement>, node: CanvasNode) {
     if (tool === "pan" || event.button !== 0) return;
     event.preventDefault();
@@ -1355,14 +1405,7 @@ export function RoleCanvasEntry({
       const hit = document.elementFromPoint(next.clientX, next.clientY);
       const id = hit?.closest(".role-canvas-node")?.getAttribute("data-id") ?? "";
       if (!id || id === node.id) return;
-      const board = boardsRef.current.find((item) => item.id === canvas?.id);
-      const from = board?.nodes.find((item) => item.id === node.id);
-      const to = board?.nodes.find((item) => item.id === id);
-      if (!from || !to || from.links.some((link) => link.id === to.id)) return;
-      remember();
-      patchNode(from.id, {
-        links: [...from.links, { key: to.id, id: to.id, label: to.title || to.kind }],
-      });
+      openRelation(node.id, id, next.clientX, next.clientY, "create");
     }
     grip.addEventListener("pointermove", move);
     grip.addEventListener("pointerup", up);
@@ -1725,7 +1768,13 @@ export function RoleCanvasEntry({
                             key={node.id}
                             type="button"
                             role="menuitem"
-                            onClick={() => addLink(node)}
+                            onClick={(event) => {
+                              if (linkedTo) {
+                                addLink(node);
+                                return;
+                              }
+                              openRelation(selected.id, node.id, event.clientX, event.clientY, "create");
+                            }}
                           >
                             {linkedTo ? `Open ${node.title || node.kind}` : node.title || node.kind}
                           </button>
@@ -1835,7 +1884,14 @@ export function RoleCanvasEntry({
           </svg>
           <svg className="role-canvas-wires">
             {wires.map((wire) => (
-              <path key={wire.id} d={wire.d} className={wire.live ? "is-live" : undefined} />
+              <g key={wire.id}>
+                <path d={wire.d} className={wire.live ? "is-live" : undefined} />
+                {wire.relation ? (
+                  <text className="role-canvas-wire-label" x={wire.mx} y={wire.my - 8} textAnchor="middle">
+                    {wire.relation}
+                  </text>
+                ) : null}
+              </g>
             ))}
             {draftWire ? <path className="is-draft" d={wirePath(draftWire.x1, draftWire.y1, draftWire.x2, draftWire.y2)} /> : null}
           </svg>
@@ -1905,7 +1961,9 @@ export function RoleCanvasEntry({
                 {node.links.length > 0 ? (
                   <p className="links">
                     Links out to{" "}
-                    {node.links.map((link) => link.label).join(", ")}
+                    {node.links
+                      .map((link) => (link.relation ? `${link.label} (${link.relation})` : link.label))
+                      .join(", ")}
                   </p>
                 ) : null}
                 {node.kind === "Page" && !node.locked ? (
@@ -2036,6 +2094,10 @@ export function RoleCanvasEntry({
       ) : null}
       {wireMenu ? (
         <CanvasContextMenu x={wireMenu.x} y={wireMenu.y}>
+          <MenuButton
+            label="Edit relationship"
+            onClick={() => openRelation(wireMenu.fromId, wireMenu.toId, wireMenu.x, wireMenu.y, "edit")}
+          />
           <MenuButton label="Delete" danger onClick={() => removeLink(wireMenu.fromId, wireMenu.toId)} />
         </CanvasContextMenu>
       ) : null}
@@ -2058,6 +2120,18 @@ export function RoleCanvasEntry({
             onClick={unlockAll}
           />
         </CanvasContextMenu>
+      ) : null}
+      {relationPrompt ? (
+        <RelationPrompt
+          x={relationPrompt.x}
+          y={relationPrompt.y}
+          mode={relationPrompt.mode}
+          value={relationPrompt.value}
+          target={canvas?.nodes.find((node) => node.id === relationPrompt.toId)?.title || "this card"}
+          onChange={(value) => setRelationPrompt((current) => (current ? { ...current, value } : current))}
+          onApply={applyRelation}
+          onCancel={() => setRelationPrompt(null)}
+        />
       ) : null}
       <div className={allOpen ? "role-canvas-drawer is-open" : "role-canvas-drawer"}>
         {allOpen ? (
@@ -2367,6 +2441,71 @@ function MenuButton({
       <span>{label}</span>
       {shortcut ? <kbd>{shortcut}</kbd> : null}
     </button>
+  );
+}
+
+function RelationPrompt({
+  x,
+  y,
+  mode,
+  value,
+  target,
+  onChange,
+  onApply,
+  onCancel,
+}: {
+  x: number;
+  y: number;
+  mode: "create" | "edit";
+  value: string;
+  target: string;
+  onChange: (value: string) => void;
+  onApply: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLFormElement>(null);
+  const [place, setPlace] = useState({ left: x, top: y });
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    if (!panel) return;
+    const pad = 8;
+    const rect = panel.getBoundingClientRect();
+    const left = Math.max(pad, Math.min(x, window.innerWidth - rect.width - pad));
+    const top = Math.max(pad, Math.min(y, window.innerHeight - rect.height - pad));
+    setPlace((current) => (current.left === left && current.top === top ? current : { left, top }));
+  }, [x, y]);
+  return createPortal(
+    <form
+      ref={ref}
+      className="role-canvas-relation"
+      style={{ left: place.left, top: place.top }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onApply(value);
+      }}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <p>{mode === "edit" ? "Edit relationship" : "Relationship"}</p>
+      <p className="role-canvas-relation-target">to {target}</p>
+      <div className="role-canvas-relation-kinds">
+        {RELATION_KINDS.map((kind) => (
+          <button key={kind} type="button" onClick={() => onApply(kind)}>
+            {kind}
+          </button>
+        ))}
+      </div>
+      <label>
+        Or type one
+        <input aria-label="Relationship" value={value} onChange={(event) => onChange(event.target.value)} autoFocus />
+      </label>
+      <div className="role-canvas-relation-actions">
+        <button type="submit">Set</button>
+        <button type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>,
+    document.body,
   );
 }
 

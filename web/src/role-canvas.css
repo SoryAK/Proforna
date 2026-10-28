@@ -548,6 +548,12 @@
   pointer-events: none;
 }
 
+.role-canvas-wire-label {
+  fill: #f5f2ee;
+  font: 600 0.75rem/1 var(--sans);
+  pointer-events: none;
+}
+
 .role-canvas-node {
   position: absolute;
   width: 13rem;
@@ -840,6 +846,77 @@
 .role-canvas-context button.is-danger:hover,
 .role-canvas-context button.is-danger:focus-visible {
   background: rgba(255, 80, 70, 0.14);
+}
+
+.role-canvas-relation {
+  position: fixed;
+  z-index: 870;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 16rem;
+  padding: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  color: #f5f2ee;
+}
+
+.role-canvas-relation p {
+  margin: 0;
+  font: 600 0.8125rem/1.3 var(--sans);
+}
+
+.role-canvas-relation-target {
+  color: #e8d5b7;
+  font-weight: 500;
+}
+
+.role-canvas-relation-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.role-canvas-relation-kinds button,
+.role-canvas-relation-actions button {
+  min-height: 1.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f2ee;
+  font: 600 0.75rem/1.2 var(--sans);
+  cursor: pointer;
+}
+
+.role-canvas-relation label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: #f5f2ee;
+  font: 600 0.75rem/1.3 var(--sans);
+}
+
+.role-canvas-relation input {
+  min-height: 1.9rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: #100e0c;
+  color: #f5f2ee;
+  font: 500 0.8125rem/1.3 var(--sans);
+}
+
+.role-canvas-relation-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.role-canvas-relation-actions button[type="submit"] {
+  background: #e8d5b7;
+  color: #1c1814;
 }
 
 .role-canvas-drawer {
