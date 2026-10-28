@@ -2240,7 +2240,7 @@ export function RoleCanvasEntry({
       <div className={allOpen ? "role-canvas-drawer is-open" : "role-canvas-drawer"}>
         {allOpen ? (
           <div className="role-canvas-menu" role="menu">
-            {boards.map((board) => (
+            {boards.filter((board) => board.id !== role.id).map((board) => (
               <div key={board.id} className="role-canvas-menu-row">
                 <button type="button" role="menuitem" onClick={() => showHome(board.id)}>
                   {board.name}
@@ -2288,7 +2288,7 @@ export function RoleCanvasEntry({
             </span>
           ) : null}
           <div className="role-canvas-tabs" role="tablist" aria-label="Pinned canvases">
-            {boards.filter((board) => pinned.includes(board.id)).map((board) => (
+            {boards.filter((board) => board.id !== role.id && pinned.includes(board.id)).map((board) => (
               <button
                 key={board.id}
                 type="button"
