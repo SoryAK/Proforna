@@ -247,10 +247,32 @@
 
 .role-canvas-bar h2 {
   flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.35;
+}
+
+.role-canvas-title {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.role-canvas-title:hover,
+.role-canvas-title:focus-visible {
+  color: #e8d5b7;
 }
 
 .role-canvas-actions {

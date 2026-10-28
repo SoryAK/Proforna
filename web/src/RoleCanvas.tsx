@@ -1595,7 +1595,15 @@ export function RoleCanvasEntry({
           toggleMinimize();
         }}
       >
-        <h2>{minimized ? role.title || role.organization || "Canvas" : "Canvas"}</h2>
+        <h2>
+          {role.title.trim() ? (
+            <button type="button" className="role-canvas-title">
+              {role.title.trim()}
+            </button>
+          ) : (
+            "Canvas"
+          )}
+        </h2>
         <div className="role-canvas-actions">
           <button
             type="button"
