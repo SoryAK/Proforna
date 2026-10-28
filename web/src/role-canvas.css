@@ -69,12 +69,12 @@
   position: fixed;
   z-index: 740;
   top: 4.75rem;
-  left: max(0.75rem, min(22rem, calc(100vw - 43rem)));
+  left: max(0.75rem, min(22rem, calc(100vw - 53rem)));
   display: flex;
   flex-direction: column;
-  width: min(42rem, calc(100vw - 1.5rem));
-  height: min(30rem, calc(100vh - 6rem));
-  border: 1px solid rgba(199, 164, 123, 0.45);
+  width: min(52rem, calc(100vw - 1.5rem));
+  height: min(36rem, calc(100vh - 6rem));
+  border: 1px solid transparent;
   border-radius: 16px;
   background: #100e0c;
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.48);
@@ -82,21 +82,77 @@
   overflow: visible;
 }
 
+.role-canvas::after {
+  content: "";
+  position: absolute;
+  z-index: 9;
+  inset: -1px;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.role-canvas.is-minimized::after {
+  display: none;
+}
+
 .role-canvas.is-maximized {
   border-radius: 16px;
 }
 
 .role-canvas.is-minimized {
+  position: static;
+  z-index: auto;
+  top: auto;
+  left: auto;
   width: auto;
+  min-width: 0;
+  max-width: 100%;
   height: auto;
-  border-radius: 999px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.action-canvas-slot {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 14rem;
+  border-right: 1px solid rgba(199, 164, 123, 0.28);
+}
+
+.role-canvas.is-minimized .role-canvas-bar {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.45rem 0.35rem 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+.role-canvas.is-minimized .role-canvas-bar h2 {
+  max-width: 9rem;
+  overflow: hidden;
+  color: var(--gold-light);
+  font: 600 0.75rem/1.35 "Geist Variable", "Geist", system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .role-canvas.is-minimized .resize,
 .role-canvas.is-maximized .resize,
 .role-canvas.is-minimized .role-canvas-stage,
 .role-canvas.is-minimized .role-canvas-controls,
-.role-canvas.is-minimized .role-canvas-drawer {
+.role-canvas.is-minimized .role-canvas-drawer,
+.role-canvas.is-minimized .role-canvas-zoom,
+.role-canvas.is-minimized .role-canvas-save,
+.role-canvas.is-minimized .role-canvas-history,
+.role-canvas.is-minimized .role-canvas-history-panel {
   display: none;
 }
 
@@ -185,7 +241,8 @@
 }
 
 .role-canvas.is-minimized .role-canvas-bar {
-  border-radius: 999px;
+  border-bottom: 0;
+  background: transparent;
 }
 
 .role-canvas-bar h2 {
@@ -197,11 +254,13 @@
 }
 
 .role-canvas-actions {
+  position: relative;
   display: flex;
+  align-items: center;
   margin-left: auto;
 }
 
-.role-canvas-actions button {
+.role-canvas-actions > button {
   display: grid;
   place-items: center;
   width: 1.75rem;
@@ -215,11 +274,48 @@
   cursor: pointer;
 }
 
-.role-canvas-actions button:hover {
+.role-canvas-actions > .role-canvas-save,
+.role-canvas-actions > .role-canvas-history {
+  width: auto;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.6rem;
+  border-radius: 5px;
+  background: #0e7534;
+  color: #ffffff;
+  font: 600 0.75rem/1 var(--sans);
+}
+
+.role-canvas-save {
+  margin-right: 0.25rem;
+}
+
+.role-canvas-history {
+  margin-right: 0.45rem;
+}
+
+.role-canvas-save:hover,
+.role-canvas-history:hover,
+.role-canvas-save.is-saved {
+  background: #127a38;
+  color: #ffffff;
+}
+
+.role-canvas-save.is-saved {
+  background: #0d5c2b;
+}
+
+.role-canvas-actions > button:hover {
   background: rgba(167, 139, 113, 0.16);
 }
 
-.role-canvas-actions button[aria-label="Close"]:hover {
+.role-canvas-actions > .role-canvas-save:hover,
+.role-canvas-actions > .role-canvas-history:hover {
+  background: #127a38;
+  color: #ffffff;
+}
+
+.role-canvas-actions > button[aria-label="Close"]:hover {
   background: #e6a196;
   color: #080706;
 }
@@ -275,6 +371,7 @@
 
 .role-canvas-controls input,
 .role-canvas-controls textarea,
+.role-canvas-controls select,
 .role-canvas-tools input {
   min-height: 1.9rem;
   padding: 0.3rem 0.55rem;
@@ -288,6 +385,13 @@
 .role-canvas-controls textarea {
   min-height: 4.2rem;
   resize: vertical;
+}
+
+.role-canvas-node-error {
+  margin: 0;
+  color: #e6a196;
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .role-canvas-control-row,
@@ -313,7 +417,7 @@
 
 .role-canvas-tabs button,
 .role-canvas-all,
-.role-canvas-actions button,
+.role-canvas-actions > button:not(.role-canvas-save):not(.role-canvas-history),
 .role-canvas-menu button,
 .role-canvas-link-menu button {
   border-radius: 0;
@@ -358,8 +462,6 @@
 
 .role-canvas.is-focus .role-canvas-node.is-selected {
   opacity: 1;
-  border-color: var(--gold-hover);
-  box-shadow: 0 0 0 1px var(--gold-hover), 0 14px 32px rgba(0, 0, 0, 0.4);
 }
 
 .role-canvas.is-focus .role-canvas-wires path {
@@ -370,16 +472,39 @@
   stroke: rgba(232, 213, 183, 0.92);
 }
 
+.role-canvas-board {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .role-canvas-stage {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background:
-    linear-gradient(rgba(199, 164, 123, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(199, 164, 123, 0.07) 1px, transparent 1px),
-    #100e0c;
-  background-size: 48px 48px;
+  border-radius: 0 0 15px 15px;
+  background-color: #100e0c;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.8px, transparent 1.3px);
+  background-size: 20px 20px;
+  scrollbar-width: none;
+  overflow-anchor: none;
+}
+
+.role-canvas-stage::-webkit-scrollbar {
+  display: none;
+}
+
+.role-canvas-stage.is-pan,
+.role-canvas-stage.is-pan .role-canvas-node {
+  cursor: grab;
+  touch-action: none;
+}
+
+.role-canvas-stage.is-pan.is-grabbing,
+.role-canvas-stage.is-pan.is-grabbing .role-canvas-node {
+  cursor: grabbing;
 }
 
 .role-canvas-plane {
@@ -400,36 +525,130 @@
 
 .role-canvas-wires path {
   fill: none;
-  stroke: rgba(199, 164, 123, 0.55);
+  stroke: rgba(199, 164, 123, 0.7);
   stroke-width: 1.5;
+}
+
+.role-canvas-guides {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.role-canvas-guides line {
+  stroke: rgba(232, 213, 183, 0.9);
+  stroke-width: 1;
+}
+
+.role-canvas-wires path.is-draft {
+  stroke: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
 }
 
 .role-canvas-node {
   position: absolute;
   width: 13rem;
   padding: 0.7rem 0.8rem;
-  border: 1px solid rgba(199, 164, 123, 0.35);
-  border-radius: 12px;
-  background: #0d0b09;
+  border: 0;
+  border-radius: 16px;
+  background: #1c1c1c;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
   cursor: grab;
 }
 
-.role-canvas-node.is-selected {
-  border-color: var(--gold-hover);
+.role-canvas-node.is-filtered {
+  display: none;
 }
 
-.role-canvas-node.is-filtered {
-  opacity: 0.16;
+.role-canvas-node.is-locked {
+  cursor: default;
+}
+
+.role-canvas-stage.is-pan .role-canvas-node.is-locked {
+  cursor: grab;
+}
+
+.role-canvas-stage.is-pan.is-grabbing .role-canvas-node.is-locked {
+  cursor: grabbing;
+}
+
+.role-canvas-port {
+  position: absolute;
+  z-index: 4;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: -0.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #1c1c1c;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.role-canvas-port.in {
+  left: -0.35rem;
+  top: 50%;
+}
+
+.role-canvas-port.out {
+  right: -0.35rem;
+  top: 50%;
+}
+
+.role-canvas-port:hover,
+.role-canvas-port.is-hot {
+  background: #ff9412;
+}
+
+.role-canvas-port::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.3rem);
+  transform: translateX(-50%);
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  background: #1c1c1c;
+  color: #f5f2ee;
+  font: 600 0.75rem/1.2 var(--sans);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.role-canvas-port:hover::after {
+  opacity: 1;
 }
 
 .role-canvas-node .kind {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin: 0;
-  color: var(--gold);
+  color: #ff9412;
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1.35;
-  text-transform: uppercase;
+  text-transform: none;
+}
+
+.role-canvas-lock {
+  display: inline-flex;
+  color: #9a9a9a;
+}
+
+.role-canvas-lock svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
 }
 
 .role-canvas-node h3,
@@ -450,14 +669,189 @@
   color: var(--gold-hover);
 }
 
-.role-canvas-drawer {
-  position: relative;
-  flex-shrink: 0;
+.role-canvas-node.is-group {
+  z-index: 4;
+}
+
+.role-canvas-node.is-group:not(.is-open) {
+  padding-right: 2.1rem;
+}
+
+.role-canvas-node.is-group.is-open {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.role-canvas-chevron {
+  position: absolute;
+  z-index: 5;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f2ee;
+  cursor: pointer;
+}
+
+.role-canvas-node.is-group.is-open .role-canvas-chevron {
+  top: 0;
+  right: auto;
+  left: 0;
+}
+
+.role-canvas-chevron svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  transition: transform 160ms ease-out;
+}
+
+.role-canvas-node.is-group.is-open .role-canvas-chevron svg {
+  transform: rotate(90deg);
+}
+
+.role-canvas-node.is-page .role-canvas-page {
+  display: block;
   width: 100%;
-  min-width: 0;
-  background: #0d0b09;
+  height: 9rem;
+  margin-top: 0.45rem;
+  border: 0;
+  border-radius: 10px;
+  background: #f4f0e8;
+  pointer-events: none;
+}
+
+.role-canvas-node.is-page.is-sized {
+  overflow: hidden;
+}
+
+.role-canvas-node.is-page.is-sized .role-canvas-page {
+  height: calc(100% - 4.5rem);
+}
+
+.role-canvas-handle {
+  position: absolute;
+  z-index: 2;
+}
+
+.role-canvas-handle.n,
+.role-canvas-handle.s {
+  left: 18px;
+  right: 18px;
+  height: 10px;
+  cursor: ns-resize;
+}
+
+.role-canvas-handle.n { top: -6px; }
+.role-canvas-handle.s { bottom: -6px; }
+
+.role-canvas-handle.e,
+.role-canvas-handle.w {
+  top: 18px;
+  bottom: 18px;
+  width: 10px;
+  cursor: ew-resize;
+}
+
+.role-canvas-handle.e { right: -6px; }
+.role-canvas-handle.w { left: -6px; }
+
+.role-canvas-handle.nw,
+.role-canvas-handle.ne,
+.role-canvas-handle.sw,
+.role-canvas-handle.se {
+  z-index: 4;
+  width: 10px;
+  height: 10px;
+}
+
+.role-canvas-handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
+.role-canvas-handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
+.role-canvas-handle.sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.role-canvas-handle.se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+
+.role-canvas-context {
+  position: fixed;
+  z-index: 860;
+  display: flex;
+  flex-direction: column;
+  min-width: 14.5rem;
+  padding: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.role-canvas-context-rule {
+  height: 1px;
+  margin: 0.25rem 0.35rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.role-canvas-context button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f4f4f4;
+  font: 600 0.8125rem/1.3 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-canvas-context button kbd {
+  margin-left: auto;
+  color: #8e8e8e;
+  font: 500 0.75rem/1.2 var(--sans);
+}
+
+.role-canvas-context button:hover,
+.role-canvas-context button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.role-canvas-context button:disabled {
+  color: #6b6b70;
+  cursor: default;
+}
+
+.role-canvas-context button:disabled:hover {
+  background: transparent;
+}
+
+.role-canvas-context button.is-danger {
+  color: #ff8a80;
+}
+
+.role-canvas-context button.is-danger:hover,
+.role-canvas-context button.is-danger:focus-visible {
+  background: rgba(255, 80, 70, 0.14);
+}
+
+.role-canvas-drawer {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 0.65rem;
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
+  transform: translateX(-50%);
+  background: transparent;
   overflow: visible;
-  border-radius: 0 0 16px 16px;
 }
 
 .role-canvas-menu {
@@ -496,12 +890,15 @@
   display: flex;
   flex-flow: row nowrap;
   align-items: center;
-  gap: 0.35rem;
-  width: 100%;
+  gap: 0.15rem;
+  width: max-content;
+  max-width: 100%;
   min-width: 0;
-  padding: 0.35rem 0.65rem;
-  border-top: 1px solid rgba(199, 164, 123, 0.28);
-  overflow-x: auto;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: #1c1c1c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 
 .role-canvas-tools input {
@@ -520,12 +917,16 @@
 
 .role-canvas-tabs {
   display: flex;
-  flex: 1 1 auto;
-  align-items: stretch;
+  flex: 0 1 auto;
+  align-items: center;
   min-width: 0;
-  margin-left: auto;
+  margin-left: 0.15rem;
   overflow: hidden;
-  border-left: 1px solid rgba(199, 164, 123, 0.28);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.role-canvas-tabs:empty {
+  display: none;
 }
 
 .role-canvas-tabs button,
@@ -536,14 +937,17 @@
 }
 
 .role-canvas-tabs button {
-  max-width: 100%;
+  width: 8.5rem;
+  max-width: 8.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .role-canvas-tabs button[aria-selected="true"] {
-  box-shadow: inset 0 2px 0 var(--gold);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .role-canvas-all {
@@ -597,4 +1001,314 @@
   border-radius: 12px;
   background: #080706;
   object-fit: contain;
+}
+
+.role-canvas-zoom {
+  position: absolute;
+  z-index: 2;
+  left: 0.65rem;
+  bottom: 0.65rem;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.role-canvas-zoom-bar,
+.role-canvas-minimap {
+  pointer-events: auto;
+}
+
+.role-canvas-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  height: 2.5rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+}
+
+.role-canvas-zoom-bar button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  min-height: 0;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.role-canvas-zoom-bar button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: transparent;
+}
+
+.role-canvas-zoom-bar svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.role-canvas-zoom-bar span {
+  min-width: 3.2rem;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.role-canvas-minimap {
+  width: 11.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #100e0c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.role-canvas-minimap[hidden] {
+  display: none;
+}
+
+.role-canvas-minimap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+}
+
+.role-canvas-minimap .mark {
+  fill: #e8d5b7;
+}
+
+.role-canvas-minimap .mark.is-selected {
+  fill: #ff9412;
+}
+
+.role-canvas-tools .tool {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--wm-muted, #c9b8a0);
+}
+
+.role-canvas-tools .tool svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.role-canvas-tools .tool[aria-pressed="true"] {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.role-canvas-tools .tool:hover,
+.role-canvas-tools button:hover {
+  border-color: transparent;
+}
+
+.role-canvas-tools > button,
+.role-canvas-all,
+.role-canvas-tabs button {
+  border-color: transparent;
+  color: #f5f2ee;
+}
+
+.role-canvas-tools input {
+  width: 8rem;
+  margin-left: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: #f5f2ee;
+}
+
+.role-canvas-count {
+  flex: 0 0 auto;
+  color: #e8d5b7;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.role-canvas-menu {
+  right: 0;
+  bottom: calc(100% + 0.35rem);
+  width: 12.5rem;
+  padding: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.role-canvas-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.role-canvas-menu-row > button[role="menuitem"] {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  text-overflow: ellipsis;
+}
+
+.role-canvas-menu .role-canvas-pin {
+  width: auto;
+}
+
+.role-canvas-pin {
+  flex: 0 0 auto;
+  min-height: 1.7rem;
+  padding: 0.15rem 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f2ee;
+  font: 600 0.75rem/1.3 var(--sans);
+  cursor: pointer;
+}
+
+.role-canvas-history-panel {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 18rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  color: #f5f2ee;
+  cursor: default;
+}
+
+.role-canvas-history-panel[hidden] {
+  display: none;
+}
+
+.role-canvas-history-panel .kicker {
+  margin: 0;
+  color: #e8d5b7;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.role-canvas-history-panel h3 {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.role-canvas-history-panel .empty,
+.role-canvas-history-panel .meta {
+  margin: 0;
+  color: var(--wm-muted, #c9b8a0);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.role-canvas-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.role-canvas-save-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.role-canvas-save-row strong {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.role-canvas-save-row input {
+  width: 100%;
+  min-height: 1.8rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: #100e0c;
+  color: #f5f2ee;
+  font: 600 0.8125rem/1.35 var(--sans);
+}
+
+.role-canvas-save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.role-canvas-save-actions button {
+  min-height: 1.7rem;
+  padding: 0.15rem 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f2ee;
+  font: 600 0.75rem/1.3 var(--sans);
+  cursor: pointer;
+}
+
+.role-canvas-save-actions .is-danger {
+  color: #ff8a80;
+}
+
+.role-canvas-wire-menu {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  min-width: 8rem;
+  padding: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.role-canvas-wire-menu button {
+  min-height: 1.9rem;
+  padding: 0.3rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ff8a80;
+  font: 600 0.8125rem/1.3 var(--sans);
+  cursor: pointer;
 }

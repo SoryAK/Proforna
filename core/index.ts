@@ -295,6 +295,15 @@ export {
   type LifeAnchorIcon,
 } from "./life-anchor";
 export {
+  CANVAS_NODE_KINDS,
+  isCanvasNodeKind,
+  prepareCanvasNode,
+  removeCanvasNode,
+  type CanvasNodeError,
+  type CanvasNodeFields,
+  type CanvasNodeKind,
+} from "./canvas-node";
+export {
   inboundRaisesNotice,
   planSuggestedReplyChangeSet,
   prepareContactMessage,
