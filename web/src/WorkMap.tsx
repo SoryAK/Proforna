@@ -58,6 +58,7 @@ import type { WorkMapHome } from "./WorkMapCanvas";
 import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
+import { RoleCanvasEntry } from "./RoleCanvas";
 import "./work-map.css";
 
 type WorkMapResponse = {
@@ -115,6 +116,10 @@ export function WorkMap({
   const [selectedId, setSelectedId] = useState<string | null>(
     focusRoleId ?? null,
   );
+  const [canvasRoleId, setCanvasRoleId] = useState<string | null>(null);
+  const [canvasMinimized, setCanvasMinimized] = useState(false);
+  const [canvasSlot, setCanvasSlot] = useState<HTMLDivElement | null>(null);
+  const [canvasDock, setCanvasDock] = useState<HTMLDivElement | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [closedSections, setClosedSections] = useState<
@@ -457,6 +462,7 @@ export function WorkMap({
   ]);
 
   const selected = data?.roles.find((role) => role.id === selectedId) ?? null;
+  const canvasRole = data?.roles.find((role) => role.id === canvasRoleId) ?? null;
   const latest = publications.find(
     (publication) => publication.slug === settings?.slug,
   );
@@ -994,6 +1000,20 @@ export function WorkMap({
 
   return (
     <section className="work-map">
+      {canvasRole ? (
+        <RoleCanvasEntry
+          key={canvasRole.id}
+          role={canvasRole}
+          minimized={canvasMinimized}
+          slot={selectedId === canvasRole.id ? canvasSlot : null}
+          dockSlot={canvasDock}
+          onMinimizedChange={setCanvasMinimized}
+          onClose={() => {
+            setCanvasRoleId(null);
+            setCanvasMinimized(false);
+          }}
+        />
+      ) : null}
       {message ? (
         <p
           className={message.length > 90 ? "work-map-toast is-long" : "work-map-toast"}
@@ -1069,6 +1089,17 @@ export function WorkMap({
             onSaved={load}
             reviewCount={duplicateCount.active}
             onOpenReview={duplicateCount.total > 0 ? () => setReviewOpen(true) : undefined}
+            canvasExpanded={canvasRoleId === selected.id && !canvasMinimized}
+            onShowCanvas={() => {
+              if (canvasRoleId === selected.id && !canvasMinimized) {
+                setCanvasRoleId(null);
+                setCanvasMinimized(false);
+                return;
+              }
+              setCanvasRoleId(selected.id);
+              setCanvasMinimized(false);
+            }}
+            onCanvasSlot={setCanvasSlot}
             placement={
               pendingPlacement?.roleId === selected.id ? pendingPlacement : null
             }
@@ -1126,6 +1157,19 @@ export function WorkMap({
               placeholder="Search…"
               aria-label="Search career history"
             />
+            <label className="work-map-sort">
+              <span>Sort</span>
+              <select
+                value={sort}
+                onChange={(event) =>
+                  setSort(event.target.value === "oldest" ? "oldest" : "newest")
+                }
+              >
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </label>
+            <div className="history-tool-group">
             <div className="history-menu">
               <button
                 type="button"
@@ -1200,18 +1244,7 @@ export function WorkMap({
             >
               <SelectIcon />
             </button>
-            <label className="work-map-sort">
-              <span>Sort</span>
-              <select
-                value={sort}
-                onChange={(event) =>
-                  setSort(event.target.value === "oldest" ? "oldest" : "newest")
-                }
-              >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-              </select>
-            </label>
+            </div>
           </div>
           {removeAsk || selecting ? (
           <div className="history-actions" aria-label="Career history actions">
@@ -1444,7 +1477,8 @@ export function WorkMap({
               className={actionTabOpen ? "action-dock" : "action-dock is-collapsed"}
               ref={actionDockRef}
             >
-              <div className="action-tab" ref={actionShellRef}>
+              <div className={canvasMinimized ? "action-tab has-canvas" : "action-tab"} ref={actionShellRef}>
+                {canvasMinimized ? <div className="action-canvas-slot" ref={setCanvasDock} /> : null}
                 <div className="action-bar" role="toolbar" aria-label="Actions">
                   <div className="publication-menu-anchor" ref={menuHost === "tab" ? publishMenuRef : undefined}>
                     <button

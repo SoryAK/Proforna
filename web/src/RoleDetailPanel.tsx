@@ -17,7 +17,6 @@ import {
   type WorkMapRole,
 } from "@core/work-map";
 import { lookupNote, searchPlaces, type PlaceHit } from "./place-search";
-import { RoleCanvasEntry } from "./RoleCanvas";
 
 export type DetailTab = "story" | "conditions" | "media" | "evidence" | "places";
 
@@ -42,6 +41,9 @@ export function RoleDetailPanel({
   reviewCount = 0,
   onOpenReview,
   onHoldDuplicate,
+  canvasExpanded = false,
+  onShowCanvas,
+  onCanvasSlot,
 }: {
   role: WorkMapRole;
   tab: DetailTab;
@@ -66,6 +68,9 @@ export function RoleDetailPanel({
     description: string;
     achievements: string[];
   }) => boolean;
+  canvasExpanded?: boolean;
+  onShowCanvas?: () => void;
+  onCanvasSlot?: (node: HTMLDivElement | null) => void;
 }) {
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState(false);
@@ -413,7 +418,17 @@ export function RoleDetailPanel({
             </button>
           ) : null}
         </div>
-        <RoleCanvasEntry role={role} />
+        <div className="role-canvas-entry" ref={onCanvasSlot} />
+        {onShowCanvas ? (
+          <button
+            className="job-more-toggle"
+            type="button"
+            aria-expanded={canvasExpanded}
+            onClick={onShowCanvas}
+          >
+            Show on canvas
+          </button>
+        ) : null}
       </article>
 
       <section className="focus-hub">

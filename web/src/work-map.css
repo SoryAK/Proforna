@@ -1101,10 +1101,16 @@
   font-size: 0.92rem;
 }
 
+.history-tool-group {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .history-menu {
   position: relative;
   z-index: 4;
-  align-self: end;
 }
 
 .history-tool {
@@ -1149,6 +1155,11 @@
   background: #14110e;
 }
 
+.history-tool-group .history-menu-panel {
+  left: auto;
+  right: 0;
+}
+
 .history-menu-panel button {
   display: block;
   width: 100%;
@@ -1168,9 +1179,9 @@
 
 .work-map-tools {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.45rem;
-  align-items: end;
+  align-items: center;
   padding: 0 0.75rem 0.7rem;
   border-bottom: 1px solid var(--wm-line);
 }
@@ -1181,8 +1192,10 @@
 }
 
 .work-map-sort {
-  display: grid;
-  gap: 0.25rem;
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 0.35rem;
   color: var(--gold);
   font-size: 0.7rem;
 }
@@ -2696,8 +2709,8 @@
   }
 
   .work-map-sort {
-    min-width: 5.5rem;
-    flex: 1 1 8rem;
+    min-width: 0;
+    flex: none;
   }
 
   .history-publish {
@@ -3116,9 +3129,19 @@
   transform: rotate(45deg) translate(-0.05rem, -0.05rem);
 }
 
+.work-map-stage .action-tab.has-canvas .action-bar {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
 .work-map-stage .action-dock.is-collapsed .action-tab {
   width: 4.5rem;
   height: 1.2rem;
+}
+
+.work-map-stage .action-dock.is-collapsed .action-tab.has-canvas {
+  width: auto;
+  height: auto;
 }
 
 .work-map-stage .action-dock.is-collapsed .action-handle {
@@ -3126,6 +3149,13 @@
   border-left: 0;
   border-radius: 12px 12px 0 0;
   background: transparent;
+}
+
+.work-map-stage .action-dock.is-collapsed .action-tab.has-canvas .action-handle {
+  width: 2.4rem;
+  border-left: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 0 12px 0 0;
+  background: #1c1814;
 }
 
 .work-map-stage .action-dock.is-collapsed .action-handle i {
