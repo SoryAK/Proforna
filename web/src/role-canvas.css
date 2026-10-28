@@ -582,6 +582,19 @@
   cursor: grab;
 }
 
+.role-canvas-node.is-selected {
+  background: #2c2824;
+  box-shadow: 0 0 0 1px #e8d5b7;
+}
+
+.role-canvas-marquee {
+  position: absolute;
+  z-index: 45;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
 .role-canvas-node.is-filtered {
   display: none;
 }

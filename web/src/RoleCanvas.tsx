@@ -263,6 +263,7 @@ export function RoleCanvasEntry({
   const chromeRef = useRef<Chrome>(EMPTY_CHROME);
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
   const panPadRef = useRef(0);
+  const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [view, setView] = useState({ left: 0, top: 0, width: 1, height: 1 });
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [draft, setDraft] = useState<{
@@ -750,6 +751,18 @@ export function RoleCanvasEntry({
       }
       setSelectedGroupId(null);
       setLinkOpen(false);
+      if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        setSelection((current) => {
+          const next = current.includes(node.id) ? current.filter((id) => id !== node.id) : [...current, node.id];
+          if (next.length === 1) setSelectedId(next[0]);
+          else {
+            setSelectedId(null);
+            setDraft(null);
+          }
+          return next;
+        });
+        return;
+      }
       setSelection([node.id]);
       setSelectedId(node.id);
     }
@@ -1875,12 +1888,66 @@ export function RoleCanvasEntry({
             return;
           }
           if (target.closest("button, .role-canvas-node, .role-canvas-wires")) return;
-          setSelectedGroupId(null);
-          setLinkOpen(false);
-          setNodeError("");
-          setSelection([]);
-          setSelectedId(null);
-          setDraft(null);
+          const stage = event.currentTarget;
+          const start = canvasPoint(event.clientX, event.clientY);
+          const keep = event.shiftKey || event.metaKey || event.ctrlKey ? [...selection] : [];
+          let dragged = false;
+          try {
+            stage.setPointerCapture(event.pointerId);
+          } catch {
+            /* capture is optional */
+          }
+          function move(next: PointerEvent) {
+            if (next.pointerId !== event.pointerId) return;
+            const point = canvasPoint(next.clientX, next.clientY);
+            if (!dragged && (next.clientX - event.clientX) ** 2 + (next.clientY - event.clientY) ** 2 < 16) return;
+            dragged = true;
+            setMarquee({
+              left: Math.min(start.x, point.x),
+              top: Math.min(start.y, point.y),
+              width: Math.abs(point.x - start.x),
+              height: Math.abs(point.y - start.y),
+            });
+          }
+          function up(next: PointerEvent) {
+            if (next.pointerId !== event.pointerId) return;
+            stage.removeEventListener("pointermove", move);
+            stage.removeEventListener("pointerup", up);
+            stage.removeEventListener("pointercancel", up);
+            setMarquee(null);
+            setSelectedGroupId(null);
+            setLinkOpen(false);
+            setNodeError("");
+            if (!dragged) {
+              setSelection([]);
+              setSelectedId(null);
+              setDraft(null);
+              return;
+            }
+            const point = canvasPoint(next.clientX, next.clientY);
+            const left = Math.min(start.x, point.x);
+            const top = Math.min(start.y, point.y);
+            const right = Math.max(start.x, point.x);
+            const bottom = Math.max(start.y, point.y);
+            const board = boardsRef.current.find((item) => item.id === canvas?.id);
+            const hidden = hiddenMemberIds(board?.groups ?? []);
+            const hits = (board?.nodes ?? []).filter((node) => {
+              if (hidden.has(node.id)) return false;
+              const card = planeRef.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(node.id)}"]`);
+              if (!card || card.offsetWidth < 1) return false;
+              return node.x < right && node.x + card.offsetWidth > left && node.y < bottom && node.y + card.offsetHeight > top;
+            }).map((node) => node.id);
+            const nextIds = [...new Set([...keep, ...hits])];
+            setSelection(nextIds);
+            if (nextIds.length === 1) setSelectedId(nextIds[0]);
+            else {
+              setSelectedId(null);
+              setDraft(null);
+            }
+          }
+          stage.addEventListener("pointermove", move);
+          stage.addEventListener("pointerup", up);
+          stage.addEventListener("pointercancel", up);
         }}
       >
         <div className="role-canvas-plane" ref={planeRef}>
@@ -1926,6 +1993,12 @@ export function RoleCanvasEntry({
             ))}
             {draftWire ? <path className="is-draft" d={wirePath(draftWire.x1, draftWire.y1, draftWire.x2, draftWire.y2)} /> : null}
           </svg>
+          {marquee ? (
+            <div
+              className="role-canvas-marquee"
+              style={{ left: marquee.left, top: marquee.top, width: marquee.width, height: marquee.height }}
+            />
+          ) : null}
           {canvas?.nodes.filter((node) => !hiddenMemberIds(canvas.groups).has(node.id)).map((node, index) => {
             const faded =
               query.trim() &&
