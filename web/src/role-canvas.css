@@ -695,6 +695,19 @@
   line-height: 1.4;
 }
 
+.role-canvas-node:not(.is-page):not(.is-group) {
+  width: 13rem;
+  min-width: 13rem;
+  max-width: 13rem;
+}
+
+.role-canvas-node h3 {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .role-canvas-node p {
   color: var(--wm-muted, #c9b8a0);
   font-size: 0.8125rem;

@@ -2040,7 +2040,7 @@ export function RoleCanvasEntry({
                     </span>
                   ) : null}
                 </p>
-                <h3>{node.title || "Untitled"}</h3>
+                <h3 title={node.title || undefined}>{node.title || "Untitled"}</h3>
                 {node.kind === "Page" ? (
                   pageSrc(node) ? (
                     <iframe
