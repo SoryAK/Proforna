@@ -1886,6 +1886,17 @@ export function RoleCanvasEntry({
             {wires.map((wire) => (
               <g key={wire.id}>
                 <path d={wire.d} className={wire.live ? "is-live" : undefined} />
+                {wire.explicit ? (
+                  <path
+                    className="hit"
+                    data-from={wire.fromId}
+                    data-to={wire.toId}
+                    d={wire.hit}
+                    onContextMenu={(event) => {
+                      openWireAt(event);
+                    }}
+                  />
+                ) : null}
                 {wire.relation ? (
                   <text className="role-canvas-wire-label" x={wire.mx} y={wire.my - 8} textAnchor="middle">
                     {wire.relation}
