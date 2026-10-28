@@ -472,6 +472,13 @@
   stroke: rgba(232, 213, 183, 0.92);
 }
 
+.role-canvas-wires path.is-hot,
+.role-canvas-wires path.is-editing {
+  stroke: #f5f2ee;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 5px rgba(232, 213, 183, 0.95));
+}
+
 .role-canvas-board {
   position: relative;
   display: flex;

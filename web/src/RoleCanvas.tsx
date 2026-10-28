@@ -248,6 +248,7 @@ export function RoleCanvasEntry({
   const [savedFlash, setSavedFlash] = useState(false);
   const [snaps, setSnaps] = useState(readSnaps);
   const [wireMenu, setWireMenu] = useState<{ fromId: string; toId: string; x: number; y: number } | null>(null);
+  const [hotWire, setHotWire] = useState<string | null>(null);
   const [relationPrompt, setRelationPrompt] = useState<{
     fromId: string;
     toId: string;
@@ -1885,13 +1886,26 @@ export function RoleCanvasEntry({
           <svg className="role-canvas-wires">
             {wires.map((wire) => (
               <g key={wire.id}>
-                <path d={wire.d} className={wire.live ? "is-live" : undefined} />
+                <path
+                  d={wire.d}
+                  className={
+                    [
+                      wire.live ? "is-live" : "",
+                      hotWire === wire.id || (wireMenu?.fromId === wire.fromId && wireMenu.toId === wire.toId) ? "is-hot" : "",
+                      relationPrompt?.fromId === wire.fromId && relationPrompt.toId === wire.toId ? "is-editing" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined
+                  }
+                />
                 {wire.explicit ? (
                   <path
                     className="hit"
                     data-from={wire.fromId}
                     data-to={wire.toId}
                     d={wire.hit}
+                    onPointerEnter={() => setHotWire(wire.id)}
+                    onPointerLeave={() => setHotWire((current) => (current === wire.id ? null : current))}
                     onContextMenu={(event) => {
                       openWireAt(event);
                     }}
