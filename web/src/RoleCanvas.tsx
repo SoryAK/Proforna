@@ -262,6 +262,7 @@ export function RoleCanvasEntry({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const chromeRef = useRef<Chrome>(EMPTY_CHROME);
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
+  const panPadRef = useRef(0);
   const [view, setView] = useState({ left: 0, top: 0, width: 1, height: 1 });
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [draft, setDraft] = useState<{
@@ -549,18 +550,23 @@ export function RoleCanvasEntry({
     function place() {
       if (frame.clientWidth < 1 || frame.clientHeight < 1) return;
       const inset = chromeRef.current;
-      board.style.marginTop = `${inset.top}px`;
-      board.style.marginLeft = `${inset.left}px`;
-      board.style.marginRight = `${Math.max(0, board.offsetWidth * (zoom - 1)) + inset.extraRight}px`;
-      board.style.marginBottom = `${Math.max(0, board.offsetHeight * (zoom - 1)) + inset.bottom}px`;
+      const slack = Math.max(frame.clientWidth, frame.clientHeight);
+      board.style.marginTop = `${inset.top + slack}px`;
+      board.style.marginLeft = `${inset.left + slack}px`;
+      board.style.marginRight = `${Math.max(0, board.offsetWidth * (zoom - 1)) + inset.extraRight + slack}px`;
+      board.style.marginBottom = `${Math.max(0, board.offsetHeight * (zoom - 1)) + inset.bottom + slack}px`;
       if (pendingScroll.current) {
-        frame.scrollLeft = pendingScroll.current.left;
-        frame.scrollTop = pendingScroll.current.top;
+        frame.scrollLeft = pendingScroll.current.left + slack;
+        frame.scrollTop = pendingScroll.current.top + slack;
         pendingScroll.current = null;
+      } else if (panPadRef.current !== slack) {
+        frame.scrollLeft += slack - panPadRef.current;
+        frame.scrollTop += slack - panPadRef.current;
       }
+      panPadRef.current = slack;
       setView({
-        left: frame.scrollLeft - inset.left,
-        top: frame.scrollTop - inset.top,
+        left: frame.scrollLeft - (inset.left + slack),
+        top: frame.scrollTop - (inset.top + slack),
         width: frame.clientWidth,
         height: frame.clientHeight,
       });
