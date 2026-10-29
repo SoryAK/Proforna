@@ -39,6 +39,7 @@ type GuideLine = { x1: number; y1: number; x2: number; y2: number };
 type Chrome = { left: number; top: number; bottom: number; extraRight: number };
 
 const SNAP_KEY = "proforna-canvas-saves";
+const VIEWPORT_KEY = "proforna-canvas-viewports";
 const DESIGN_FILM = "https://www.youtube-nocookie.com/embed/xIZYqNS6so0?rel=0";
 const RELATION_KINDS = ["evidence", "example", "design", "outsource", "feedback", "approved"];
 const EMPTY_CHROME: Chrome = { left: 0, top: 0, bottom: 0, extraRight: 0 };
@@ -76,6 +77,47 @@ function readSnaps(): Record<string, Snap[]> {
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
+  }
+}
+
+type CanvasViewport = { x: number; y: number; zoom: number };
+
+function viewportKey(roleId: string, boardId: string) {
+  return `${roleId}:${boardId}`;
+}
+
+function readViewports(): Record<string, CanvasViewport> {
+  try {
+    const raw = localStorage.getItem(VIEWPORT_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object") return {};
+    const viewports: Record<string, CanvasViewport> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!value || typeof value !== "object") continue;
+      const item = value as Partial<CanvasViewport>;
+      const x = Number(item.x);
+      const y = Number(item.y);
+      const zoom = Number(item.zoom);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(zoom)) continue;
+      viewports[key] = { x, y, zoom: Math.min(2.5, Math.max(0.35, zoom)) };
+    }
+    return viewports;
+  } catch {
+    return {};
+  }
+}
+
+function readViewport(roleId: string, boardId: string) {
+  return readViewports()[viewportKey(roleId, boardId)] ?? null;
+}
+
+function writeViewport(roleId: string, boardId: string, viewport: CanvasViewport) {
+  try {
+    const all = readViewports();
+    all[viewportKey(roleId, boardId)] = viewport;
+    localStorage.setItem(VIEWPORT_KEY, JSON.stringify(all));
+  } catch {
+    /* storage can be unavailable */
   }
 }
 
@@ -223,6 +265,7 @@ export function RoleCanvasEntry({
   onClose: () => void;
 }) {
   const seeded = useMemo(() => boardsForRole(role), [role]);
+  const openingViewport = readViewport(role.id, seeded[0]?.id ?? "");
   const [boards, setBoards] = useState(seeded);
   const [canvasId, setCanvasId] = useState(seeded[0]?.id ?? "");
   const [open, setOpen] = useState(true);
@@ -234,7 +277,7 @@ export function RoleCanvasEntry({
   const [menuEpoch, setMenuEpoch] = useState(0);
   const [guides, setGuides] = useState<GuideLine[]>([]);
   const [query, setQuery] = useState("");
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(openingViewport?.zoom ?? 1);
   const [allOpen, setAllOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
@@ -261,7 +304,9 @@ export function RoleCanvasEntry({
   const [hotTarget, setHotTarget] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const chromeRef = useRef<Chrome>(EMPTY_CHROME);
-  const pendingScroll = useRef<{ left: number; top: number } | null>(null);
+  const pendingScroll = useRef<{ left: number; top: number } | null>(
+    openingViewport ? { left: openingViewport.x, top: openingViewport.y } : null,
+  );
   const panPadRef = useRef(0);
   const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [view, setView] = useState({ left: 0, top: 0, width: 1, height: 1 });
@@ -504,6 +549,11 @@ export function RoleCanvasEntry({
   }
 
   function showHome(nextId: string) {
+    rememberViewport();
+    const saved = readViewport(role.id, nextId);
+    chromeRef.current = EMPTY_CHROME;
+    pendingScroll.current = { left: saved?.x ?? 0, top: saved?.y ?? 0 };
+    setZoom(saved?.zoom ?? 1);
     setCanvasId(nextId);
     setSelectedId(null);
     setLinkOpen(false);
@@ -520,6 +570,7 @@ export function RoleCanvasEntry({
   }
 
   function closeCanvas() {
+    rememberViewport();
     setSelectedId(null);
     setMaximized(false);
     setAllOpen(false);
@@ -661,6 +712,7 @@ export function RoleCanvasEntry({
 
   function toggleMinimize() {
     if (!minimized) {
+      rememberViewport();
       if (!maximized) {
         const current = readFrame();
         restoreFrame.current = current;
@@ -1212,6 +1264,24 @@ export function RoleCanvasEntry({
       top: plane ? Number.parseFloat(plane.style.marginTop) || 0 : 0,
     };
   }
+
+  function rememberViewport(boardId = canvasId) {
+    const stage = stageRef.current;
+    if (!boardId || !stage || stage.clientWidth < 1 || stage.clientHeight < 1) return;
+    const origin = planeOrigin();
+    writeViewport(role.id, boardId, {
+      x: stage.scrollLeft - origin.left,
+      y: stage.scrollTop - origin.top,
+      zoom,
+    });
+  }
+
+  useEffect(() => {
+    if (!canvasId || minimized) return;
+    const boardId = canvasId;
+    const timer = window.setTimeout(() => rememberViewport(boardId), 200);
+    return () => window.clearTimeout(timer);
+  }, [view.left, view.top, zoom, canvasId, minimized]);
 
   function canvasPoint(clientX: number, clientY: number) {
     const stage = stageRef.current;
