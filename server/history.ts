@@ -16,6 +16,7 @@ import {
   prepareWorkMapLocation,
   type WorkMapRole,
 } from "../core/work-map";
+import { readRoleAchievements, reconcileRoleAchievements, roleAchievementStatements } from "../core/role-achievements";
 import { commitOccupantFactOperations, readCareerMemory } from "./career-memory";
 import { evidenceIdForResume } from "./profile";
 import { replaceResumeAsides, type ResumeAside } from "./resume-asides";
@@ -334,8 +335,12 @@ export async function applyComparedResume(
   let updated = 0;
   for (const role of input.updates) {
     const existing = db
-      .prepare("SELECT id, kind FROM work_history WHERE id = ? AND occupant_id = ?")
-      .get(role.id, occupantId) as { id: string; kind: string } | undefined;
+      .prepare(
+        "SELECT id, kind, achievements_json FROM work_history WHERE id = ? AND occupant_id = ?",
+      )
+      .get(role.id, occupantId) as
+      | { id: string; kind: string; achievements_json: string }
+      | undefined;
     if (!existing) continue;
     db.prepare(
       `UPDATE work_history SET title = ?, company = ?, location = ?, start_date = ?,
@@ -349,7 +354,13 @@ export async function applyComparedResume(
       role.isCurrent ? "" : role.endDate,
       role.isCurrent ? 1 : 0,
       role.description,
-      JSON.stringify(role.achievements),
+      JSON.stringify(
+        reconcileRoleAchievements(
+          readRoleAchievements(existing.achievements_json, randomUUID).items,
+          role.achievements,
+          randomUUID,
+        ),
+      ),
       role.id,
       occupantId,
     );
@@ -396,13 +407,5 @@ function factRole(role: ComparedRoleUpdate, kind: WorkMapRole["kind"]): WorkMapR
 }
 
 function parseAchievements(raw: string): string[] {
-  try {
-    const value: unknown = JSON.parse(raw);
-    if (!Array.isArray(value)) return [];
-    return value.filter(
-      (item): item is string => typeof item === "string" && Boolean(item.trim()),
-    );
-  } catch {
-    return [];
-  }
+  return roleAchievementStatements(raw);
 }
