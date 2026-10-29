@@ -1,0 +1,283 @@
+<!--
+  Throwaway. Stat line on the Giants job card. Not the Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Job snapshot</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --hair: rgba(199, 164, 123, 0.22);
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-width: 1100px;
+        background: #0a0a0a;
+        color: var(--ink);
+        font: 16px/1.5 var(--sans);
+      }
+
+      .mark {
+        margin: 0;
+        padding: 0.45rem 0.9rem 0;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+
+      .stage {
+        position: relative;
+        height: calc(100vh - 2.4rem);
+        min-height: 40rem;
+        margin: 0.45rem 0.75rem 0.75rem;
+        overflow: hidden;
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(199, 164, 123, 0.08) 1px, transparent 1px),
+          #100e0c;
+        background-size: 48px 48px;
+      }
+
+      .column {
+        position: absolute;
+        top: 1rem;
+        bottom: 1rem;
+        left: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        width: min(24rem, 38vw);
+        overflow: auto;
+      }
+
+      .card {
+        flex: none;
+        border: 1px solid var(--hair);
+        border-radius: 16px;
+        background: #0d0b09;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+
+      .profile { padding: 0.85rem 0.9rem 1rem; }
+
+      .profile-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 0.75rem;
+        color: var(--gold-light);
+        font: 600 0.8125rem/1.45 var(--sans);
+      }
+
+      .who { display: flex; align-items: center; gap: 0.85rem; }
+
+      .face {
+        display: grid;
+        width: 2.75rem;
+        height: 2.75rem;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(199, 164, 123, 0.16);
+        color: var(--gold-hover);
+        font-weight: 600;
+      }
+
+      .profile h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.35;
+      }
+
+      .job-card { overflow: hidden; }
+
+      .job-photo { height: 6rem; background: #1a1510; }
+
+      .job-photo img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .job-copy {
+        display: grid;
+        gap: 0.15rem;
+        padding: 0.7rem 0.9rem 0.85rem;
+      }
+
+      .job-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      h3 { margin: 0; font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
+
+      .edit {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.35 var(--sans);
+      }
+
+      .title, .duty { margin: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.45; }
+
+      .duty {
+        margin-top: 0.35rem;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+        margin: 0.1rem 0 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.45;
+      }
+
+      .current {
+        padding: 0 0.25rem;
+        border-radius: 3px;
+        background: rgba(16, 185, 129, 0.18);
+        color: #6ee7b7;
+        font-weight: 600;
+      }
+
+      .job-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.45rem;
+      }
+
+      .job-pills a, .job-pills span.pill {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        color: var(--gold-light);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.35;
+        text-decoration: none;
+      }
+
+      .snapshot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem 1.1rem;
+        margin: 0.75rem 0 0;
+        padding: 0.7rem 0 0;
+        border-top: 1px solid var(--hair);
+      }
+
+      .snapshot div { display: grid; gap: 0.1rem; min-width: 4.5rem; }
+
+      .snapshot dt {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .snapshot dd {
+        margin: 0;
+        color: var(--ink);
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .snapshot dd.is-empty { color: var(--muted); font-weight: 500; }
+
+      .hub { padding: 0.7rem 0.9rem 0.85rem; }
+
+      .hub p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.75rem; line-height: 1.45; }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Prototype · stat line on the job card. Not wired to Career History.</p>
+    <div class="stage">
+      <div class="column">
+        <section class="card profile" aria-label="Profile">
+          <div class="profile-bar">Home · History · Revoked · Preview · Publish · Edit</div>
+          <div class="who">
+            <span class="face">SK</span>
+            <h2>Sory Kaba</h2>
+          </div>
+        </section>
+
+        <article class="card job-card">
+          <div class="job-photo">
+            <img src="http://127.0.0.1:5173/api/work-map/media/c656800b-bb76-4779-99d6-9a0ebc251f28" alt="" />
+          </div>
+          <div class="job-copy">
+            <div class="job-title-row">
+              <h3>Giants Direct</h3>
+              <button class="edit" type="button">Edit</button>
+            </div>
+            <p class="title">Mechatronics and Robotics Technician</p>
+            <p class="meta">
+              <span>Lancaster, PA</span>
+              <span aria-hidden="true">·</span>
+              <span>Jun 2024 – Present</span>
+              <span class="current">current</span>
+              <span>(2y 4m)</span>
+            </p>
+            <p class="duty">Maintained Swisslog pick-and-place robotics and conveyors.</p>
+            <div class="job-pills">
+              <a href="https://www.giantdirect.com">Website</a>
+              <a href="https://www.linkedin.com/showcase/giantdirect/">LinkedIn</a>
+              <span class="pill">Worked with</span>
+              <span class="pill">More about this role</span>
+            </div>
+            <dl class="snapshot" aria-label="Role snapshot">
+              <div>
+                <dt>Achievements</dt>
+                <dd>6</dd>
+              </div>
+              <div>
+                <dt>Photo</dt>
+                <dd>1</dd>
+              </div>
+              <div>
+                <dt>Events</dt>
+                <dd>0</dd>
+              </div>
+              <div>
+                <dt>Tools</dt>
+                <dd class="is-empty">None yet</dd>
+              </div>
+            </dl>
+          </div>
+        </article>
+
+        <section class="card hub" aria-label="Media and events">
+          <h3>Media and events</h3>
+          <p>Photos, video, and events. The full view opens over the map.</p>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

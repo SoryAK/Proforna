@@ -59,6 +59,7 @@ import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import { RoleCanvasEntry } from "./RoleCanvas";
+import type { CanvasBoard } from "@core/canvas-board";
 import { useSiteSurface } from "./SiteWindow";
 import "./work-map.css";
 
@@ -88,6 +89,7 @@ type WorkMapResponse = {
     mapped: number;
     publicMedia: number;
   };
+  studyBoards?: CanvasBoard[];
 };
 
 type Publication = {
@@ -1026,6 +1028,7 @@ export function WorkMap({
           key={canvasAll ? "all" : canvasRole.id}
           role={canvasRole}
           roles={canvasAll ? canvasRoles : undefined}
+          studyBoards={data?.studyBoards ?? []}
           scope={canvasAll ? "all" : "role"}
           minimized={canvasMinimized}
           slot={canvasAll || selectedId !== canvasRole.id ? null : canvasSlot}

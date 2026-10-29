@@ -1,0 +1,40 @@
+{
+  "title": "Career History",
+  "question": "The map leads, and a role opens over it. Which layout should the mock follow?",
+  "options": [
+    {
+      "id": "notes",
+      "label": "Notes on the pins",
+      "kicker": "THE ROLL",
+      "thesis": "The map is the ledger. Each site carries its own line, and the career is one caption.",
+      "palette": ["#080706", "#a78b71", "#f5f2ee", "#d9d2c6"],
+      "materials": ["real map tiles", "fine gold rules", "Geist"],
+      "viewport": "A full-bleed map of southeastern Pennsylvania. Pins read Lancaster · Giants Direct · 2024–. Under Sory Kaba, one line: 10 years, 7 cities. Publish and Revoked sit in the corner. There is no role column.",
+      "risk": "Labels crowd when several jobs share a city.",
+      "comp": ".impeccable/mocks/decision/notes.png"
+    },
+    {
+      "id": "year",
+      "label": "The year on the ground",
+      "thesis": "The year in view is the career. The map shows only the sites alive then.",
+      "palette": ["#080706", "#a78b71", "#f5f2ee", "#d9d2c6"],
+      "materials": ["real map tiles", "fine gold rules", "Geist"],
+      "viewport": "The map fills the page. A year control along the bottom is set to 2024, and only that year’s sites are pinned. A line reads 2024 · Lancaster and Allentown. Publish and Revoked stay in the bar.",
+      "risk": "One year hides the span if the control is easy to miss.",
+      "comp": ".impeccable/mocks/decision/year.png"
+    },
+    {
+      "id": "current",
+      "label": "What is still open",
+      "thesis": "Current work is the ground. Earlier roles wait one layer down.",
+      "palette": ["#080706", "#a78b71", "#f5f2ee", "#d9d2c6"],
+      "materials": ["real map tiles", "fine gold rules", "Geist"],
+      "viewport": "The map is framed on the three current jobs: Lancaster, Allentown, and Media. A sentence says three roles are still open. Show earlier work sits quiet. Publish and Revoked stay in the bar.",
+      "risk": "The past disappears if the reveal is easy to miss.",
+      "comp": ".impeccable/mocks/decision/current.png"
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "buildPath": { "value": "comp", "toggle": true }
+}

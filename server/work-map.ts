@@ -86,6 +86,7 @@ export function readWorkMap(db: DatabaseSync, occupantId: string) {
       publicMedia: roles.flatMap((role) => role.media).filter((item) => item.isPublic)
         .length,
     },
+    studyBoards: readStudyBoards(db, occupantId),
   };
 }
 
@@ -1167,6 +1168,64 @@ export function saveWorkMapCanvasBoards(
      WHERE id = ? AND occupant_id = ?`,
   ).run(JSON.stringify(boards), roleId, occupantId);
   return boards;
+}
+
+export function readStudyBoards(db: DatabaseSync, occupantId: string) {
+  const row = db
+    .prepare(`SELECT boards_json FROM canvas_library WHERE occupant_id = ?`)
+    .get(occupantId) as { boards_json: string } | undefined;
+  if (!row) return [];
+  let parsed: unknown = [];
+  try {
+    parsed = JSON.parse(row.boards_json);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return [];
+  return readCanvasBoards(parsed) ?? [];
+}
+
+export function saveSharedCanvas(db: DatabaseSync, occupantId: string, input: JsonObject) {
+  if (!Array.isArray(input.boards)) throw new WorkMapStoreError("canvas-invalid");
+  const boards = input.boards.length === 0 ? [] : readCanvasBoards(input.boards);
+  if (!boards) throw new WorkMapStoreError("canvas-invalid");
+  const roleRows = db
+    .prepare(`SELECT id FROM work_history WHERE occupant_id = ?`)
+    .all(occupantId) as { id: string }[];
+  const roleIds = new Set(roleRows.map((row) => row.id));
+  const studies = boards.filter((board) => !roleIds.has(board.id));
+  const owned = boards.filter((board) => roleIds.has(board.id));
+  const incoming = new Set(boards.map((board) => board.id));
+  db.prepare(
+    `INSERT INTO canvas_library (occupant_id, boards_json) VALUES (?, ?)
+     ON CONFLICT(occupant_id) DO UPDATE SET boards_json = excluded.boards_json`,
+  ).run(occupantId, JSON.stringify(studies));
+  for (const board of owned) {
+    const existing = readRoleCanvasBoards(db, occupantId, board.id);
+    const kept = existing.filter((item) => item.id !== board.id && !incoming.has(item.id));
+    db.prepare(
+      `UPDATE work_history SET canvas_boards_json = ?
+       WHERE id = ? AND occupant_id = ?`,
+    ).run(JSON.stringify([board, ...kept]), board.id, occupantId);
+  }
+  return boards;
+}
+
+function readRoleCanvasBoards(db: DatabaseSync, occupantId: string, roleId: string) {
+  const row = db
+    .prepare(
+      `SELECT canvas_boards_json FROM work_history
+       WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(roleId, occupantId) as { canvas_boards_json: string } | undefined;
+  if (!row) return [];
+  try {
+    const parsed = JSON.parse(row.canvas_boards_json) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) return [];
+    return readCanvasBoards(parsed) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function readDetails(

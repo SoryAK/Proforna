@@ -76,6 +76,12 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS canvas_library (
+      occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
+      boards_json TEXT NOT NULL DEFAULT '[]'
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS skills (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),

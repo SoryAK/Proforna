@@ -765,4 +765,72 @@ describe("canvas arrangement", () => {
       db.close();
     }
   });
+
+  it("keeps a study board for every browser after save", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string }>;
+        studyBoards: unknown[];
+      };
+      const roleId = workMap.roles[0].id;
+      expect(workMap.studyBoards).toEqual([]);
+
+      const saved = await app.request("/api/work-map/canvas", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          boards: [
+            {
+              id: roleId,
+              name: "Lead",
+              nodes: [{ id: "node-1", kind: "Design", title: "Hinge", x: 12, y: 24 }],
+              groups: [],
+            },
+            {
+              id: "sample-group",
+              name: "Demo",
+              nodes: [{ id: "north", kind: "Design", title: "North", x: 24, y: 48 }],
+              groups: [{ id: "cluster", name: "Cluster", members: ["north", "east"], x: 24, y: 48 }],
+            },
+          ],
+        }),
+      });
+      expect(saved.status).toBe(200);
+
+      const again = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ canvasBoards?: Array<{ nodes: Array<{ title: string }> }> }>;
+        studyBoards: Array<{ id: string; name: string; nodes: Array<{ title: string }> }>;
+      };
+      expect(again.roles[0].canvasBoards?.[0].nodes).toEqual([
+        expect.objectContaining({ title: "Hinge" }),
+      ]);
+      expect(again.studyBoards).toEqual([
+        expect.objectContaining({
+          id: "sample-group",
+          name: "Demo",
+          nodes: [expect.objectContaining({ title: "North" })],
+        }),
+      ]);
+    } finally {
+      db.close();
+    }
+  });
 });

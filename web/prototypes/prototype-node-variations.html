@@ -1,0 +1,192 @@
+<!--
+  Throwaway. Static node studies for the job canvas.
+  Not the Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Node variations</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root { --sans: "Geist Variable", "Geist", system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; background: #0a0a0a; color: #f4f4f4; font: 16px/1.5 var(--sans); }
+      body {
+        background-color: #100e0c;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.8px, transparent 1.3px);
+        background-size: 20px 20px;
+      }
+      .mark { margin: 0; padding: 1.1rem 1.5rem 0; color: #d4d0c8; font-size: 0.875rem; }
+      .board {
+        display: flex;
+        align-items: flex-start;
+        gap: 2.25rem;
+        padding: 1.25rem 1.5rem 3rem;
+        overflow-x: auto;
+      }
+      .col { flex: 0 0 auto; width: 18.5rem; }
+      .col h2 { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.3; }
+      .col > p { margin: 0.3rem 0 0.9rem; color: #d4d0c8; font-size: 0.8125rem; line-height: 1.4; }
+      .sample { display: grid; gap: 0.35rem; margin-top: 1.15rem; }
+      .sample > span { color: #d4d0c8; font-size: 0.75rem; font-weight: 600; }
+      .badge { width: 17.5rem; }
+      .badge-card {
+        display: grid;
+        grid-template-columns: 1.75rem minmax(0, 1fr);
+        gap: 0.65rem;
+        align-items: start;
+        padding: 0.7rem 0.75rem;
+        border-radius: 16px;
+        background: #1c1c1c;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+        outline: 1.5px solid transparent;
+        outline-offset: 3px;
+      }
+      .badge.is-hover .badge-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28); }
+      .badge.is-selected .badge-card { outline-color: rgba(255, 255, 255, 0.55); }
+      .badge-mark {
+        display: grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 8px;
+        background: rgba(255, 148, 18, 0.18);
+        color: #ffb15a;
+      }
+      .badge.is-hover .badge-mark { background: rgba(255, 148, 18, 0.28); }
+      .badge-mark svg { width: 0.9rem; height: 0.9rem; fill: currentColor; }
+      .badge-copy { display: grid; gap: 0.15rem; min-width: 0; }
+      .badge-kind { margin: 0; color: #ffb15a; font-size: 0.75rem; font-weight: 600; line-height: 1.35; }
+      .badge h3, .open h3, .trigger h3 { margin: 0; color: #fff; font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
+      .badge-copy p { margin: 0; color: #d6d6d6; font-size: 0.75rem; line-height: 1.4; }
+      .open, .trigger { width: 16rem; display: grid; gap: 0.35rem; }
+      .open-kind, .trigger-kind {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+        margin: 0 0 0 0.15rem;
+        color: #d4d0c8;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+      .open-kind svg, .trigger-kind svg { width: 0.7rem; height: 0.7rem; fill: currentColor; }
+      .open-card {
+        display: grid;
+        gap: 0.45rem;
+        padding: 0.45rem;
+        border-radius: 18px;
+        background: #141414;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+      }
+      .open.is-hover .open-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.38); }
+      .open.is-selected .open-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7); }
+      .open h3 {
+        max-width: 100%;
+        padding: 0.28rem 0.6rem;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #2a2a2a;
+        font-size: 0.75rem;
+        line-height: 1.3;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .open-body {
+        margin: 0;
+        padding: 0 0.35rem;
+        overflow: hidden;
+        color: #d4d0c8;
+        font-size: 0.75rem;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .open-foot, .trigger-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 1.85rem;
+        padding: 0.3rem 0.7rem;
+        border-radius: 999px;
+        background: #f4f4f4;
+        color: #141414;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .open-foot svg, .trigger-foot svg { width: 0.75rem; height: 0.75rem; fill: currentColor; }
+      .trigger-card {
+        display: grid;
+        gap: 0.4rem;
+        padding: 0.4rem;
+        border-radius: 18px;
+        background: #141414;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+      }
+      .trigger.is-selected .trigger-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7); }
+      .pills { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        min-height: 1.55rem;
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+        background: #2a2a2a;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+      .pill.is-icon { width: 1.7rem; justify-content: center; padding: 0; }
+      .pill svg { width: 0.75rem; height: 0.75rem; }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.6rem;
+        margin: 0;
+        padding: 0 0.35rem;
+        color: #d4d0c8;
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Static node studies. Each column is a look, with its states underneath.</p>
+    <main class="board">
+      <section class="col" aria-labelledby="amber-title">
+        <h2 id="amber-title">Amber badge</h2>
+        <p>Current job-canvas card. 280 pixels, bolt on the left, 16-pixel corners.</p>
+        <div class="sample"><span>Rest</span><article class="badge"><div class="badge-card"><span class="badge-mark" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg></span><div class="badge-copy"><p class="badge-kind">Design</p><h3>Foldable</h3><p>The product itself. The fold, the hinge, and how it sits in the hand.</p></div></div></article></div>
+        <div class="sample"><span>Hover</span><article class="badge is-hover"><div class="badge-card"><span class="badge-mark" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg></span><div class="badge-copy"><p class="badge-kind">Design</p><h3>Foldable</h3><p>The product itself. The fold, the hinge, and how it sits in the hand.</p></div></div></article></div>
+        <div class="sample"><span>Selected</span><article class="badge is-selected"><div class="badge-card"><span class="badge-mark" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg></span><div class="badge-copy"><p class="badge-kind">Design</p><h3>Foldable</h3><p>The product itself. The fold, the hinge, and how it sits in the hand.</p></div></div></article></div>
+      </section>
+      <section class="col" aria-labelledby="open-title">
+        <h2 id="open-title">Open bar</h2>
+        <p>The compact card just replaced. Kind above, title chip, light Open bar.</p>
+        <div class="sample"><span>Rest</span><article class="open"><p class="open-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Design</span></p><div class="open-card"><h3>Foldable</h3><p class="open-body">The product itself. The fold, the hinge, and how it sits in the hand.</p><span class="open-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+        <div class="sample"><span>Hover</span><article class="open is-hover"><p class="open-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Design</span></p><div class="open-card"><h3>Foldable</h3><p class="open-body">The product itself. The fold, the hinge, and how it sits in the hand.</p><span class="open-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+        <div class="sample"><span>Selected</span><article class="open is-selected"><p class="open-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Design</span></p><div class="open-card"><h3>Foldable</h3><p class="open-body">The product itself. The fold, the hinge, and how it sits in the hand.</p><span class="open-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+      </section>
+      <section class="col" aria-labelledby="pill-title">
+        <h2 id="pill-title">Pill row</h2>
+        <p>Closer to the screenshot. Label above, dark pills, a split detail line, light Open bar.</p>
+        <div class="sample"><span>Rest</span><article class="trigger"><p class="trigger-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Design</span></p><div class="trigger-card"><div class="pills"><span class="pill">Foldable</span><span class="pill is-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5h11M5.5 2.5v2M10.5 2.5v2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="pill">In the hand</span><span class="pill is-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><circle cx="8" cy="8.2" r="5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5.4V8.2l2 1.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="pill">2023</span></div><p class="meta"><span>Apple</span><span>Design review</span></p><span class="trigger-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+      </section>
+      <section class="col" aria-labelledby="rhythm-title">
+        <h2 id="rhythm-title">Icon rhythm</h2>
+        <p>Same shell. Short words alternate with icon-only pills, the way that row is paced.</p>
+        <div class="sample"><span>Rest</span><article class="trigger"><p class="trigger-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Role</span></p><div class="trigger-card"><div class="pills"><span class="pill">Designer</span><span class="pill is-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5h11M5.5 2.5v2M10.5 2.5v2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="pill">Cupertino</span><span class="pill is-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><circle cx="8" cy="8.2" r="5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 5.4V8.2l2 1.3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="pill">9 AM</span></div><p class="meta"><span>Apple</span><span>Next: review</span></p><span class="trigger-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+      </section>
+      <section class="col" aria-labelledby="wrap-title">
+        <h2 id="wrap-title">Wrapped facts</h2>
+        <p>More of the job in the pill row, wrapping to a second line. The second card shows the selection ring.</p>
+        <div class="sample"><span>Rest</span><article class="trigger"><p class="trigger-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Design</span></p><div class="trigger-card"><div class="pills"><span class="pill">Foldable</span><span class="pill">Hinge</span><span class="pill">Cupertino</span><span class="pill">2023–25</span></div><p class="meta"><span>Apple</span><span>In the hand</span></p><span class="trigger-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+        <div class="sample"><span>Selected</span><article class="trigger is-selected"><p class="trigger-kind"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg><span>Design</span></p><div class="trigger-card"><div class="pills"><span class="pill">Foldable</span><span class="pill is-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.5h11M5.5 2.5v2M10.5 2.5v2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="pill">In the hand</span></div><p class="meta"><span>Apple</span><span>Design review</span></p><span class="trigger-foot">Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg></span></div></article></div>
+      </section>
+    </main>
+  </body>
+</html>

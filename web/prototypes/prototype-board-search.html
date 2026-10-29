@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototype — board search</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --ink: #080706;
+      --raised: #13100d;
+      --text: #f5f2ee;
+      --muted: #b9aa97;
+      --gold: #a78b71;
+      --gold-light: #c9b8a0;
+      --gold-hover: #e8d5b7;
+      --map: #d9d2c6;
+      --map-ink: #080706;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Geist Variable", "Geist", system-ui, sans-serif;
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in srgb, var(--gold) 45%, transparent) transparent;
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    h1 { margin: 0; font-size: 1.7rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+    h2 { margin: 0 0 12px; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+    p { margin: 0; }
+    .shell { display: grid; grid-template-rows: auto auto 1fr auto; min-height: 100%; }
+    header, .search, .state {
+      padding: 16px 24px;
+      border-bottom: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+    }
+    .state { border-bottom: 0; border-top: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); color: var(--muted); }
+    header p { color: var(--muted); max-width: 68ch; margin-top: 8px; }
+    .search { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; background: var(--ink); }
+    label { display: grid; gap: 8px; color: var(--gold-light); min-width: 12rem; }
+    input {
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--gold);
+      padding: 9px 0;
+      border-radius: 0;
+    }
+    input:focus { outline: 2px solid var(--gold-hover); outline-offset: 4px; }
+    h2.later { margin-top: 28px; }
+    .actions { display: flex; gap: 8px; }
+    .search button, .row button, .add button {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold-hover);
+      border-radius: 4px;
+      padding: 10px 16px;
+    }
+    .search button { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+    .workspace {
+      display: grid;
+      grid-template-columns: 18rem 1fr 22rem;
+      min-height: 0;
+    }
+    section { padding: 16px 20px; min-height: 0; overflow: auto; }
+    .companies, .results { border-right: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); }
+    .company, .row, .add {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+    }
+    .company span, .row div { display: grid; }
+    .meta { color: var(--muted); }
+    .company input { width: 1.1rem; height: 1.1rem; accent-color: var(--gold); }
+    .row.is-saved .meta { color: var(--gold-hover); }
+    .map {
+      background: var(--map);
+      color: var(--map-ink);
+      position: relative;
+      margin: 16px;
+      min-height: 28rem;
+      border-radius: 0;
+    }
+    .map h2 { color: var(--map-ink); padding: 16px 16px 0; }
+    .pin {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--ink);
+      border: 2px solid var(--gold);
+      transform: translate(-50%, -50%);
+    }
+    .pin.is-saved { background: var(--gold); }
+    .pin span {
+      position: absolute;
+      left: 18px;
+      top: -6px;
+      white-space: nowrap;
+      font-size: 1rem;
+      color: var(--map-ink);
+    }
+    .empty { color: var(--muted); padding: 12px 0 4px; max-width: 42ch; }
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; }
+      .companies, .results { border-right: 0; border-bottom: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>Opportunities</h1>
+      <p>Throwaway mock. Adzuna searches by role across companies. A company board is that company's own list. Save a job to make an Opportunity. Keep a company to read its board on the next search.</p>
+    </header>
+    <form class="search" id="search">
+      <label>Role<input id="role" value="Engineer" /></label>
+      <label>Place<input id="place" value="" placeholder="City, or leave open" /></label>
+      <button type="submit">Search</button>
+    </form>
+    <div class="workspace">
+      <section class="companies">
+        <h2>General</h2>
+        <div id="general-list"></div>
+        <h2 class="later">Companies</h2>
+        <div id="company-list"></div>
+      </section>
+      <section class="results">
+        <h2>This search</h2>
+        <div id="result-list"></div>
+        <h2 class="later">Saved</h2>
+        <div id="saved-list"></div>
+      </section>
+      <section>
+        <div class="map" id="map">
+          <h2>Map</h2>
+        </div>
+      </section>
+    </div>
+    <p class="state" id="state"></p>
+  </div>
+  <script>
+    const general = [{ id: "adzuna", name: "Adzuna", on: true }];
+    const companies = [
+      { id: "anthropic", name: "Anthropic", board: "Greenhouse", on: false },
+      { id: "spotify", name: "Spotify", board: "Lever", on: false },
+      { id: "vercel", name: "Vercel", board: "Ashby", on: false },
+    ];
+    const catalog = [
+      { id: "a1", company: "anthropic", title: "Research Engineer", place: "New York", x: 28, y: 42, adzuna: true, board: true },
+      { id: "a2", company: "anthropic", title: "Product Engineer", place: "Remote", x: null, y: null, adzuna: false, board: true },
+      { id: "a3", company: "anthropic", title: "Recruiter", place: "New York", x: 32, y: 58, adzuna: false, board: true },
+      { id: "s1", company: "spotify", title: "Backend Engineer", place: "New York", x: 36, y: 48, adzuna: false, board: true },
+      { id: "s2", company: "spotify", title: "Support Engineer", place: "Remote", x: null, y: null, adzuna: false, board: true },
+      { id: "v1", company: "vercel", title: "Design Engineer", place: "San Francisco", x: 18, y: 46, adzuna: true, board: true },
+      { id: "n1", company: "northwind", name: "Northwind Labs", title: "Field Engineer", place: "Chicago", x: 44, y: 38, adzuna: true, board: false },
+    ];
+    const saved = new Set();
+    let shown = [];
+    let searched = false;
+
+    const generalList = document.getElementById("general-list");
+    const companyList = document.getElementById("company-list");
+    const resultList = document.getElementById("result-list");
+    const savedList = document.getElementById("saved-list");
+    const map = document.getElementById("map");
+    const state = document.getElementById("state");
+
+    function companyById(id) {
+      return companies.find((company) => company.id === id) || null;
+    }
+
+    function jobName(job) {
+      return companyById(job.company)?.name || job.name;
+    }
+
+    function matches(job, role, place) {
+      if (role && !job.title.toLowerCase().includes(role)) return false;
+      if (place && job.place.toLowerCase() === "remote") return false;
+      if (place && !job.place.toLowerCase().includes(place)) return false;
+      return true;
+    }
+
+    function runSearch() {
+      const role = document.getElementById("role").value.trim().toLowerCase();
+      const place = document.getElementById("place").value.trim().toLowerCase();
+      const adzunaOn = general[0].on;
+      const onCompanies = new Set(companies.filter((company) => company.on).map((company) => company.id));
+      shown = catalog.flatMap((job) => {
+        if (!matches(job, role, place)) return [];
+        const fromAdzuna = adzunaOn && job.adzuna;
+        const company = companyById(job.company);
+        const fromBoard = Boolean(job.board && company && onCompanies.has(company.id));
+        if (!fromAdzuna && !fromBoard) return [];
+        const vias = [];
+        if (fromAdzuna) vias.push("Adzuna");
+        if (fromBoard) vias.push(company.board);
+        return [{ ...job, vias }];
+      });
+      searched = true;
+    }
+
+    function render() {
+      generalList.replaceChildren();
+      for (const source of general) {
+        generalList.append(toggleRow(source.name, "Many companies", source.on, () => {
+          source.on = !source.on;
+          shown = [];
+          searched = false;
+          render();
+        }));
+      }
+
+      companyList.replaceChildren();
+      for (const company of companies) {
+        companyList.append(toggleRow(company.name, company.board, company.on, () => {
+          company.on = !company.on;
+          shown = [];
+          searched = false;
+          render();
+        }));
+      }
+
+      const adzunaOn = general[0].on;
+      const on = companies.filter((company) => company.on);
+      resultList.replaceChildren();
+      if (!adzunaOn && on.length === 0) {
+        resultList.append(note("Turn on Adzuna or a company. Search reads only what you leave on."));
+      } else if (!searched) {
+        resultList.append(note("Search when you are ready. Nothing is fetched until then."));
+      } else if (shown.length === 0) {
+        resultList.append(note("No jobs match this role."));
+      } else {
+        for (const job of shown) drawJob(resultList, job, false);
+      }
+
+      savedList.replaceChildren();
+      const kept = catalog.filter((job) => saved.has(job.id));
+      if (kept.length === 0) {
+        savedList.append(note("A job stays a search result until you save it."));
+      } else {
+        for (const job of kept) drawJob(savedList, { ...job, vias: [] }, true);
+      }
+
+      map.querySelectorAll(".pin").forEach((pin) => pin.remove());
+      const pins = [...shown, ...kept.filter((job) => !shown.some((item) => item.id === job.id))];
+      for (const job of pins) {
+        if (job.x == null) continue;
+        const pin = document.createElement("div");
+        pin.className = saved.has(job.id) ? "pin is-saved" : "pin";
+        pin.style.left = job.x + "%";
+        pin.style.top = job.y + "%";
+        const label = document.createElement("span");
+        label.textContent = jobName(job);
+        pin.append(label);
+        map.append(pin);
+      }
+
+      const remote = shown.filter((job) => job.x == null).length;
+      state.textContent =
+        "General: " + (adzunaOn ? "Adzuna" : "off") +
+        ". Companies: " + (on.map((company) => company.name).join(", ") || "none") +
+        ". Results: " + shown.length +
+        ". Saved: " + saved.size +
+        ". Pins: " + pins.filter((job) => job.x != null).length +
+        (remote ? ". Remote stays in the list." : ".");
+    }
+
+    function note(text) {
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = text;
+      return empty;
+    }
+
+    function toggleRow(name, detail, checked, onChange) {
+      const row = document.createElement("label");
+      row.className = "company";
+      const text = document.createElement("span");
+      const title = document.createElement("strong");
+      title.textContent = name;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = detail;
+      text.append(title, meta);
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = checked;
+      box.addEventListener("change", onChange);
+      row.append(text, box);
+      return row;
+    }
+
+    function drawJob(parent, job, isSaved) {
+      const row = document.createElement("article");
+      row.className = isSaved ? "row is-saved" : "row";
+      const text = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = job.title;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      const where = job.vias && job.vias.length ? job.vias.join(" and ") + " · " : "";
+      meta.textContent = where + jobName(job) + " · " + job.place + (job.x == null ? " · no pin" : "");
+      text.append(title, meta);
+      row.append(text);
+      if (!isSaved) {
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        const company = companyById(job.company);
+        if (company && !company.on && job.vias.includes("Adzuna")) {
+          const keep = document.createElement("button");
+          keep.type = "button";
+          keep.textContent = "Keep company";
+          keep.addEventListener("click", () => {
+            company.on = true;
+            runSearch();
+            render();
+          });
+          actions.append(keep);
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = saved.has(job.id) ? "Saved" : "Save";
+        button.disabled = saved.has(job.id);
+        button.addEventListener("click", () => {
+          saved.add(job.id);
+          render();
+        });
+        actions.append(button);
+        row.append(actions);
+      }
+      parent.append(row);
+    }
+
+    document.getElementById("search").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!general[0].on && companies.every((company) => !company.on)) {
+        shown = [];
+        searched = false;
+        render();
+        return;
+      }
+      runSearch();
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

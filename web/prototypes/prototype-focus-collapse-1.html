@@ -1,0 +1,375 @@
+<!--
+  Throwaway. Option 1: bio stays open; job, overview, and media collapse.
+  Not the Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Collapse option 1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --hair: rgba(199, 164, 123, 0.22);
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-width: 1100px;
+        background: #0a0a0a;
+        color: var(--ink);
+        font: 16px/1.5 var(--sans);
+      }
+
+      .mark {
+        margin: 0;
+        padding: 0.45rem 0.9rem 0;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+
+      .stage {
+        position: relative;
+        height: calc(100vh - 2.4rem);
+        min-height: 44rem;
+        margin: 0.45rem 0.75rem 0.75rem;
+        overflow: hidden;
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(199, 164, 123, 0.08) 1px, transparent 1px),
+          #100e0c;
+        background-size: 48px 48px;
+      }
+
+      .column {
+        position: absolute;
+        top: 1rem;
+        bottom: 1rem;
+        left: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        width: min(24rem, 38vw);
+        overflow: auto;
+      }
+
+      .card {
+        flex: none;
+        border: 1px solid var(--hair);
+        border-radius: 16px;
+        background: #0d0b09;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+
+      .profile { padding: 0.85rem 0.9rem 1rem; }
+
+      .profile-bar {
+        margin: 0 0 0.75rem;
+        color: var(--gold-light);
+        font: 600 0.8125rem/1.45 var(--sans);
+      }
+
+      .who { display: flex; align-items: center; gap: 0.85rem; }
+
+      .face {
+        display: grid;
+        width: 2.75rem;
+        height: 2.75rem;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(199, 164, 123, 0.16);
+        color: var(--gold-hover);
+        font-weight: 600;
+      }
+
+      .profile h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.35;
+      }
+
+      .job-card { overflow: hidden; }
+
+      .job-photo { height: 6rem; background: #1a1510; }
+
+      .job-photo img,
+      .gallery-strip img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .job-copy,
+      .hub-copy,
+      .overview-copy {
+        padding: 0.7rem 0.9rem 0.85rem;
+      }
+
+      .job-title-row,
+      .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      h3, .collapse {
+        margin: 0;
+        color: var(--ink);
+        font: 600 0.875rem/1.35 var(--sans);
+      }
+
+      .collapse {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .collapse:hover { color: var(--gold-hover); }
+
+      .collapse:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      .chevron {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(45deg) translateY(-0.1rem);
+      }
+
+      .collapse[aria-expanded="false"] .chevron {
+        transform: rotate(-45deg);
+      }
+
+      .edit {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.35 var(--sans);
+        cursor: pointer;
+      }
+
+      .title, .duty, .caption {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.45;
+      }
+
+      .title { margin-top: 0.15rem; }
+
+      .duty { margin-top: 0.35rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+        margin: 0.15rem 0 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.45;
+      }
+
+      .current {
+        padding: 0 0.25rem;
+        border-radius: 3px;
+        background: rgba(16, 185, 129, 0.18);
+        color: #6ee7b7;
+        font-weight: 600;
+      }
+
+      .job-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.55rem;
+      }
+
+      .pill {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        color: var(--gold-light);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.35;
+      }
+
+      .snapshot {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem 1rem;
+        margin: 0.75rem 0 0;
+      }
+
+      .snapshot div { display: grid; gap: 0.1rem; }
+
+      .snapshot dt {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .snapshot dd {
+        margin: 0;
+        color: var(--ink);
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .snapshot dd.is-empty { color: var(--muted); font-weight: 500; }
+
+      .gallery-strip {
+        height: 4.5rem;
+        margin: 0.75rem 0.75rem 0;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #1a1510;
+      }
+
+      .caption { margin-top: 0.35rem; }
+
+      .is-collapsed .job-photo,
+      .is-collapsed .job-fold,
+      .is-collapsed .edit,
+      .is-collapsed .snapshot,
+      .is-collapsed .gallery-strip,
+      .is-collapsed .caption {
+        display: none;
+      }
+
+      .job-card.is-collapsed .job-copy,
+      .hub.is-collapsed .hub-copy,
+      .overview.is-collapsed .overview-copy {
+        padding-bottom: 0.7rem;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Prototype · option 1. Bio stays open. Job, overview, and media collapse. Not wired to Career History.</p>
+    <div class="stage">
+      <div class="column">
+        <section class="card profile" aria-label="Profile">
+          <div class="profile-bar">Home · History · Revoked · Preview · Publish · Edit</div>
+          <div class="who">
+            <span class="face">SK</span>
+            <h2>Sory Kaba</h2>
+          </div>
+        </section>
+
+        <article class="card job-card" data-card>
+          <div class="job-photo">
+            <img src="http://127.0.0.1:5173/api/work-map/media/c656800b-bb76-4779-99d6-9a0ebc251f28" alt="" />
+          </div>
+          <div class="job-copy">
+            <div class="job-title-row">
+              <button class="collapse" type="button" aria-expanded="true" aria-controls="job-fold">
+                <span>Giants Direct</span>
+                <i class="chevron" aria-hidden="true"></i>
+              </button>
+              <button class="edit" type="button">Edit</button>
+            </div>
+            <div class="job-fold" id="job-fold">
+              <p class="title">Mechatronics and Robotics Technician</p>
+              <p class="meta">
+                <span>Lancaster, PA</span>
+                <span aria-hidden="true">·</span>
+                <span>Jun 2024 – Present</span>
+                <span class="current">current</span>
+                <span>(2y 4m)</span>
+              </p>
+              <p class="duty">Maintained Swisslog pick-and-place robotics and conveyors.</p>
+              <div class="job-pills">
+                <span class="pill">Website</span>
+                <span class="pill">LinkedIn</span>
+                <span class="pill">Worked with</span>
+                <span class="pill">More about this role</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <section class="card overview" data-card aria-label="Overview">
+          <div class="overview-copy">
+            <div class="card-head">
+              <button class="collapse" type="button" aria-expanded="true" aria-controls="overview-stats">
+                <span>Overview</span>
+                <i class="chevron" aria-hidden="true"></i>
+              </button>
+            </div>
+            <dl class="snapshot" id="overview-stats">
+              <div>
+                <dt>Achievements</dt>
+                <dd>6</dd>
+              </div>
+              <div>
+                <dt>Events</dt>
+                <dd>0</dd>
+              </div>
+              <div>
+                <dt>Media</dt>
+                <dd>1</dd>
+              </div>
+              <div>
+                <dt>Tools</dt>
+                <dd class="is-empty">None yet</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="card hub" data-card aria-label="Media and events">
+          <div class="gallery-strip">
+            <img src="http://127.0.0.1:5173/api/work-map/media/c656800b-bb76-4779-99d6-9a0ebc251f28" alt="" />
+          </div>
+          <div class="hub-copy">
+            <div class="card-head">
+              <button class="collapse" type="button" aria-expanded="true" aria-controls="media-caption">
+                <span>Media and events</span>
+                <i class="chevron" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="caption" id="media-caption">One photo. No events on this role.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script>
+      document.querySelectorAll(".collapse").forEach((button) => {
+        button.addEventListener("click", () => {
+          const card = button.closest("[data-card]");
+          const open = button.getAttribute("aria-expanded") === "true";
+          button.setAttribute("aria-expanded", open ? "false" : "true");
+          card.classList.toggle("is-collapsed", open);
+        });
+      });
+    </script>
+  </body>
+</html>

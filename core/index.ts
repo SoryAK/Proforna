@@ -424,7 +424,9 @@ export {
   type WorkMapSnapshot,
 } from "./work-map";
 export {
+  pointsAtGroup,
   readCanvasBoards,
+  releasePointingMembers,
   type CanvasBoard,
   type CanvasGroup,
   type CanvasLink,

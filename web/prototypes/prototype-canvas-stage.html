@@ -1,0 +1,405 @@
+<!--
+  Throwaway. One proposal for the canvas window.
+  The window fills the map beside the role column. The rail is a short list
+  with a gold mark on the open board. Tools sit in a footer under the cards.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Canvas across the map</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --gold: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        display: grid;
+        grid-template-rows: 3.25rem 1fr;
+        background: #0a0908;
+        color: var(--ink);
+        font: 16px/1.45 var(--sans);
+      }
+      button, input { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+      button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+      .home {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0 0.9rem;
+        background: #100e0c;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+      .home b { color: var(--ink); font-size: 1.05rem; font-weight: 650; }
+      .home span { margin-left: auto; }
+      .app { display: grid; grid-template-columns: 22rem 1fr; min-height: 0; }
+      .column {
+        overflow: auto;
+        padding: 0.85rem;
+        background: #0d0b09;
+        border-right: 1px solid rgba(199, 164, 123, 0.2);
+      }
+      .who { display: flex; gap: 0.7rem; align-items: center; margin-bottom: 0.9rem; }
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 999px;
+        background: #2a241c;
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+      .who strong { display: block; font-size: 1.15rem; line-height: 1.25; }
+      .who p, .card p, .role .meta { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.8125rem; line-height: 1.4; }
+      .role {
+        padding: 0.9rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 16px;
+        background: #14110e;
+      }
+      .role h2 { margin: 0; font-size: 1.7rem; line-height: 1.15; }
+      .role .title { margin: 0.3rem 0 0; font-size: 1rem; line-height: 1.35; }
+      .pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+      .pills span, .save {
+        padding: 0.35rem 0.65rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .map {
+        position: relative;
+        min-width: 0;
+        background:
+          radial-gradient(circle at 30% 40%, rgba(120, 150, 90, 0.28), transparent 18rem),
+          radial-gradient(circle at 70% 60%, rgba(70, 110, 80, 0.35), transparent 22rem),
+          linear-gradient(160deg, #24362c, #1b2c24 45%, #2a3d30);
+      }
+      .map::before {
+        content: "";
+        position: absolute;
+        inset: 8% 6%;
+        border: 1px solid rgba(245, 242, 238, 0.08);
+        border-radius: 40% 60% 50% 45%;
+        pointer-events: none;
+      }
+      .window {
+        position: absolute;
+        z-index: 1;
+        inset: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid rgba(199, 164, 123, 0.38);
+        border-radius: 16px;
+        background: #100e0c;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.75rem;
+        padding: 0.4rem 0.5rem 0.4rem 0.85rem;
+        background: #0d0b09;
+      }
+      .bar h1 {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        font-size: 0.8125rem;
+        font-weight: 650;
+        line-height: 1.35;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .save { background: #0e7534; border-color: transparent; color: #f5f2ee; }
+      .history, .win button {
+        padding: 0.3rem 0.6rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-weight: 650;
+      }
+      .win { display: flex; margin-left: 0.25rem; }
+      .win button { width: 1.75rem; height: 1.5rem; padding: 0; }
+      .body { display: flex; flex: 1; min-height: 0; padding: 0 0.55rem 0.55rem 0; }
+      .window.is-shut .body { padding-left: 0.55rem; }
+      .rail {
+        display: flex;
+        flex: 0 0 11.5rem;
+        flex-direction: column;
+        width: 11.5rem;
+        padding: 0.65rem 0.55rem 0.75rem 0.75rem;
+      }
+      .window.is-shut .rail { display: none; }
+      .rail-head { display: flex; align-items: center; gap: 0.25rem; }
+      .rail-head strong { font-size: 0.875rem; font-weight: 650; }
+      .rail-head button, .expand {
+        display: grid;
+        place-items: center;
+        width: 1.6rem;
+        height: 1.4rem;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--gold);
+      }
+      .rail-head button:hover, .expand:hover { background: rgba(232, 213, 183, 0.12); }
+      .rail-head svg, .expand svg { width: 0.75rem; height: 0.75rem; }
+      .group {
+        margin: 0.7rem 0 0.2rem;
+        padding: 0 0.45rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 650;
+        letter-spacing: 0.03em;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+      .board {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-height: 1.9rem;
+        padding: 0.3rem 0.5rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.3;
+        text-align: left;
+      }
+      .board:hover { background: rgba(245, 242, 238, 0.05); }
+      .board.is-on {
+        background: #2c261f;
+        box-shadow: inset 2px 0 0 var(--gold);
+        color: var(--gold);
+      }
+      .stage {
+        position: relative;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        border: 1px solid rgba(232, 213, 183, 0.22);
+        border-radius: 12px;
+        background: #221e1a;
+        overflow: hidden;
+      }
+      .plane {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        background-image: radial-gradient(rgba(232, 213, 183, 0.16) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+      .expand { position: absolute; z-index: 2; top: 0.55rem; left: 0.45rem; }
+      .window:not(.is-shut) .expand { display: none; }
+      .card {
+        position: absolute;
+        width: min(16.5rem, calc(100% - 3rem));
+        padding: 0.75rem 0.8rem 0.85rem;
+        border: 1px solid rgba(199, 164, 123, 0.4);
+        border-radius: 12px;
+        background: #161310;
+        color: var(--ink);
+        text-align: left;
+      }
+      .card.is-on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+      .card em {
+        display: block;
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-style: normal;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+      .card strong { display: block; margin-top: 0.3rem; font-size: 1.2rem; line-height: 1.25; }
+      .footer {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 3rem;
+        padding: 0.4rem 0.55rem;
+        border-top: 1px solid rgba(232, 213, 183, 0.16);
+        background: #1a1714;
+      }
+      .zoom, .tools { display: flex; align-items: center; gap: 0.15rem; }
+      .tools { margin: 0 auto; }
+      .zoom button, .tools button {
+        display: grid;
+        place-items: center;
+        width: 1.8rem;
+        height: 1.8rem;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+      }
+      .zoom button[aria-pressed="true"], .tools button[aria-pressed="true"] { background: rgba(232, 213, 183, 0.16); color: var(--gold); }
+      .zoom button:hover, .tools button:hover { background: rgba(245, 242, 238, 0.06); }
+      .zoom span, .tools input { font-size: 0.75rem; }
+      .zoom span { min-width: 2.4rem; color: var(--muted); text-align: center; }
+      .tools input {
+        width: 6.5rem;
+        height: 1.8rem;
+        margin-left: 0.2rem;
+        padding: 0 0.55rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 999px;
+        background: #100e0c;
+      }
+      .mini {
+        position: relative;
+        width: 7.5rem;
+        height: 2.3rem;
+        border: 1px solid rgba(232, 213, 183, 0.2);
+        border-radius: 8px;
+        background:
+          radial-gradient(circle at 30% 50%, rgba(232, 213, 183, 0.9) 2px, transparent 2.5px),
+          radial-gradient(circle at 62% 40%, rgba(232, 213, 183, 0.45) 2px, transparent 2.5px),
+          #161310;
+      }
+      .mini i {
+        position: absolute;
+        left: 18%;
+        top: 22%;
+        width: 38%;
+        height: 52%;
+        border: 1px solid var(--gold);
+        border-radius: 2px;
+      }
+      .note { display: none; }
+    </style>
+  </head>
+  <body>
+    <header class="home"><b>Proforna</b> History <span>Proposal</span></header>
+    <div class="app">
+      <aside class="column">
+        <div class="who"><div class="mark">SK</div><div><strong>Sory Kaba</strong><p>Clifton Heights, PA</p></div></div>
+        <article class="role">
+          <h2>Giants Direct</h2>
+          <p class="title">Mechatronics and Robotics Technician</p>
+          <p class="meta">Lancaster, PA · Jun 2024 – Present</p>
+          <div class="pills"><span>Website</span><span>LinkedIn</span><span>Show on canvas</span></div>
+        </article>
+      </aside>
+      <section class="map" aria-label="Map">
+        <section class="window" id="window" role="dialog" aria-label="Canvas">
+          <div class="bar">
+            <h1>Mechatronics and Robotics Technician</h1>
+            <button class="save" type="button">Save</button>
+            <button class="history" type="button">History</button>
+            <div class="win" aria-hidden="true"><button type="button">–</button><button type="button">□</button><button type="button">×</button></div>
+          </div>
+          <div class="body">
+            <aside class="rail" id="rail" aria-label="Boards">
+              <div class="rail-head">
+                <strong>Boards</strong>
+                <button type="button" id="collapse" aria-label="Collapse boards">‹</button>
+              </div>
+              <p class="group">This role</p>
+              <button class="board is-on" type="button" data-board="role">This role</button>
+              <p class="group">Studies</p>
+              <button class="board" type="button" data-board="foldable">Foldable</button>
+              <button class="board" type="button" data-board="hinge">Hinge study</button>
+            </aside>
+            <section class="stage" aria-label="Board">
+              <button class="expand" id="expand" type="button" aria-label="Expand boards">›</button>
+              <div class="plane" id="plane"></div>
+              <footer class="footer">
+                <div class="zoom" aria-label="Zoom">
+                  <button type="button" aria-label="Zoom out">–</button>
+                  <span>100%</span>
+                  <button type="button" aria-label="Zoom in">+</button>
+                </div>
+                <div class="tools" role="toolbar" aria-label="Canvas">
+                  <button type="button" aria-pressed="true" aria-label="Select">▣</button>
+                  <button type="button" aria-label="Pan">✋</button>
+                  <button type="button" aria-label="Add">+</button>
+                  <input aria-label="Find a node" placeholder="Find a node" />
+                </div>
+                <div class="mini" aria-hidden="true"><i></i></div>
+              </footer>
+            </section>
+          </div>
+        </section>
+      </section>
+    </div>
+    <p class="note">Proposal · the live canvas is unchanged</p>
+    <script>
+      const BOARDS = {
+        role: [
+          ["Role", "Mechatronics and Robotics Technician", "Giants Direct. The live role board.", 28, 24],
+          ["Page", "Maintenance notes", "The work that hangs from this role.", 28, 168],
+        ],
+        foldable: [
+          ["Role", "Product Designer", "The role this study hangs from.", 28, 20],
+          ["Design", "Foldable", "The product itself. The fold and the hinge.", 28, 150],
+          ["Page", "Hinge notes", "The hinge study, kept with the foldable.", 28, 280],
+          ["Demonstration", "Product demonstration", "The review that shows the foldable moving.", 28, 410],
+        ],
+        hinge: [
+          ["Role", "Product Designer", "A second board, for the hinge on its own.", 28, 28],
+          ["Design", "Hinge", "The mechanism, kept apart from the whole foldable.", 28, 176],
+        ],
+      };
+      const plane = document.querySelector("#plane");
+      const windowEl = document.querySelector("#window");
+      let current = "role";
+      let selected = 0;
+
+      function draw() {
+        const nodes = BOARDS[current];
+        plane.innerHTML = nodes
+          .map(
+            (node, index) => `<button type="button" class="card${index === selected ? " is-on" : ""}" data-node="${index}" style="left:${node[3]}px;top:${node[4]}px"><em>${node[0]}</em><strong>${node[1]}</strong><p>${node[2]}</p></button>`,
+          )
+          .join("");
+        document.querySelectorAll(".board").forEach((button) => {
+          button.classList.toggle("is-on", button.dataset.board === current);
+        });
+      }
+
+      document.querySelector("#rail").addEventListener("click", (event) => {
+        const board = event.target.closest("[data-board]");
+        if (!board) return;
+        current = board.dataset.board;
+        selected = 0;
+        draw();
+      });
+      plane.addEventListener("click", (event) => {
+        const card = event.target.closest("[data-node]");
+        if (!card) return;
+        selected = Number(card.dataset.node);
+        draw();
+      });
+      document.querySelector("#collapse").addEventListener("click", () => windowEl.classList.add("is-shut"));
+      document.querySelector("#expand").addEventListener("click", () => windowEl.classList.remove("is-shut"));
+      draw();
+    </script>
+  </body>
+</html>

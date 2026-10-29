@@ -1,12 +1,12 @@
-import { CareerLayoutMock } from "./prototype/CareerLayoutMock";
-import { NotesOnPinsMock } from "./prototype/NotesOnPinsMock";
-import { MapGraphicMock } from "./prototype/MapGraphicMock";
-import { DutyCompareMock } from "./prototype/DutyCompareMock";
-import { OnboardingMock } from "./prototype/OnboardingMock";
-import { ProfornaChatMock } from "./prototype/ProfornaChatMock";
-import { ProfornaShellMock } from "./prototype/ProfornaShellMock";
-import { SidebarCareerMock } from "./prototype/SidebarCareerMock";
-import { RolePageMock } from "./prototype/RolePageMock";
+import { CareerLayoutMock } from "../prototypes/CareerLayoutMock";
+import { NotesOnPinsMock } from "../prototypes/NotesOnPinsMock";
+import { MapGraphicMock } from "../prototypes/MapGraphicMock";
+import { DutyCompareMock } from "../prototypes/DutyCompareMock";
+import { OnboardingMock } from "../prototypes/OnboardingMock";
+import { ProfornaChatMock } from "../prototypes/ProfornaChatMock";
+import { ProfornaShellMock } from "../prototypes/ProfornaShellMock";
+import { SidebarCareerMock } from "../prototypes/SidebarCareerMock";
+import { RolePageMock } from "../prototypes/RolePageMock";
 
 export type DevPrototype =
   | "chat"

@@ -1,0 +1,467 @@
+<!--
+  Prototype, throwaway. Not production.
+  One desktop canvas for role focus. The map is a facet, not the ground.
+  Facets: role, people, tools, place. Switch with the buttons or #role #people #tools #place.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Focus canvas</title>
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --line: rgba(199, 164, 123, 0.45);
+        --paper: #080706;
+        --card: #13100d;
+        --gold: #a78b71;
+        --gold-soft: #1c1814;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-width: 1100px;
+        background: #0a0a0a;
+        color: var(--ink);
+        font: 16px/1.6 system-ui, sans-serif;
+      }
+
+      body { padding: 1.25rem 1.5rem 5.5rem; }
+
+      .mark {
+        margin: 0 0 0.75rem;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .stage {
+        min-height: calc(100vh - 7.5rem);
+        display: flex;
+        flex-direction: column;
+        padding: 0.25rem;
+        border: 1px dashed var(--line);
+        border-radius: 16px;
+        background: var(--paper);
+      }
+
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        padding: 1rem 1.25rem 0.35rem;
+      }
+
+      header p,
+      header span {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+      }
+
+      .facets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem 1.25rem 1rem;
+      }
+
+      .facets button {
+        min-height: 2.75rem;
+        padding: 0.75rem 1rem;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font: 600 0.875rem/1.2 system-ui, sans-serif;
+        cursor: pointer;
+      }
+
+      .facets button:focus-visible {
+        outline: 2px solid #e8d5b7;
+        outline-offset: 3px;
+      }
+
+      .facets button[aria-pressed="true"] {
+        border-style: solid;
+        border-color: var(--gold);
+        background: var(--gold-soft);
+        color: #e8d5b7;
+      }
+
+      .canvas {
+        flex: 1;
+        min-height: 34rem;
+        margin: 0 1rem 1rem;
+        padding: 1rem;
+        border: 1px dashed var(--line);
+        border-radius: 16px;
+        background: var(--card);
+      }
+
+      .facet { display: none; height: 100%; }
+      body[data-facet="role"] .facet-role,
+      body[data-facet="people"] .facet-people,
+      body[data-facet="tools"] .facet-tools,
+      body[data-facet="place"] .facet-place { display: block; }
+
+      .role {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 18rem;
+        gap: 1.75rem;
+        height: 100%;
+        padding: 0.75rem;
+      }
+
+      .kicker {
+        margin: 0 0 0.5rem;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .role h2 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      .role .title {
+        margin: 0.35rem 0 0;
+        font-size: 1.35rem;
+        line-height: 1.3;
+      }
+
+      .meta {
+        margin: 0.75rem 0 1.5rem;
+        color: var(--muted);
+      }
+
+      .duties {
+        display: grid;
+        gap: 0.75rem;
+        max-width: 42rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .duties li {
+        padding: 0.9rem 1rem;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+      }
+
+      .map-mini {
+        align-self: end;
+        display: grid;
+        gap: 0.75rem;
+        min-height: 12rem;
+        padding: 1rem;
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.18) 1px, transparent 1px) 0 0 / 18px 18px,
+          #0d0b09;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .map-mini strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .pin {
+        justify-self: center;
+        width: 0.75rem;
+        height: 0.75rem;
+        margin-top: 1rem;
+        border-radius: 50%;
+        background: #e8d5b7;
+      }
+
+      .people {
+        position: relative;
+        height: 100%;
+        min-height: 32rem;
+        padding: 1rem;
+      }
+
+      .people svg {
+        position: absolute;
+        inset: 1rem;
+        width: calc(100% - 2rem);
+        height: calc(100% - 2rem);
+      }
+
+      .node {
+        position: absolute;
+        width: 10rem;
+        padding: 0.85rem 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0d0b09;
+        text-align: center;
+        transform: translate(-50%, -50%);
+      }
+
+      .node b { display: block; }
+      .node span {
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+
+      .node.you {
+        border-color: var(--gold);
+        background: #1c1814;
+      }
+
+      .tools {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr 0.9fr;
+        gap: 1rem;
+        height: 100%;
+        padding: 0.5rem;
+      }
+
+      .group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 1rem;
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+      }
+
+      .group h2 {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .tool {
+        padding: 0.9rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #0d0b09;
+      }
+
+      .tool b { display: block; }
+      .tool span {
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .place {
+        position: relative;
+        height: 100%;
+        min-height: 32rem;
+        padding: 1rem;
+        border-radius: 12px;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.2) 1px, transparent 1px) 0 0 / 28px 28px,
+          linear-gradient(90deg, rgba(199, 164, 123, 0.2) 1px, transparent 1px) 0 0 / 28px 28px,
+          #0d0b09;
+      }
+
+      .place-pin {
+        position: absolute;
+        top: 42%;
+        left: 58%;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50% 50% 50% 0;
+        background: #e8d5b7;
+        transform: rotate(-45deg);
+      }
+
+      .place-label {
+        position: absolute;
+        top: calc(42% - 3rem);
+        left: calc(58% + 1.1rem);
+        margin: 0;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #13100d;
+        font-size: 0.875rem;
+      }
+
+      .dock {
+        position: absolute;
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #13100d;
+      }
+
+      .dock p {
+        margin: 0.2rem 0 0;
+        color: var(--muted);
+      }
+
+      .status {
+        position: fixed;
+        left: 50%;
+        bottom: 0.85rem;
+        transform: translateX(-50%);
+        margin: 0;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #13100d;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body data-facet="role">
+    <p class="mark">Prototype. Throwaway. Desktop sketch of a focus canvas.</p>
+    <div class="stage">
+      <header>
+        <p>Career History</p>
+        <h1>Amazon</h1>
+        <span>Package handler, 2017–2018</span>
+      </header>
+      <nav class="facets" aria-label="Role facets">
+        <button type="button" data-facet="role" aria-pressed="true">Role</button>
+        <button type="button" data-facet="people" aria-pressed="false">People</button>
+        <button type="button" data-facet="tools" aria-pressed="false">Tools</button>
+        <button type="button" data-facet="place" aria-pressed="false">Place</button>
+      </nav>
+      <div class="canvas">
+        <section class="facet facet-role" aria-label="Role">
+          <div class="role">
+            <div>
+              <p class="kicker">The record</p>
+              <h2>Amazon</h2>
+              <p class="title">Package handler</p>
+              <p class="meta">Philadelphia. Oct 2017 to Feb 2018. 4 months.</p>
+              <ul class="duties">
+                <li>Sorted incoming packages by label.</li>
+                <li>Moved them to the lane for the drivers.</li>
+                <li>Kept the station clear through the shift.</li>
+              </ul>
+            </div>
+            <aside class="map-mini" aria-label="Map minimized">
+              <strong>Place, tucked away</strong>
+              <span class="pin" aria-hidden="true"></span>
+              <span>Open Place when you want the map.</span>
+            </aside>
+          </div>
+        </section>
+        <section class="facet facet-people" aria-label="People">
+          <div class="people">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="50" y1="48" x2="22" y2="28" stroke="#c9b8a0" stroke-width="0.35" />
+              <line x1="50" y1="48" x2="78" y2="26" stroke="#c9b8a0" stroke-width="0.35" />
+              <line x1="50" y1="48" x2="30" y2="74" stroke="#c9b8a0" stroke-width="0.35" />
+              <line x1="50" y1="48" x2="74" y2="72" stroke="#c9b8a0" stroke-width="0.35" />
+            </svg>
+            <article class="node you" style="left: 50%; top: 48%">
+              <b>You</b>
+              <span>Package handler</span>
+            </article>
+            <article class="node" style="left: 24%; top: 28%">
+              <b>Shift lead</b>
+              <span>Same station</span>
+            </article>
+            <article class="node" style="left: 76%; top: 26%">
+              <b>Trainer</b>
+              <span>First two weeks</span>
+            </article>
+            <article class="node" style="left: 28%; top: 74%">
+              <b>Lane partner</b>
+              <span>Nights</span>
+            </article>
+            <article class="node" style="left: 74%; top: 72%">
+              <b>Driver handoff</b>
+              <span>Outbound</span>
+            </article>
+          </div>
+        </section>
+        <section class="facet facet-tools" aria-label="Tools">
+          <div class="tools">
+            <section class="group">
+              <h2>On the floor</h2>
+              <article class="tool"><b>Handheld scanner</b><span>Every package</span></article>
+              <article class="tool"><b>Belt and lanes</b><span>Sort path</span></article>
+              <article class="tool"><b>Pallet jack</b><span>Heavy moves</span></article>
+            </section>
+            <section class="group">
+              <h2>Systems</h2>
+              <article class="tool"><b>Station software</b><span>Scan, confirm, exception</span></article>
+              <article class="tool"><b>Label printer</b><span>Relabel a bad scan</span></article>
+            </section>
+            <section class="group">
+              <h2>Site</h2>
+              <article class="tool"><b>Radio</b><span>Lead and safety</span></article>
+              <article class="tool"><b>Safety gear</b><span>Vest, shoes, gloves</span></article>
+            </section>
+          </div>
+        </section>
+        <section class="facet facet-place" aria-label="Place">
+          <div class="place">
+            <span class="place-pin" aria-hidden="true"></span>
+            <p class="place-label">Philadelphia site</p>
+            <div class="dock">
+              <div>
+                <strong>Amazon, package handler</strong>
+                <p>The map is this layer, not the page behind the role.</p>
+              </div>
+              <span>One pin</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <script>
+      const names = {
+        role: "Role. Details use the canvas. Map is minimized.",
+        people: "People. Canvas is a network of people from this role.",
+        tools: "Tools. Canvas is the technology and equipment.",
+        place: "Place. Canvas is the map.",
+      };
+
+      function show(facet) {
+        if (!names[facet]) facet = "role";
+        document.body.dataset.facet = facet;
+        for (const button of document.querySelectorAll(".facets button")) {
+          button.setAttribute("aria-pressed", String(button.dataset.facet === facet));
+        }
+        document.getElementById("status").textContent = names[facet];
+        if (location.hash !== "#" + facet) history.replaceState(null, "", "#" + facet);
+      }
+
+      document.querySelector(".facets").addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (button) show(button.dataset.facet);
+      });
+
+      window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+      show(location.hash.slice(1) || "role");
+    </script>
+  </body>
+</html>

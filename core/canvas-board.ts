@@ -57,12 +57,12 @@ function readBoard(value: unknown): CanvasBoard | null {
         return group ? [group] : [];
       })
     : [];
-  return {
+  return releasePointingMembers({
     id: board.id,
     name: typeof board.name === "string" && board.name ? board.name : board.id,
     nodes,
     groups,
-  };
+  });
 }
 
 function readNode(value: unknown): CanvasNode | null {
@@ -121,4 +121,44 @@ function readGroup(value: unknown): CanvasGroup | null {
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
   };
+}
+
+export function pointsAtGroup(node: { links: { id: string }[] } | undefined, groupId: string) {
+  return Boolean(node?.links.some((link) => link.id === groupId));
+}
+
+export function releasePointingMembers(board: CanvasBoard): CanvasBoard {
+  let changed = false;
+  const groups = board.groups.flatMap((group) => {
+    const members = group.members.filter((id) => {
+      const pointing = pointsAtGroup(
+        board.nodes.find((node) => node.id === id),
+        group.id,
+      );
+      if (pointing) changed = true;
+      return !pointing;
+    });
+    if (members.length === group.members.length) return [group];
+    changed = true;
+    if (members.length < 2) return [];
+    const cards = board.nodes.filter((node) => members.includes(node.id));
+    return [{
+      ...group,
+      members,
+      x: cards.length ? Math.min(...cards.map((card) => card.x)) : group.x,
+      y: cards.length ? Math.min(...cards.map((card) => card.y)) : group.y,
+    }];
+  });
+  const removed = new Set(
+    board.groups.filter((group) => !groups.some((item) => item.id === group.id)).map((group) => group.id),
+  );
+  const nodes = removed.size
+    ? board.nodes.map((node) =>
+        node.links.some((link) => removed.has(link.id))
+          ? { ...node, links: node.links.filter((link) => !removed.has(link.id)) }
+          : node,
+      )
+    : board.nodes;
+  if (!changed && removed.size === 0) return board;
+  return { ...board, nodes, groups };
 }

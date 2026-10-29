@@ -1,0 +1,2864 @@
+<!--
+  Prototype, throwaway. Not the Career History page.
+  Floating panel: profile, role, and a miniature gallery that opens over the map.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Focus panel</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --line: rgba(199, 164, 123, 0.4);
+        --hair: rgba(199, 164, 123, 0.22);
+        --card: #13100d;
+        --gold: #a78b71;
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --paper: #080706;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-width: 1100px;
+        background: #0a0a0a;
+        color: var(--ink);
+        font: 16px/1.5 var(--sans);
+      }
+
+      ::selection { background: rgba(167, 139, 113, 0.45); color: var(--ink); }
+
+      * { scrollbar-width: thin; scrollbar-color: rgba(167, 139, 113, 0.45) transparent; }
+      *::-webkit-scrollbar { width: 8px; height: 8px; }
+      *::-webkit-scrollbar-track { background: transparent; }
+      *::-webkit-scrollbar-thumb { background: rgba(167, 139, 113, 0.45); border-radius: 999px; }
+
+      body { padding: 0.45rem 0.75rem 2rem; }
+
+      .mark {
+        margin: 0 0 0.35rem;
+        padding: 0 0.15rem;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+
+      .identity {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 2.75rem;
+        margin: 0 0.15rem 0.45rem;
+      }
+
+      .brand {
+        margin: 0;
+        color: var(--gold-hover);
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .stage {
+        position: relative;
+        height: calc(100vh - 5.4rem);
+        min-height: 34rem;
+        margin: 0 0.15rem;
+      }
+
+      .column {
+        position: absolute;
+        z-index: 2;
+        top: 0.75rem;
+        bottom: 0.75rem;
+        left: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        width: min(24rem, 38vw);
+        overflow: auto;
+      }
+
+      .card {
+        flex: none;
+        border: 1px solid var(--hair);
+        border-radius: 16px;
+        background: #0d0b09;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+
+      .profile { padding: 0.85rem 0.9rem 1rem; }
+
+      .home {
+        margin: 0 0 0.75rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.8125rem/1 var(--sans);
+        cursor: pointer;
+      }
+
+      .profile-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .profile-bar .home { margin: 0; }
+
+      .know-card {
+        display: grid;
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 0.75rem;
+        padding: 0.75rem 0 0;
+        border: 0;
+        border-top: 1px solid var(--hair);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .know-card:hover { color: var(--ink); }
+
+      .know-card:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .know-card b {
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .gallery-strip.is-one { grid-template-columns: 1fr; }
+      .gallery-strip.is-two { grid-template-columns: 1fr 1fr; }
+
+      .gallery-strip .spot {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        border-radius: 8px;
+        background: #1a1510;
+        color: var(--gold-hover);
+        font-size: 0.75rem;
+      }
+
+      .who {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+      }
+
+      .mark-face {
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        flex: none;
+        overflow: hidden;
+        border-radius: 50%;
+        background: #1c1814;
+        color: var(--gold-hover);
+        font-weight: 600;
+      }
+
+      .mark-face img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .profile-photo-edit {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .socials {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.65rem;
+      }
+
+      .social-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.2 var(--sans);
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .social-mark svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        flex: none;
+      }
+
+      .social-mark:hover { color: var(--ink); }
+
+      .social-mark:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      #github-card .social-mark { margin-top: 0.85rem; }
+
+      .profile h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+      }
+
+      .profile p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.875rem; }
+
+      .role-card, .hub-card { padding: 0; }
+
+      .job-card { overflow: hidden; }
+
+      .job-photo {
+        height: 6rem;
+        background: #1a1510;
+      }
+
+      .job-photo img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #1a1510;
+      }
+
+      .job-copy {
+        display: grid;
+        gap: 0.15rem;
+        padding: 0.7rem 0.9rem 0.85rem;
+      }
+
+      .job-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .job-copy h3 {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+
+      .job-edit,
+      #editor-back {
+        flex: none;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.2 var(--sans);
+        cursor: pointer;
+      }
+
+      .job-edit:hover,
+      #editor-back:hover {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--ink);
+      }
+
+      .job-copy .title {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+
+      .job-copy .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+        margin: 0.1rem 0 0;
+        color: var(--muted);
+        font-size: 0.6875rem;
+        line-height: 1.35;
+      }
+
+      .current {
+        padding: 0 0.25rem;
+        border-radius: 3px;
+        background: rgba(16, 185, 129, 0.18);
+        color: #6ee7b7;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .tenure { color: rgba(185, 170, 151, 0.72); }
+
+      .job-copy .duty {
+        margin: 0.35rem 0 0;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .job-pills {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 0.4rem;
+        max-height: 4.75rem;
+        margin-top: 0.45rem;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      .job-pills > * {
+        flex: none;
+        white-space: nowrap;
+      }
+
+      .job-links a,
+      .job-pills a {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        color: var(--gold-light);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+        text-decoration: none;
+        transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+      }
+
+      .job-pills svg,
+      .job-links svg {
+        width: 0.875rem;
+        height: 0.875rem;
+        flex: none;
+      }
+
+      .job-pills a span,
+      .job-links a span {
+        padding-left: 0.5rem;
+        border-left: 1px solid rgba(199, 164, 123, 0.35);
+      }
+
+      .job-pills a:hover,
+      .job-links a:hover {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.22);
+        color: var(--ink);
+      }
+
+      .job-pills a:hover span,
+      .job-links a:hover span { border-left-color: rgba(232, 213, 183, 0.55); }
+      .job-pills a:focus-visible,
+      .job-links a:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .job-more-toggle {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.2 var(--sans);
+        cursor: pointer;
+      }
+
+      .job-more-toggle:hover {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--ink);
+      }
+
+      .job-more-toggle:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .people-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .person-card a:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+        flex: none;
+        border-radius: 999px;
+        background: rgba(167, 139, 113, 0.28);
+        color: var(--gold-hover);
+        font-size: 0.6875rem;
+        font-weight: 600;
+      }
+
+      .person-card {
+        display: grid;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 12px;
+        background: #0e0c0a;
+      }
+
+      .person-card-head {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .person-card .avatar {
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.75rem;
+      }
+
+      .person-card strong {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+
+      .person-title,
+      .person-blurb {
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .person-title { display: block; }
+
+      .person-blurb { margin: 0; }
+
+      .person-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+
+      .person-links a {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        color: var(--gold-light);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.2;
+        text-decoration: none;
+      }
+
+      .person-links a:hover {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.22);
+        color: var(--ink);
+      }
+
+      .field-hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .job-more {
+        display: grid;
+        gap: 0.85rem;
+        margin-top: 1rem;
+      }
+
+      .job-more h3 {
+        margin: 0 0 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .job-more p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.45;
+      }
+
+      .job-more ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .job-more li {
+        padding: 0.4rem 0;
+        border-top: 1px solid var(--hair);
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .job-more li:first-child { border-top: 0; padding-top: 0; }
+
+      .gallery-card {
+        display: grid;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.75rem;
+        border: 0;
+        border-radius: 16px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .gallery-card:hover { background: rgba(167, 139, 113, 0.08); }
+
+      .gallery-card:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .gallery-strip {
+        display: grid;
+        grid-template-columns: 1.7fr 0.72fr 0.72fr;
+        gap: 0.35rem;
+        height: 4.5rem;
+      }
+
+      .gallery-strip img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #1a1510;
+      }
+
+      .gallery-strip > img:last-child { object-position: 82% 35%; }
+
+      .thumb-video {
+        position: relative;
+        display: block;
+        min-width: 0;
+      }
+
+      .thumb-video img { object-position: 18% 60%; }
+
+      .play-badge {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        display: grid;
+        place-items: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        background: rgba(8, 7, 6, 0.72);
+        color: var(--ink);
+        transform: translate(-50%, -50%);
+      }
+
+      .play-badge svg { width: 0.7rem; height: 0.7rem; }
+
+      .gallery-card b {
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .gallery-label {
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .gallery-scroll {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 0.75rem;
+      }
+
+      .gallery-scroll figure {
+        flex: 0 0 15.5rem;
+        margin: 0;
+        scroll-snap-align: start;
+      }
+
+      .gallery-scroll img,
+      .gallery-scroll video {
+        display: block;
+        width: 100%;
+        height: 10.5rem;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #1a1510;
+      }
+
+      .event-line { display: grid; gap: 0.35rem; margin-top: 0.35rem; }
+
+      .gallery-scroll figcaption {
+        display: grid;
+        gap: 0.25rem;
+        padding-top: 0.75rem;
+      }
+
+      .gallery-scroll strong {
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .gallery-scroll figcaption span {
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .clip {
+        position: relative;
+        --pan: 0;
+      }
+
+      .clip img {
+        object-position: calc(8% + (var(--pan) * 72%)) center;
+      }
+
+      .play {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        padding: 0.75rem;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(8, 7, 6, 0.78);
+        color: var(--ink);
+        transform: translate(-50%, -62%);
+        cursor: pointer;
+      }
+
+      .play svg { width: 0.9rem; height: 0.9rem; }
+
+      .play:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .clip-bar {
+        position: absolute;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        left: 0.75rem;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .clip-bar span {
+        color: var(--ink);
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .clip-bar input {
+        width: 100%;
+        margin: 0;
+        accent-color: #e8d5b7;
+      }
+
+      .gallery-events {
+        margin-top: 0.5rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid var(--hair);
+      }
+
+      .gallery-events h3,
+      .event-view h3 {
+        margin: 0 0 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .sample-note,
+      .event-view .title,
+      .event-view .duty,
+      .callout-place {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .event-row {
+        display: grid;
+        gap: 0.15rem;
+        width: 100%;
+        margin-top: 0.35rem;
+        padding: 0.75rem;
+        border: 1px solid var(--hair);
+        border-radius: 12px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .event-row:hover { background: rgba(167, 139, 113, 0.12); }
+
+      .event-row:focus-visible,
+      .event-actions button:focus-visible,
+      .event-back:focus-visible,
+      .map-callout button:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .event-row strong {
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+
+      .event-row .event-kind,
+      .event-view .title { color: var(--muted); font-size: 0.75rem; }
+
+      .event-row .event-meta,
+      .event-view .meta {
+        margin: 0.1rem 0 0;
+        color: var(--muted);
+        font-size: 0.6875rem;
+        line-height: 1.35;
+      }
+
+      .event-row .event-gist {
+        overflow: hidden;
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .event-view { display: grid; gap: 0.15rem; margin-top: 1rem; }
+
+      .event-view[hidden],
+      .gallery-home[hidden],
+      .map-callout[hidden] { display: none; }
+
+      .event-view h3 { margin-top: 0.85rem; }
+
+      .event-view ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .event-view li {
+        padding: 0.75rem 0.75rem 0.75rem 0.85rem;
+        border-top: 1px solid var(--hair);
+        border-left: 2px solid var(--gold);
+        color: var(--ink);
+        font-size: 0.875rem;
+        line-height: 1.4;
+      }
+
+      .event-view li:first-child { border-top: 0; }
+
+      .event-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.85rem;
+      }
+
+      .event-actions button,
+      .map-callout button {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.2 var(--sans);
+        cursor: pointer;
+      }
+
+      .event-actions button:hover,
+      .map-callout button:hover {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--ink);
+      }
+
+      .event-back {
+        justify-self: start;
+        margin-top: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border: 0;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.2 var(--sans);
+        cursor: pointer;
+      }
+
+      .event-back:hover { color: var(--gold-hover); }
+
+      .crud-bar,
+      .select-bar,
+      .confirm-actions,
+      .item-actions,
+      .cover-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .select-bar[hidden],
+      .add-panel[hidden] { display: none; }
+
+      .add-anchor { position: relative; }
+
+      .crud-bar button,
+      .select-bar button,
+      .add-panel button,
+      .item-actions button,
+      .cover-actions button,
+      .cover-file,
+      .confirm-actions button,
+      .job-actions button,
+      .gallery-add button {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.35);
+        border-radius: 999px;
+        background: #13100d;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.2 var(--sans);
+        cursor: pointer;
+      }
+
+      .crud-bar button:hover,
+      .select-bar button:hover,
+      .add-panel button:hover,
+      .item-actions button:hover,
+      .cover-actions button:hover,
+      .cover-file:hover,
+      .confirm-actions button:hover,
+      .job-actions button:hover,
+      .gallery-add button:hover {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--ink);
+      }
+
+      button:disabled { cursor: not-allowed; opacity: 0.45; }
+
+      button.is-danger {
+        border-color: rgba(205, 103, 86, 0.55);
+        color: #e6a196;
+      }
+
+      .add-panel {
+        position: absolute;
+        z-index: 5;
+        top: calc(100% + 0.35rem);
+        left: 0;
+        display: grid;
+        min-width: 9rem;
+        padding: 0.35rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #13100d;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      }
+
+      .add-panel button {
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        text-align: left;
+      }
+
+      .select-bar {
+        padding: 0.75rem;
+        border: 1px solid var(--hair);
+        border-radius: 12px;
+        background: #13100d;
+      }
+
+      .select-bar span {
+        margin-right: auto;
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .job-card.is-focus { border-color: var(--line); }
+
+      .check,
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .check input,
+      .check-row input {
+        width: 1rem;
+        height: 1rem;
+        margin: 0;
+        accent-color: var(--gold);
+      }
+
+      .check-row {
+        display: grid;
+        grid-template-columns: auto 2.75rem minmax(0, 1fr);
+        border-top: 1px solid var(--hair);
+      }
+
+      .check-row img,
+      .check-row .spot {
+        width: 2.75rem;
+        height: 2.75rem;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #1a1510;
+      }
+
+      .check-row .spot {
+        display: grid;
+        place-items: center;
+        color: var(--gold-hover);
+        font-size: 0.75rem;
+      }
+
+      .check-row strong {
+        display: block;
+        color: var(--ink);
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .check-row small { color: var(--muted); font-size: 0.75rem; }
+
+      .select-group h3 {
+        margin: 0.75rem 0.75rem 0.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .cover-actions { padding: 0.5rem 0.75rem 0; }
+
+      .cover-file { position: relative; display: inline-flex; }
+
+      .cover-file input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+
+      .job-actions,
+      .gallery-add {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+
+      .empty-note,
+      .form-note,
+      #confirm-text {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .role-form h3,
+      .edit-section h3 {
+        margin: 0 0 0.75rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .edit-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--hair);
+      }
+
+      .edit-cover img {
+        display: block;
+        width: 100%;
+        height: 6rem;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #1a1510;
+      }
+
+      .edit-row {
+        display: grid;
+        grid-template-columns: 2.75rem minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-top: 1px solid var(--hair);
+      }
+
+      .edit-row img,
+      .edit-row .spot {
+        width: 2.75rem;
+        height: 2.75rem;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #1a1510;
+      }
+
+      .edit-row .spot {
+        display: grid;
+        place-items: center;
+        color: var(--gold-hover);
+        font-size: 0.75rem;
+      }
+
+      .edit-row .spot svg { width: 1rem; height: 1rem; }
+
+      .edit-row strong {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      .edit-row small {
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .edit-row .item-actions { grid-column: 1 / -1; }
+
+      #editor-form[hidden],
+      #editor-home[hidden],
+      #bio-editor-form[hidden],
+      #bio-editor-home[hidden] { display: none; }
+
+      .editor-form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .role-form { display: grid; gap: 0.75rem; }
+
+      .role-form label {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .role-form input,
+      .role-form textarea,
+      .role-form select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--hair);
+        border-radius: 10px;
+        background: #0b0908;
+        color: var(--ink);
+        font: 0.875rem/1.4 var(--sans);
+      }
+
+      .role-form input[type="month"],
+      .role-form input[type="url"],
+      .role-form select { color-scheme: dark; }
+
+      .role-form textarea { resize: vertical; }
+
+      .role-form-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+
+      .role-form .role-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--ink);
+        font-size: 0.875rem;
+      }
+
+      .role-form .role-check input { width: 1rem; height: 1rem; }
+
+      .role-form button[type="submit"] {
+        justify-self: start;
+        padding: 0.5rem 0.75rem;
+        border: 0;
+        border-radius: 999px;
+        background: var(--gold);
+        color: #090806;
+        font: 600 0.75rem/1.2 var(--sans);
+        cursor: pointer;
+      }
+
+      #confirm { width: min(26rem, calc(100% - 2rem)); }
+
+      .confirm-actions { margin-top: 0.75rem; }
+
+      .hub-open {
+        display: block;
+        width: 100%;
+        padding: 0.9rem 1rem;
+        border: 0;
+        border-radius: 16px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .role-toggle:hover, .hub-open:hover,
+      .role-toggle:focus-visible, .hub-open:focus-visible,
+      .home:focus-visible, .leave:focus-visible, .pane:focus-visible, .close:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .role-toggle:hover, .hub-open:hover { background: rgba(167, 139, 113, 0.08); }
+
+      .role-toggle b, .hub-open b { display: block; font-weight: 600; }
+
+      .role-toggle span, .hub-open span {
+        display: block;
+        margin-top: 0.2rem;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .essentials {
+        display: none;
+        padding: 0.2rem 1rem 1rem;
+      }
+
+      .role-card.is-focus .role-toggle { border-radius: 16px 16px 0 0; }
+      .role-card.is-focus .essentials { display: block; }
+
+      .essentials h3 {
+        margin: 0.35rem 0 0;
+        font-size: 1.35rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+      }
+
+      .essentials .org { margin: 0.35rem 0 0; font-size: 1.05rem; }
+
+      .essentials .meta { margin: 0.45rem 0 0.85rem; color: var(--muted); font-size: 0.875rem; }
+
+      .essentials p.duty {
+        margin: 0;
+        max-width: 38rem;
+        color: var(--ink);
+        font-size: 0.9375rem;
+        line-height: 1.55;
+      }
+
+      .leave {
+        margin-top: 0.9rem;
+        padding: 0.35rem 0;
+        border: 0;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.875rem/1 var(--sans);
+        cursor: pointer;
+      }
+
+      .leave:hover { color: var(--gold-hover); }
+
+      .map {
+        position: absolute;
+        inset: 0;
+        border: 1px solid var(--hair);
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.14) 1px, transparent 1px) 0 0 / 22px 22px,
+          linear-gradient(90deg, rgba(199, 164, 123, 0.14) 1px, transparent 1px) 0 0 / 22px 22px,
+          #0d0b09;
+        color: var(--muted);
+      }
+
+      .map-note {
+        position: absolute;
+        top: 1rem;
+        left: calc(min(24rem, 38vw) + 2.25rem);
+        z-index: 2;
+        margin: 0;
+        color: var(--ink);
+        font-size: 0.875rem;
+      }
+
+      .map-world {
+        position: absolute;
+        inset: 0;
+        transition: transform 420ms ease;
+      }
+
+      .pin {
+        position: absolute;
+        width: 2.25rem;
+        height: 2.25rem;
+        margin: -1.125rem 0 0 -1.125rem;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .pin span {
+        display: block;
+        width: 0.7rem;
+        height: 0.7rem;
+        margin: 0.775rem auto 0;
+        border-radius: 50%;
+        background: rgba(232, 213, 183, 0.55);
+        box-shadow: 0 0 0 6px rgba(232, 213, 183, 0.12);
+      }
+
+      .pin.is-on span {
+        background: #e8d5b7;
+        box-shadow: 0 0 0 8px rgba(232, 213, 183, 0.28);
+        animation: pin-pulse 1.6s ease-in-out infinite;
+      }
+
+      .pin:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      @keyframes pin-pulse {
+        50% { box-shadow: 0 0 0 12px rgba(232, 213, 183, 0.06); }
+      }
+
+      .map-callout {
+        position: absolute;
+        z-index: 3;
+        top: 42%;
+        left: calc(70% - 16rem);
+        display: grid;
+        gap: 0.35rem;
+        width: 14rem;
+        padding: 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #13100d;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        transform: translateY(-50%);
+      }
+
+      .map-callout strong {
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .map-callout button { justify-self: start; }
+
+      dialog {
+        width: min(36rem, calc(100% - 2rem));
+        max-height: min(32rem, calc(100% - 2rem));
+        overflow: auto;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #13100d;
+        color: var(--ink);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+      }
+
+      dialog::backdrop { background: rgba(8, 7, 6, 0.72); }
+
+      .sheet { padding: 1rem 1.1rem 1.15rem; }
+
+      .sheet-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .sheet h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .sheet-head p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
+
+      .close {
+        padding: 0.4rem 0.7rem;
+        border: 1px solid var(--hair);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.8125rem/1 var(--sans);
+        cursor: pointer;
+      }
+
+      .panes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 1rem 0;
+      }
+
+      .pane {
+        min-height: 2.25rem;
+        padding: 0.4rem 0.75rem;
+        border: 1px solid var(--hair);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.875rem/1 var(--sans);
+        cursor: pointer;
+      }
+
+      .pane[aria-pressed="true"] {
+        border-color: var(--gold);
+        background: #1c1814;
+        color: var(--gold-hover);
+      }
+
+      .view { display: none; }
+      .view.is-on { display: block; }
+
+      .frames {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 0.65rem;
+      }
+
+      .frame {
+        display: grid;
+        align-content: end;
+        min-height: 9.5rem;
+        padding: 0.75rem;
+        border: 1px solid var(--hair);
+        border-radius: 12px;
+        background:
+          radial-gradient(circle at 30% 30%, rgba(232, 213, 183, 0.18), transparent 42%),
+          #080706;
+      }
+
+      .frame strong { font-size: 0.875rem; font-weight: 600; }
+      .frame span { color: var(--muted); font-size: 0.8125rem; }
+
+      .list { margin: 0; padding: 0; list-style: none; }
+
+      .list li {
+        padding: 0.7rem 0;
+        border-top: 1px solid var(--hair);
+        font-size: 0.9375rem;
+      }
+
+      .list li:first-child { border-top: 0; padding-top: 0; }
+
+      .empty { margin: 0; color: var(--muted); font-size: 0.9375rem; }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { scroll-behavior: auto; }
+        .job-pills a, .map-world { transition: none; }
+        .pin.is-on span { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Prototype · the left panel only. Not wired to Career History.</p>
+    <div class="identity">
+      <p class="brand">Proforna</p>
+    </div>
+    <div class="stage">
+      <div class="column">
+        <section class="card profile" id="profile-card" aria-label="Profile"></section>
+
+        <div id="jobs"></div>
+        <section class="card hub-card" id="media-card"></section>
+      </div>
+
+      <div class="map" id="map" role="region" aria-label="Map">
+        <div class="map-world" id="map-world"></div>
+        <p class="map-note" id="map-note">Lancaster, PA</p>
+        <div class="map-callout" id="map-callout" hidden>
+          <strong id="callout-title"></strong>
+          <span class="callout-place" id="callout-place"></span>
+          <button type="button" id="callout-open">Open details</button>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="gallery" aria-labelledby="gallery-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="gallery-title">Media and events</h2>
+            <p id="gallery-sub">Giants Direct</p>
+          </div>
+          <button class="close" type="button" id="close-gallery">Close</button>
+        </div>
+        <div id="gallery-body"></div>
+      </div>
+    </dialog>
+
+    <dialog id="people" aria-labelledby="people-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="people-title">Worked with</h2>
+            <p id="people-sub">Giants Direct</p>
+          </div>
+          <button class="close" type="button" id="close-people">Close</button>
+        </div>
+        <div class="people-list" id="people-body"></div>
+      </div>
+    </dialog>
+
+    <dialog id="job-detail" aria-labelledby="job-detail-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="job-detail-title">Giants Direct</h2>
+            <p id="job-detail-sub">Mechatronics and Robotics Technician</p>
+          </div>
+          <button class="close" type="button" id="close-job">Close</button>
+        </div>
+        <div class="job-more" id="job-detail-body"></div>
+      </div>
+    </dialog>
+
+    <dialog id="personal" aria-labelledby="personal-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="personal-title">Get to know me</h2>
+            <p id="personal-sub"></p>
+          </div>
+          <button class="close" type="button" id="close-personal">Close</button>
+        </div>
+        <div id="personal-body"></div>
+      </div>
+    </dialog>
+
+    <dialog id="github-card" aria-labelledby="github-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="github-title">GitHub</h2>
+            <p id="github-handle"></p>
+          </div>
+          <button class="close" type="button" id="close-github">Close</button>
+        </div>
+        <a class="social-mark" id="github-open" target="_blank" rel="noreferrer">Open GitHub</a>
+      </div>
+    </dialog>
+
+    <dialog id="bio-editor" aria-labelledby="bio-editor-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="bio-editor-title">Edit profile</h2>
+            <p id="bio-editor-sub"></p>
+          </div>
+          <button class="close" type="button" id="bio-editor-cancel">Close</button>
+        </div>
+        <div id="bio-editor-home"></div>
+        <form id="bio-editor-form" class="role-form" hidden>
+          <div id="bio-editor-fields"></div>
+          <p class="form-note" id="bio-editor-note"></p>
+          <div class="editor-form-actions">
+            <button type="submit" id="bio-editor-save">Save</button>
+            <button type="button" id="bio-editor-back">Back</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="editor" aria-labelledby="editor-title">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h2 id="editor-title">Edit role</h2>
+            <p id="editor-sub"></p>
+          </div>
+          <button class="close" type="button" id="editor-cancel">Close</button>
+        </div>
+        <div id="editor-home"></div>
+        <form id="editor-form" class="role-form" hidden>
+          <div id="editor-fields"></div>
+          <p class="form-note" id="editor-note"></p>
+          <div class="editor-form-actions">
+            <button type="submit" id="editor-save">Save</button>
+            <button type="button" id="editor-back">Back</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="confirm" aria-labelledby="confirm-text">
+      <form method="dialog" class="sheet">
+        <p id="confirm-text"></p>
+        <div class="confirm-actions">
+          <button type="submit" class="is-danger" value="remove">Remove</button>
+          <button type="submit" value="keep">Keep</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script>
+const COVER = "http://127.0.0.1:5173/api/work-map/media/c656800b-bb76-4779-99d6-9a0ebc251f28";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SPOTS = [["46%", "62%"], ["32%", "78%"], ["64%", "70%"], ["40%", "84%"], ["54%", "52%"], ["28%", "66%"]];
+
+const state = {
+  selecting: false,
+  checked: new Set(),
+  focus: "giants",
+  mapEvent: null,
+  reveal: false,
+  galleryEvent: null,
+  openPerson: null,
+  profile: {
+    name: "Sory Kaba",
+    headline: "",
+    address: "",
+    bio: "",
+    photo: "",
+  },
+  personal: [],
+  socials: [],
+  jobs: [
+    {
+      id: "giants",
+      organization: "Giants Direct",
+      title: "Mechatronics and Robotics Technician",
+      place: "Lancaster, PA",
+      start: "2024-06",
+      end: "",
+      current: true,
+      duty: "Maintained Swisslog pick-and-place robotics and conveyors.",
+      description: "On-site at an industrial food distribution facility. Trained with Swisslog robotic technicians and Peapod integrated system technicians. Primary focus: maintained and troubleshot the Swisslog pick-and-place robotics system and the conveyor systems.",
+      achievements: [
+        "Performed routine preventive maintenance and predictive maintenance on robotic systems, including lubrication, component checks, and backups.",
+        "Replaced and configured electrical components such as relays, contactors, power supplies, and circuit breakers.",
+        "Responded to equipment breakdowns, diagnosing root causes and putting corrective actions in place.",
+        "Assembled, installed, and aligned mechanical components of automated systems, including conveyors, actuators, and fixtures.",
+        "Performed mechanical repairs and adjustments on robots and automated machinery, including gearbox replacements, belt tensioning, and bearing changes.",
+        "Implemented and maintained robot safety systems, including light curtains, safety gates, and emergency stops.",
+      ],
+      website: "https://www.giantdirect.com",
+      linkedin: "https://www.linkedin.com/showcase/giantdirect/",
+    },
+  ],
+  media: [
+    { id: "cover", jobId: "giants", kind: "photo", title: "Cover photo", url: COVER, caption: "The cover on this role.", isPublic: false, position: "center" },
+    { id: "walk", jobId: "giants", kind: "video", title: "Line walkthrough", url: COVER, caption: "A pass along the pick-and-place line.", isPublic: false, player: "pan" },
+    { id: "conv", jobId: "giants", kind: "photo", title: "Conveyors", url: COVER, caption: "The conveyor side of the same cover.", isPublic: false, position: "82% 35%" },
+  ],
+  events: [
+    { id: "line", jobId: "giants", title: "Swisslog line training", kind: "Training", place: "Line 3, Lancaster, PA", date: "2024-06", detail: "Trained with Swisslog robotic technicians on the pick-and-place line.", highlights: ["Swisslog pick-and-place line", "On site with their robotic technicians", "Line 3 at the Lancaster facility"], top: "46%", left: "62%" },
+    { id: "hall", jobId: "giants", title: "Conveyor alignment", kind: "Maintenance", place: "Conveyor hall, Lancaster, PA", date: "2024-08", detail: "Aligned conveyor sections that feed the robotic line.", highlights: ["Conveyors, actuators, and fixtures", "Alignment after a section change", "Conveyor hall at the Lancaster facility"], top: "32%", left: "78%" },
+    { id: "gates", jobId: "giants", title: "Safety system check", kind: "Safety", place: "Gate row, Lancaster, PA", date: "2025-01", detail: "Checked light curtains, safety gates, and emergency stops.", highlights: ["Light curtains and safety gates", "Emergency stops on the line", "Gate row at the Lancaster facility"], top: "64%", left: "70%" },
+  ],
+  people: [
+    { id: "morgan", jobId: "giants", name: "Morgan Hale", title: "Swisslog robotic technician", blurb: "Trained on the Swisslog pick-and-place line.", links: [{ label: "LinkedIn", url: "https://www.linkedin.com/in/morgan-hale-sketch" }] },
+    { id: "riley", jobId: "giants", name: "Riley Okonkwo", title: "Peapod systems technician", blurb: "Covered the Peapod integrated system beside the robotics.", links: [{ label: "LinkedIn", url: "https://www.linkedin.com/in/riley-okonkwo-sketch" }] },
+    { id: "casey", jobId: "giants", name: "Casey Nguyen", title: "Maintenance partner", blurb: "Aligned conveyors and checked the safety gates.", links: [] },
+  ],
+};
+
+const jobsEl = document.querySelector("#jobs");
+const mediaCard = document.querySelector("#media-card");
+const gallery = document.querySelector("#gallery");
+const galleryBody = document.querySelector("#gallery-body");
+const galleryTitle = document.querySelector("#gallery-title");
+const gallerySub = document.querySelector("#gallery-sub");
+const jobDetail = document.querySelector("#job-detail");
+const peopleDialog = document.querySelector("#people");
+const editor = document.querySelector("#editor");
+const bioEditor = document.querySelector("#bio-editor");
+const bioForm = document.querySelector("#bio-editor-form");
+const personalDialog = document.querySelector("#personal");
+const githubDialog = document.querySelector("#github-card");
+const editorForm = document.querySelector("#editor-form");
+const confirmDialog = document.querySelector("#confirm");
+const mapWorld = document.querySelector("#map-world");
+const mapNote = document.querySelector("#map-note");
+const mapCallout = document.querySelector("#map-callout");
+let editorMode = null;
+let bioMode = null;
+let seq = 1;
+
+function nid(prefix) {
+  seq += 1;
+  return `${prefix}-${Date.now().toString(36)}-${seq}`;
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function lines(value) {
+  return String(value ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
+}
+
+function monthLabel(value) {
+  const match = /^(\d{4})-(\d{2})/.exec(String(value || ""));
+  if (!match) return "";
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return "";
+  return `${MONTHS[month - 1]} ${match[1]}`;
+}
+
+function period(job) {
+  const start = monthLabel(job.start);
+  const end = job.current ? "Present" : monthLabel(job.end);
+  return [start, end].filter(Boolean).join(" – ");
+}
+
+function tenure(job) {
+  const match = /^(\d{4})-(\d{2})/.exec(job.start || "");
+  if (!match) return "";
+  const endMatch = !job.current && /^(\d{4})-(\d{2})/.exec(job.end || "");
+  const end = endMatch ? new Date(Number(endMatch[1]), Number(endMatch[2]) - 1, 1) : new Date(2026, 9, 24);
+  let months = (end.getFullYear() - Number(match[1])) * 12 + (end.getMonth() - (Number(match[2]) - 1));
+  if (months < 0) months = 0;
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  if (years && rest) return `(${years}y ${rest}m)`;
+  if (years) return `(${years}y)`;
+  return `(${rest}m)`;
+}
+
+function jobById(id) {
+  return state.jobs.find((job) => job.id === id) || null;
+}
+
+function focusedJob() {
+  return jobById(state.focus) || state.jobs[0] || null;
+}
+
+function jobMedia(jobId) {
+  return state.media.filter((item) => item.jobId === jobId);
+}
+
+function jobEvents(jobId) {
+  return state.events.filter((item) => item.jobId === jobId);
+}
+
+function jobPeople(jobId) {
+  return state.people.filter((item) => item.jobId === jobId);
+}
+
+function initials(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function safeHref(url) {
+  const value = String(url || "").trim();
+  if (/^https?:\/\//i.test(value) || /^mailto:/i.test(value)) return value;
+  return "";
+}
+
+function parseLinks(value) {
+  return lines(value).map((line) => {
+    const parts = line.split("|").map((part) => part.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    let label = "Link";
+    let url = parts[0];
+    if (parts.length >= 2) {
+      label = parts[0];
+      url = parts.slice(1).join(" | ");
+    }
+    if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url)) url = `https://${url}`;
+    return { label, url };
+  }).filter(Boolean);
+}
+
+function coverOf(jobId) {
+  return jobMedia(jobId).find((item) => item.kind === "photo" && item.url) || null;
+}
+
+function kindLabel(kind) {
+  if (kind === "video") return "Video";
+  if (kind === "attachment") return "Attachment";
+  if (kind === "other") return "Other";
+  return "Photo";
+}
+
+function checkedKeys() {
+  return [...state.checked];
+}
+
+function keyKind(key) {
+  return key.split(":")[0];
+}
+
+function sameKind() {
+  const kinds = new Set(checkedKeys().map(keyKind));
+  return kinds.size === 1 ? [...kinds][0] : "";
+}
+
+function globe() {
+  return '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" stroke-width="1.25"></circle><ellipse cx="8" cy="8" rx="2.35" ry="5.25" fill="none" stroke="currentColor" stroke-width="1.25"></ellipse><path d="M3 8h10" fill="none" stroke="currentColor" stroke-width="1.25"></path></svg>';
+}
+
+function person() {
+  return '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.75" r="2.15" fill="none" stroke="currentColor" stroke-width="1.25"></circle><path d="M3.6 13c.7-2.15 2.3-3.2 4.4-3.2s3.7 1.05 4.4 3.2" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"></path></svg>';
+}
+
+function playPath() {
+  return '<path d="M6 4.2v7.6l6.2-3.8z" fill="currentColor"></path>';
+}
+
+function field(label, control) {
+  return `<label>${esc(label)}${control}</label>`;
+}
+
+function textInput(name, value, type) {
+  return `<input name="${name}" type="${type || "text"}" value="${esc(value)}">`;
+}
+
+function area(name, value, rows) {
+  return `<textarea name="${name}" rows="${rows}">${esc(value)}</textarea>`;
+}
+
+function selectBox(name, options, value) {
+  return `<select name="${name}">${options.map(([option, label]) => `<option value="${esc(option)}"${option === value ? " selected" : ""}>${esc(label)}</option>`).join("")}</select>`;
+}
+
+function pair(left, right) {
+  return `<div class="role-form-pair">${left}${right}</div>`;
+}
+
+function jobFields(job, bulk) {
+  const item = job || {};
+  const current = bulk
+    ? field("Current role", selectBox("current", [["", "Leave unchanged"], ["yes", "Current"], ["no", "Not current"]], ""))
+    : `<label class="role-check"><input name="current" type="checkbox"${item.current ? " checked" : ""}>Current role</label>`;
+  return [
+    pair(field("Title", textInput("title", bulk ? "" : item.title || "")), field("Organization", textInput("organization", bulk ? "" : item.organization || ""))),
+    field("Place", textInput("place", bulk ? "" : item.place || "")),
+    pair(field("Start", textInput("start", bulk ? "" : item.start || "", "month")), field("End", textInput("end", bulk ? "" : item.end || "", "month"))),
+    current,
+    field("Summary", textInput("duty", bulk ? "" : item.duty || "")),
+    field("What the role involved", area("description", bulk ? "" : item.description || "", 4)),
+    field("Achievements, one per line", area("achievements", bulk ? "" : (item.achievements || []).join("\n"), 4)),
+    pair(field("Website", textInput("website", bulk ? "" : item.website || "", "url")), field("LinkedIn", textInput("linkedin", bulk ? "" : item.linkedin || "", "url"))),
+  ].join("");
+}
+
+function mediaFields(item, bulk) {
+  const kinds = bulk
+    ? [["", "Leave unchanged"], ["photo", "Photo"], ["video", "Video"], ["attachment", "Attachment"]]
+    : [["photo", "Photo"], ["video", "Video"], ["attachment", "Attachment"]];
+  const pub = bulk
+    ? field("Publications", selectBox("isPublic", [["", "Leave unchanged"], ["yes", "Allow in publications"], ["no", "Keep private"]], ""))
+    : `<label class="role-check"><input name="isPublic" type="checkbox"${item && item.isPublic ? " checked" : ""}>Allow this item in publications</label>`;
+  const url = item && item.url && !String(item.url).startsWith("data:") && !String(item.url).startsWith("blob:") ? item.url : "";
+  return [
+    pair(field("Type", selectBox("kind", kinds, bulk ? "" : (item && item.kind) || "photo")), field("Title", textInput("title", bulk ? "" : (item && item.title) || ""))),
+    bulk ? "" : field("URL", textInput("url", url, "url")),
+    bulk ? "" : field("Or choose a file", '<input name="file" type="file" accept="image/*,video/*">'),
+    field("Caption", area("caption", bulk ? "" : (item && item.caption) || "", 2)),
+    pub,
+  ].join("");
+}
+
+function eventFields(item, bulk) {
+  return [
+    field("Title", textInput("title", bulk ? "" : (item && item.title) || "")),
+    pair(field("Date", textInput("date", bulk ? "" : (item && item.date) || "", "month")), field("Kind", textInput("kind", bulk ? "" : (item && item.kind) || ""))),
+    field("Place", textInput("place", bulk ? "" : (item && item.place) || "")),
+    field("Detail", area("detail", bulk ? "" : (item && item.detail) || "", 3)),
+    bulk ? "" : field("Highlights, one per line", area("highlights", ((item && item.highlights) || []).join("\n"), 3)),
+  ].join("");
+}
+
+function personFields(item) {
+  const links = ((item && item.links) || []).map((link) => `${link.label} | ${link.url}`).join("\n");
+  return [
+    field("Name", textInput("name", (item && item.name) || "")),
+    field("Role or title", textInput("title", (item && item.title) || "")),
+    field("Note", area("blurb", (item && item.blurb) || "", 3)),
+    field("Links", area("links", links, 3)),
+    '<p class="field-hint">One link per line, as Label | URL. LinkedIn and other sites both fit.</p>',
+  ].join("");
+}
+
+function openEditor(mode) {
+  editorMode = mode;
+  const title = document.querySelector("#editor-title");
+  const note = document.querySelector("#editor-note");
+  const save = document.querySelector("#editor-save");
+  const fields = document.querySelector("#editor-fields");
+  document.querySelector("#editor-home").hidden = true;
+  editorForm.hidden = false;
+  if (mode.type === "media") {
+    title.textContent = mode.id ? "Edit media" : "Attach media";
+    save.textContent = mode.id ? "Save media" : "Attach media";
+    fields.innerHTML = mediaFields(mode.id ? state.media.find((item) => item.id === mode.id) : { kind: mode.kind || "photo" }, false);
+    note.textContent = "Photo, video, or attachment. A file stays in this page for the session.";
+  } else if (mode.type === "person") {
+    title.textContent = mode.id ? "Edit person" : "Add a person";
+    save.textContent = "Save person";
+    fields.innerHTML = personFields(mode.id ? state.people.find((item) => item.id === mode.id) : null);
+    note.textContent = "Name, title, a short note, and links such as LinkedIn. Saved in this sketch only.";
+  } else {
+    title.textContent = mode.id ? "Edit event" : "Add an event";
+    save.textContent = "Save event";
+    fields.innerHTML = eventFields(mode.id ? state.events.find((item) => item.id === mode.id) : null, false);
+    note.textContent = "Date, title, and detail follow the career event line. The place stays on the map.";
+  }
+  if (!editor.open) editor.showModal();
+}
+
+function fileUrl(file) {
+  return new Promise((resolve) => {
+    if (file.type.startsWith("video/")) {
+      resolve(URL.createObjectURL(file));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  });
+}
+
+function writeJob(job, form, bulk) {
+  const data = new FormData(form);
+  const textKeys = ["title", "organization", "place", "start", "end", "duty", "description", "website", "linkedin"];
+  for (const key of textKeys) {
+    const value = String(data.get(key) || "").trim();
+    if (bulk) {
+      if (value) job[key] = value;
+    } else job[key] = value;
+  }
+  const achievements = lines(data.get("achievements"));
+  if (bulk) {
+    if (achievements.length) job.achievements = achievements;
+    const current = String(data.get("current") || "");
+    if (current === "yes") job.current = true;
+    if (current === "no") job.current = false;
+  } else {
+    job.achievements = achievements;
+    job.current = data.get("current") === "on";
+  }
+}
+
+function writePerson(item, form) {
+  const data = new FormData(form);
+  item.name = String(data.get("name") || "").trim();
+  item.title = String(data.get("title") || "").trim();
+  item.blurb = String(data.get("blurb") || "").trim();
+  item.links = parseLinks(data.get("links"));
+}
+
+function writeEvent(item, form, bulk) {
+  const data = new FormData(form);
+  for (const key of ["title", "date", "kind", "place", "detail"]) {
+    const value = String(data.get(key) || "").trim();
+    if (bulk) {
+      if (value) item[key] = value;
+    } else item[key] = value;
+  }
+  if (!bulk) item.highlights = lines(data.get("highlights"));
+}
+
+async function writeMedia(item, form, bulk) {
+  const data = new FormData(form);
+  const kind = String(data.get("kind") || "");
+  const title = String(data.get("title") || "").trim();
+  const caption = String(data.get("caption") || "").trim();
+  const url = String(data.get("url") || "").trim();
+  const file = data.get("file");
+  if (bulk) {
+    if (kind) item.kind = kind;
+    if (title) item.title = title;
+    if (caption) item.caption = caption;
+    const pub = String(data.get("isPublic") || "");
+    if (pub === "yes") item.isPublic = true;
+    if (pub === "no") item.isPublic = false;
+    if (kind && kind !== "video") delete item.player;
+    return;
+  }
+  item.kind = kind || "photo";
+  item.title = title || "Untitled";
+  item.caption = caption;
+  item.isPublic = data.get("isPublic") === "on";
+  if (file instanceof File && file.size) {
+    item.url = await fileUrl(file);
+    delete item.player;
+  } else if (url) {
+    item.url = url;
+    delete item.player;
+  }
+}
+
+function nextSpot() {
+  return SPOTS[state.events.length % SPOTS.length];
+}
+
+async function saveEditor(event) {
+  event.preventDefault();
+  const form = event.target instanceof HTMLFormElement ? event.target : event.currentTarget;
+  const mode = editorMode;
+  if (!mode) return;
+  if (mode.type === "media") {
+    const host = focusedJob();
+    if (!mode.id && !host) return;
+    if (mode.id) {
+      const item = state.media.find((entry) => entry.id === mode.id);
+      if (item) await writeMedia(item, form, false);
+    } else {
+      const item = { id: nid("media"), jobId: host.id, url: "", isPublic: false };
+      await writeMedia(item, form, false);
+      state.media.push(item);
+    }
+  } else if (mode.type === "event") {
+    const host = focusedJob();
+    if (!mode.id && !host) return;
+    if (mode.id) {
+      const item = state.events.find((entry) => entry.id === mode.id);
+      if (item) writeEvent(item, form, false);
+    } else {
+      const [top, left] = nextSpot();
+      const item = { id: nid("event"), jobId: host.id, highlights: [], top, left };
+      writeEvent(item, form, false);
+      if (!item.title) item.title = "Untitled event";
+      state.events.push(item);
+    }
+  } else if (mode.type === "person") {
+    const host = focusedJob();
+    if (!mode.id && !host) return;
+    if (mode.id) {
+      const item = state.people.find((entry) => entry.id === mode.id);
+      if (item) writePerson(item, form);
+    } else {
+      const item = { id: nid("person"), jobId: host.id, links: [] };
+      writePerson(item, form);
+      if (!item.name) item.name = "Unnamed";
+      state.people.push(item);
+    }
+  }
+  showEditorHome();
+  renderAll();
+}
+
+function askRemove(message) {
+  return new Promise((resolve) => {
+    document.querySelector("#confirm-text").textContent = message;
+    function done() {
+      confirmDialog.removeEventListener("close", done);
+      resolve(confirmDialog.returnValue === "remove");
+    }
+    confirmDialog.addEventListener("close", done);
+    confirmDialog.showModal();
+  });
+}
+
+function dropKeys(keys) {
+  const jobs = new Set(keys.filter((key) => key.startsWith("job:")).map((key) => key.slice(4)));
+  const media = new Set(keys.filter((key) => key.startsWith("media:")).map((key) => key.slice(6)));
+  const events = new Set(keys.filter((key) => key.startsWith("event:")).map((key) => key.slice(6)));
+  const people = new Set(keys.filter((key) => key.startsWith("person:")).map((key) => key.slice(7)));
+  state.media = state.media.filter((item) => !media.has(item.id) && !jobs.has(item.jobId));
+  state.events = state.events.filter((item) => !events.has(item.id) && !jobs.has(item.jobId));
+  const personal = new Set(keys.filter((key) => key.startsWith("personal:")).map((key) => key.slice(9)));
+  state.people = state.people.filter((item) => !people.has(item.id) && !jobs.has(item.jobId));
+  state.personal = state.personal.filter((item) => !personal.has(item.id));
+  const socials = new Set(keys.filter((key) => key.startsWith("social:")).map((key) => key.slice(7)));
+  state.socials = state.socials.filter((item) => !socials.has(item.id));
+  if (state.openPerson && !state.people.some((item) => item.id === state.openPerson)) state.openPerson = null;
+  state.jobs = state.jobs.filter((job) => !jobs.has(job.id));
+  for (const key of keys) state.checked.delete(key);
+  for (const key of [...state.checked]) {
+    const [kind, id] = [keyKind(key), key.slice(key.indexOf(":") + 1)];
+    const alive = kind === "job" ? jobById(id) : kind === "media" ? state.media.some((item) => item.id === id) : state.events.some((item) => item.id === id);
+    if (!alive) state.checked.delete(key);
+  }
+  if (!jobById(state.focus)) state.focus = state.jobs[0] ? state.jobs[0].id : "";
+  if (state.mapEvent && !state.events.some((item) => item.id === state.mapEvent)) {
+    state.mapEvent = null;
+    mapCallout.hidden = true;
+    mapWorld.style.transform = "";
+    mapNote.textContent = focusedJob()?.place || "Map";
+  }
+  if (state.galleryEvent && !state.events.some((item) => item.id === state.galleryEvent)) state.galleryEvent = null;
+  renderAll();
+}
+
+function removeMessage(keys) {
+  if (keys.length === 1 && keys[0].startsWith("job:")) return "Remove this role? Its media and events in this sketch go with it.";
+  if (keys.every((key) => key.startsWith("job:"))) return `Remove ${keys.length} roles? Their media and events in this sketch go with them.`;
+  if (keys.length === 1 && keys[0].startsWith("media:")) return "Remove this item?";
+  if (keys.length === 1 && keys[0].startsWith("event:")) return "Remove this event?";
+  if (keys.length === 1 && keys[0].startsWith("person:")) return "Remove this person?";
+  if (keys.length === 1 && keys[0].startsWith("personal:")) return "Remove this personal item?";
+  if (keys.length === 1 && keys[0].startsWith("social:")) return "Remove this link?";
+  return `Remove ${keys.length} items?`;
+}
+
+async function removeKeys(keys) {
+  if (!keys.length) return;
+  const ok = await askRemove(removeMessage(keys));
+  if (ok) dropKeys(keys);
+}
+
+function showEditorHome() {
+  editorMode = null;
+  editorForm.hidden = true;
+  const home = document.querySelector("#editor-home");
+  home.hidden = false;
+  const job = focusedJob();
+  document.querySelector("#editor-title").textContent = "Edit role";
+  document.querySelector("#editor-sub").textContent = job ? (job.organization || "Untitled") : "";
+}
+
+function renderProfile() {
+  const card = document.querySelector("#profile-card");
+  const profile = state.profile;
+  const face = profile.photo
+    ? `<span class="mark-face"><img src="${esc(profile.photo)}" alt=""></span>`
+    : `<span class="mark-face" aria-hidden="true">${esc(initials(profile.name))}</span>`;
+  const headline = profile.headline ? `<p class="headline">${esc(profile.headline)}</p>` : "";
+  const address = profile.address ? `<p class="place">${esc(profile.address)}</p>` : "";
+  const bio = profile.bio ? `<p class="about">${esc(profile.bio)}</p>` : "";
+  card.innerHTML = `<div class="profile-bar"><button class="home" type="button">Home</button><button class="job-edit" type="button" data-edit-profile>Edit</button></div><div class="who">${face}<div><h2>${esc(profile.name || "Career")}</h2>${headline}${address}${bio}</div></div>${socialMarks()}${knowStrip()}`;
+}
+
+function personalThumb(item) {
+  const videoFile = item.kind === "video" && item.url && (/^blob:/.test(item.url) || /\.(mp4|webm|ogg)(\?|$)/i.test(item.url));
+  if (videoFile) return `<span class="thumb-video"><span class="spot">Play</span></span>`;
+  if (item.kind === "other" || !item.url) return '<span class="spot">File</span>';
+  return thumb(item);
+}
+
+function knowStrip() {
+  if (!state.personal.length) return "";
+  const visual = state.personal.slice(0, 3);
+  const count = visual.length === 1 ? "is-one" : visual.length === 2 ? "is-two" : "";
+  const strip = `<span class="gallery-strip ${count}" aria-hidden="true">${visual.map(personalThumb).join("")}</span>`;
+  return `<button class="know-card" type="button" data-know aria-haspopup="dialog" aria-controls="personal">${strip}<b>Get to know me</b><span class="gallery-label">Personal photos, video, and other pieces. The full view opens over the map.</span></button>`;
+}
+
+function personalFields(item) {
+  const kinds = [["photo", "Photo"], ["video", "Video"], ["other", "Other"]];
+  const url = item && item.url && !String(item.url).startsWith("data:") && !String(item.url).startsWith("blob:") ? item.url : "";
+  return [
+    pair(field("Type", selectBox("kind", kinds, (item && item.kind) || "photo")), field("Title", textInput("title", (item && item.title) || ""))),
+    field("URL", textInput("url", url, "url")),
+    field("Or choose a file", '<input name="file" type="file" accept="image/*,video/*">'),
+    field("Caption", area("caption", (item && item.caption) || "", 2)),
+  ].join("");
+}
+
+function socialIcon(network) {
+  if (network === "github") return '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.6a6.4 6.4 0 0 0-2 12.46c.32.06.44-.14.44-.3v-1.1c-1.78.38-2.16-.86-2.16-.86-.28-.73-.7-.92-.7-.92-.56-.39.05-.38.05-.38.63.05.96.65.96.65.56.96 1.47.68 1.83.52.06-.41.22-.68.4-.84-1.42-.16-2.92-.71-2.92-3.15 0-.7.25-1.27.66-1.71-.07-.16-.28-.82.06-1.7 0 0 .54-.18 1.77.66a6.2 6.2 0 0 1 3.22 0c1.23-.84 1.77-.66 1.77-.66.34.88.13 1.54.07 1.7.41.44.66 1.02.66 1.71 0 2.45-1.5 2.99-2.93 3.15.23.2.44.59.44 1.19v1.76c0 .17.11.37.44.3A6.4 6.4 0 0 0 8 1.6z"></path></svg>';
+  if (network === "x") return '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.8 2.8h2.4l2.6 3.6 3-3.6h2.4L9.2 7.9 13.4 13.2h-2.4L8.4 9.5l-3.1 3.7H2.9l4.2-5.1z"></path></svg>';
+  if (network === "facebook") return '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M9.2 13.5V8.7h1.6l.24-1.85H9.2V5.68c0-.54.15-.9.9-.9H11V3.1C10.8 3.07 10.2 3 9.5 3 7.9 3 6.8 4 6.8 5.52v1.33H5.2V8.7h1.6v4.8h2.4z"></path></svg>';
+  return '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" stroke-width="1.25"></circle><path d="M3 8h10M8 2.8c1.5 1.6 1.5 8.8 0 10.4M8 2.8c-1.5 1.6-1.5 8.8 0 10.4" fill="none" stroke="currentColor" stroke-width="1.25"></path></svg>';
+}
+
+function socialName(item) {
+  if (item.label) return item.label;
+  if (item.network === "github") return "GitHub";
+  if (item.network === "x") return "X";
+  if (item.network === "facebook") return "Facebook";
+  return "Link";
+}
+
+function socialUrl(network, raw) {
+  let url = String(raw || "").trim();
+  if (!url) return "";
+  if (network === "github" && !/^https?:\/\//i.test(url) && !/github\.com/i.test(url)) url = `https://github.com/${url.replace(/^@/, "")}`;
+  if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url)) url = `https://${url}`;
+  return url;
+}
+
+function githubHandle(url) {
+  const match = /github\.com\/([^/?#]+)/i.exec(String(url || ""));
+  return match ? match[1] : String(url || "");
+}
+
+function socialFields(item) {
+  const networks = [["github", "GitHub"], ["x", "X"], ["facebook", "Facebook"], ["other", "Other"]];
+  const url = item && item.url && !String(item.url).startsWith("data:") ? item.url : "";
+  return [
+    pair(field("Network", selectBox("network", networks, (item && item.network) || "github")), field("Name", textInput("label", (item && item.label) || ""))),
+    field("URL or GitHub name", textInput("url", url)),
+    '<p class="field-hint">GitHub opens a small card for that profile. A GitHub name alone is enough. X, Facebook, and other links open the address.</p>',
+  ].join("");
+}
+
+function socialMarks() {
+  const items = state.socials.filter((item) => safeHref(item.url));
+  if (!items.length) return "";
+  const marks = items.map((item) => {
+    const icon = socialIcon(item.network);
+    const name = esc(socialName(item));
+    if (item.network === "github") return `<button class="social-mark" type="button" data-github="${esc(item.id)}">${icon}<span>${name}</span></button>`;
+    return `<a class="social-mark" href="${esc(safeHref(item.url))}" target="_blank" rel="noreferrer">${icon}<span>${name}</span></a>`;
+  }).join("");
+  return `<div class="socials">${marks}</div>`;
+}
+
+function writeSocial(item, form) {
+  const data = new FormData(form);
+  item.network = String(data.get("network") || "other");
+  item.label = String(data.get("label") || "").trim();
+  item.url = socialUrl(item.network, data.get("url"));
+}
+
+function openGithub(id) {
+  const item = state.socials.find((entry) => entry.id === id);
+  const href = item ? safeHref(item.url) : "";
+  if (!item || !href) return;
+  document.querySelector("#github-handle").textContent = githubHandle(item.url);
+  const open = document.querySelector("#github-open");
+  open.href = href;
+  if (!githubDialog.open) githubDialog.showModal();
+}
+
+function showBioHome() {
+  bioMode = null;
+  bioForm.hidden = true;
+  const home = document.querySelector("#bio-editor-home");
+  home.hidden = false;
+  document.querySelector("#bio-editor-title").textContent = "Edit profile";
+  document.querySelector("#bio-editor-sub").textContent = state.profile.name || "";
+}
+
+function renderBioEditor() {
+  const home = document.querySelector("#bio-editor-home");
+  const rows = state.personal.map((item) => `<div class="edit-row">${item.kind === "photo" && item.url ? `<img src="${esc(item.url)}" alt="">` : `<span class="spot">${item.kind === "video" ? "▶" : "File"}</span>`}<span><strong>${esc(item.title || "Untitled")}</strong><small>${esc(kindLabel(item.kind))}${item.caption ? ` · ${esc(item.caption)}` : ""}</small></span><span class="item-actions"><button type="button" data-edit-personal="${esc(item.id)}">Edit</button><button type="button" class="is-danger" data-remove-personal="${esc(item.id)}">Remove</button></span></div>`).join("") || '<p class="empty-note">No personal photos or video yet.</p>';
+  const socialRows = state.socials.map((item) => `<div class="edit-row"><span class="spot">${socialIcon(item.network)}</span><span><strong>${esc(socialName(item))}</strong><small>${esc(item.url || "")}</small></span><span class="item-actions"><button type="button" data-edit-social="${esc(item.id)}">Edit</button><button type="button" class="is-danger" data-remove-social="${esc(item.id)}">Remove</button></span></div>`).join("") || '<p class="empty-note">No social links yet.</p>';
+  home.innerHTML = `${profileEditor()}<section class="edit-section"><h3>Social links</h3>${socialRows}<form id="social-form" class="role-form"><h3>Add a link</h3>${socialFields(null)}<button type="submit">Add link</button></form></section><section class="edit-section"><h3>Get to know me</h3>${rows}<form id="personal-form" class="role-form"><h3>Add a personal piece</h3>${personalFields(null)}<button type="submit">Add piece</button></form></section><p class="form-note">Personal pieces stay on this profile. They are separate from the role. Saved in this sketch only.</p>`;
+}
+
+function renderPersonal() {
+  document.querySelector("#personal-sub").textContent = state.profile.name || "";
+  const body = document.querySelector("#personal-body");
+  body.innerHTML = state.personal.length
+    ? `<div class="gallery-scroll">${state.personal.map(mediaFigure).join("")}</div>`
+    : '<p class="empty-note">No personal photos or video yet.</p>';
+}
+
+async function writePersonal(item, form) {
+  const data = new FormData(form);
+  const kind = String(data.get("kind") || "photo");
+  const title = String(data.get("title") || "").trim();
+  const caption = String(data.get("caption") || "").trim();
+  const url = String(data.get("url") || "").trim();
+  const file = data.get("file");
+  item.kind = kind;
+  item.title = title || "Untitled";
+  item.caption = caption;
+  if (file instanceof File && file.size) item.url = await fileUrl(file);
+  else if (url) item.url = url;
+}
+
+function openBioItem(mode) {
+  bioMode = mode;
+  const title = document.querySelector("#bio-editor-title");
+  const note = document.querySelector("#bio-editor-note");
+  const save = document.querySelector("#bio-editor-save");
+  const fields = document.querySelector("#bio-editor-fields");
+  document.querySelector("#bio-editor-home").hidden = true;
+  bioForm.hidden = false;
+  if (mode.type === "social") {
+    title.textContent = mode.id ? "Edit link" : "Add a link";
+    save.textContent = mode.id ? "Save link" : "Add link";
+    fields.innerHTML = socialFields(mode.id ? state.socials.find((item) => item.id === mode.id) : null);
+    note.textContent = "GitHub opens a small card. X, Facebook, and other links open the address.";
+  } else {
+    title.textContent = mode.id ? "Edit piece" : "Add a personal piece";
+    save.textContent = mode.id ? "Save piece" : "Add piece";
+    fields.innerHTML = personalFields(mode.id ? state.personal.find((item) => item.id === mode.id) : null);
+    note.textContent = "Photo, video, or another personal piece. A file stays in this page for the session.";
+  }
+  if (!bioEditor.open) bioEditor.showModal();
+}
+
+async function saveBioItem(event) {
+  event.preventDefault();
+  const form = event.target instanceof HTMLFormElement ? event.target : event.currentTarget;
+  const mode = bioMode;
+  if (!mode) return;
+  if (mode.type === "social") {
+    if (mode.id) {
+      const item = state.socials.find((entry) => entry.id === mode.id);
+      if (item) writeSocial(item, form);
+      if (item && !item.url) state.socials = state.socials.filter((entry) => entry.id !== item.id);
+    } else {
+      const item = { id: nid("social"), network: "github", label: "", url: "" };
+      writeSocial(item, form);
+      if (item.url) state.socials.push(item);
+    }
+    showBioHome();
+    renderAll();
+    return;
+  }
+  if (mode.type !== "personal") return;
+  if (mode.id) {
+    const item = state.personal.find((entry) => entry.id === mode.id);
+    if (item) await writePersonal(item, form);
+  } else {
+    const item = { id: nid("personal"), kind: "photo", title: "", url: "", caption: "" };
+    await writePersonal(item, form);
+    state.personal.push(item);
+  }
+  showBioHome();
+  renderAll();
+}
+
+function profileEditor() {
+  const profile = state.profile;
+  const face = profile.photo
+    ? `<span class="mark-face"><img src="${esc(profile.photo)}" alt=""></span>`
+    : `<span class="mark-face" aria-hidden="true">${esc(initials(profile.name))}</span>`;
+  const remove = profile.photo ? `<button type="button" class="is-danger" data-clear-profile-photo>Remove photo</button>` : "";
+  return `<form id="profile-form" class="role-form"><h3>Profile</h3><div class="profile-photo-edit">${face}<div class="item-actions"><label class="cover-file">${profile.photo ? "Change photo" : "Add photo"}<input type="file" accept="image/*" data-profile-photo></label>${remove}</div></div>${field("Name", textInput("name", profile.name || ""))}${field("Headline", textInput("headline", profile.headline || ""))}${field("Address", textInput("address", profile.address || ""))}${field("Short bio", area("bio", profile.bio || "", 3))}<p class="field-hint">A blank headline, address, or bio stays off the card.</p><button type="submit">Save profile</button></form>`;
+}
+
+function renderRoleEditor() {
+  const job = focusedJob();
+  const home = document.querySelector("#editor-home");
+  if (!job) {
+    home.innerHTML = "";
+    return;
+  }
+  const cover = coverOf(job.id);
+  const coverBlock = cover
+    ? `<div class="edit-cover"><img src="${esc(cover.url)}" alt=""><div class="item-actions"><label class="cover-file">Change photo<input type="file" accept="image/*" data-cover="${esc(job.id)}"></label><button type="button" class="is-danger" data-remove-media="${esc(cover.id)}">Remove</button></div></div>`
+    : `<div class="item-actions"><label class="cover-file">Add cover photo<input type="file" accept="image/*" data-cover="${esc(job.id)}"></label></div>`;
+  const mediaRows = jobMedia(job.id).map((item) => `<div class="edit-row">${item.kind === "photo" && item.url ? `<img src="${esc(item.url)}" alt="">` : `<span class="spot">${item.kind === "video" ? "▶" : "File"}</span>`}<span><strong>${esc(item.title || "Untitled")}</strong><small>${esc(kindLabel(item.kind))} · ${item.isPublic ? "public" : "private"}</small></span><span class="item-actions"><button type="button" data-edit-media="${esc(item.id)}">Edit</button><button type="button" class="is-danger" data-remove-media="${esc(item.id)}">Remove</button></span></div>`).join("") || '<p class="empty-note">No media on this role yet.</p>';
+  const eventRows = jobEvents(job.id).map((item) => `<div class="edit-row"><span class="spot">Pin</span><span><strong>${esc(item.title || "Untitled")}</strong><small>${esc([item.kind, item.place, monthLabel(item.date)].filter(Boolean).join(" · "))}</small></span><span class="item-actions"><button type="button" data-edit-event="${esc(item.id)}">Edit</button><button type="button" class="is-danger" data-remove-event="${esc(item.id)}">Remove</button></span></div>`).join("") || '<p class="empty-note">No events on this role yet.</p>';
+  const personRows = jobPeople(job.id).map((item) => `<div class="edit-row"><span class="spot">${esc(initials(item.name))}</span><span><strong>${esc(item.name || "Unnamed")}</strong><small>${esc([item.title, (item.links || []).map((link) => link.label).join(", ")].filter(Boolean).join(" · "))}</small></span><span class="item-actions"><button type="button" data-edit-person="${esc(item.id)}">Edit</button><button type="button" class="is-danger" data-remove-person="${esc(item.id)}">Remove</button></span></div>`).join("") || '<p class="empty-note">No one listed on this role yet.</p>';
+  home.innerHTML = `<form id="overview-form" class="role-form"><h3>Role overview</h3>${jobFields(job, false)}<button type="submit">Save overview</button></form><section class="edit-section"><h3>Cover photo</h3>${coverBlock}</section><section class="edit-section"><h3>Gallery and attachments</h3>${mediaRows}<form id="media-form" class="role-form"><h3>Attach media</h3>${mediaFields({ kind: "photo" }, false)}<button type="submit">Attach media</button></form></section><section class="edit-section"><h3>Events</h3>${eventRows}<form id="event-form" class="role-form"><h3>Add an event</h3>${eventFields(null, false)}<button type="submit">Save event</button></form></section><section class="edit-section"><h3>Worked with</h3>${personRows}<form id="person-form" class="role-form"><h3>Add a person</h3>${personFields(null)}<button type="submit">Save person</button></form></section><p class="form-note">Saved in this sketch only. These people are not read from Career History.</p>`;
+}
+
+function renderJobs() {
+  const job = focusedJob();
+  if (!job) {
+    jobsEl.innerHTML = "";
+    return;
+  }
+  const cover = coverOf(job.id);
+  const when = period(job);
+  const photo = cover
+    ? `<div class="job-photo"><img src="${esc(cover.url)}" alt=""></div>`
+    : `<div class="job-photo"></div>`;
+  const links = [
+    job.website ? `<a href="${esc(job.website)}" target="_blank" rel="noreferrer">${globe()}<span>Website</span></a>` : "",
+    job.linkedin ? `<a href="${esc(job.linkedin)}" target="_blank" rel="noreferrer">${person()}<span>LinkedIn</span></a>` : "",
+  ].join("");
+  jobsEl.innerHTML = `<article class="card job-card is-focus">
+    ${photo}
+    <div class="job-copy">
+      <div class="job-title-row">
+        <h3>${esc(job.organization || "Untitled")}</h3>
+        <button class="job-edit" type="button" data-edit-role>Edit</button>
+      </div>
+      ${job.title ? `<p class="title">${esc(job.title)}</p>` : ""}
+      <p class="meta">
+        ${job.place ? `<span>${esc(job.place)}</span>` : ""}
+        ${job.place && when ? '<span aria-hidden="true">·</span>' : ""}
+        ${when ? `<span>${esc(when)}</span>` : ""}
+        ${job.current ? '<span class="current">current</span>' : ""}
+        ${tenure(job) ? `<span class="tenure">${esc(tenure(job))}</span>` : ""}
+      </p>
+      ${job.duty ? `<p class="duty">${esc(job.duty)}</p>` : ""}
+      <div class="job-pills">
+        ${links}
+        <button class="job-more-toggle" type="button" data-worked>Worked with</button>
+        <button class="job-more-toggle" type="button" data-more="${esc(job.id)}">More about this role</button>
+      </div>
+    </div>
+  </article>`;
+}
+
+function personCard(item) {
+  const links = (item.links || []).map((link) => {
+    const href = safeHref(link.url);
+    return href ? `<a href="${esc(href)}" target="_blank" rel="noreferrer">${esc(link.label || "Link")}</a>` : "";
+  }).join("");
+  return `<article class="person-card"><div class="person-card-head"><span class="avatar" aria-hidden="true">${esc(initials(item.name))}</span><span><strong>${esc(item.name || "Unnamed")}</strong>${item.title ? `<span class="person-title">${esc(item.title)}</span>` : ""}</span></div>${item.blurb ? `<p class="person-blurb">${esc(item.blurb)}</p>` : ""}${links ? `<div class="person-links">${links}</div>` : ""}</article>`;
+}
+
+function renderPeople() {
+  const job = focusedJob();
+  const body = document.querySelector("#people-body");
+  document.querySelector("#people-sub").textContent = job ? (job.organization || "Untitled") : "";
+  const people = job ? jobPeople(job.id) : [];
+  body.innerHTML = people.length ? people.map(personCard).join("") : '<p class="empty-note">No one listed yet.</p>';
+}
+
+function thumb(item) {
+  if (item.kind === "video") {
+    return `<span class="thumb-video"><img src="${esc(item.url)}" alt=""><span class="play-badge"><svg viewBox="0 0 16 16" aria-hidden="true">${playPath()}</svg></span></span>`;
+  }
+  if (item.kind === "photo" && item.url) return `<img src="${esc(item.url)}" alt=""${item.position ? ` style="object-position:${esc(item.position)}"` : ""}>`;
+  return '<span class="spot">File</span>';
+}
+
+function renderMediaCard() {
+  const job = focusedJob();
+  if (!job) {
+    mediaCard.innerHTML = "";
+    return;
+  }
+  const visual = jobMedia(job.id).filter((item) => item.kind !== "attachment" && item.url).slice(0, 3);
+  const strip = visual.length ? `<span class="gallery-strip" aria-hidden="true">${visual.map(thumb).join("")}</span>` : "";
+  mediaCard.innerHTML = `<button class="gallery-card" type="button" id="open-gallery" aria-haspopup="dialog" aria-controls="gallery">${strip}<b>Media and events</b><span class="gallery-label">${visual.length ? "Photos, video, and events. The full view opens over the map." : "No media yet."}</span></button>`;
+}
+
+function mediaFigure(item) {
+  let frame = "";
+  if (item.player === "pan" && item.url) {
+    frame = `<div class="clip" data-clip="${esc(item.id)}"><img src="${esc(item.url)}" alt=""><button class="play" type="button" data-play="${esc(item.id)}" aria-label="Play ${esc(item.title)}"><svg viewBox="0 0 16 16" aria-hidden="true">${playPath()}</svg></button><div class="clip-bar"><span>Video</span><input data-range="${esc(item.id)}" type="range" min="0" max="100" value="0" aria-label="${esc(item.title)} position"></div></div>`;
+  } else if (item.kind === "video" && item.url) {
+    frame = `<video controls src="${esc(item.url)}"></video>`;
+  } else if (item.kind === "photo" && item.url) {
+    frame = `<img src="${esc(item.url)}" alt=""${item.position ? ` style="object-position:${esc(item.position)}"` : ""}>`;
+  } else {
+    frame = `<div class="frame"><strong>${esc(kindLabel(item.kind))}</strong><span>${esc(item.title || "Untitled")}</span></div>`;
+  }
+  const status = typeof item.isPublic === "boolean" ? (item.isPublic ? "public" : "private") : "";
+  const meta = [kindLabel(item.kind), status, item.caption].filter(Boolean).join(" · ");
+  return `<figure>${frame}<figcaption><strong>${esc(item.title || "Untitled")}</strong><span>${esc(meta)}</span></figcaption></figure>`;
+}
+
+function eventRow(item) {
+  return `<button class="event-row" type="button" data-open="${esc(item.id)}"><strong>${esc(item.title || "Untitled")}</strong><span class="event-kind">${esc(item.kind || "Event")}</span><span class="event-meta">${esc([item.place, monthLabel(item.date)].filter(Boolean).join(" · "))}</span><span class="event-gist">${esc(item.detail || "")}</span></button>`;
+}
+
+function renderGallery() {
+  const job = focusedJob();
+  gallerySub.textContent = job ? (job.organization || "Untitled") : "No role";
+  if (!job) {
+    galleryTitle.textContent = "Media and events";
+    galleryBody.innerHTML = '<p class="empty-note">No role in focus.</p>';
+    return;
+  }
+  const events = jobEvents(job.id);
+  if (state.galleryEvent) {
+    const item = events.find((entry) => entry.id === state.galleryEvent);
+    if (!item) state.galleryEvent = null;
+  }
+  if (state.galleryEvent) {
+    const item = events.find((entry) => entry.id === state.galleryEvent);
+    galleryTitle.textContent = item.title || "Event";
+    const highlights = (item.highlights || []).map((line) => `<li>${esc(line)}</li>`).join("");
+    galleryBody.innerHTML = `<div class="event-view"><p class="title">${esc(item.kind || "Event")}</p><p class="meta">${esc([item.place, monthLabel(item.date)].filter(Boolean).join(" · "))}</p><p class="duty">${esc(item.detail || "")}</p>${highlights ? `<h3>Highlighted</h3><ul>${highlights}</ul>` : ""}<div class="event-actions"><button type="button" data-step="-1">Previous</button><button type="button" data-step="1">Next</button><button type="button" data-map="${esc(item.id)}">Show on map</button></div><button type="button" class="event-back">All media and events</button></div>`;
+    return;
+  }
+  galleryTitle.textContent = "Media and events";
+  const media = jobMedia(job.id);
+  const frames = media.length ? `<div class="gallery-scroll">${media.map(mediaFigure).join("")}</div>` : '<p class="empty-note">No media on this role yet.</p>';
+  const rows = events.length ? events.map(eventRow).join("") : '<p class="empty-note">No events on this role yet.</p>';
+  galleryBody.innerHTML = `<div class="gallery-home">${frames}<section class="gallery-events"><h3>Events</h3>${rows}</section></div>`;
+  bindClips();
+}
+
+function bindClips() {
+  galleryBody.querySelectorAll("[data-clip]").forEach((clip) => {
+    const button = clip.querySelector("[data-play]");
+    const range = clip.querySelector("[data-range]");
+    const icon = button.querySelector("svg");
+    let playing = false;
+    let pan = 0;
+    let last = 0;
+    function paint() {
+      clip.style.setProperty("--pan", String(pan));
+      range.value = String(Math.round(pan * 100));
+    }
+    function iconFor() {
+      icon.innerHTML = playing
+        ? '<path d="M5 4.2h2.1v7.6H5zM8.9 4.2H11v7.6H8.9z" fill="currentColor"></path>'
+        : playPath();
+      button.setAttribute("aria-label", playing ? "Pause" : "Play");
+    }
+    function tick(now) {
+      if (!playing) return;
+      const dt = last ? (now - last) / 1000 : 0;
+      last = now;
+      pan = Math.min(1, pan + dt / 8);
+      paint();
+      if (pan >= 1) {
+        playing = false;
+        iconFor();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    button.addEventListener("click", () => {
+      if (pan >= 1) pan = 0;
+      playing = !playing;
+      last = 0;
+      iconFor();
+      if (playing) requestAnimationFrame(tick);
+    });
+    range.addEventListener("input", () => {
+      playing = false;
+      iconFor();
+      pan = Number(range.value) / 100;
+      paint();
+    });
+  });
+}
+
+function renderPins() {
+  mapWorld.innerHTML = state.events.map((item) => `<button class="pin${item.id === state.mapEvent ? " is-on" : ""}" type="button" data-event="${esc(item.id)}" style="top:${esc(item.top)};left:${esc(item.left)}" aria-label="${esc(`${item.title}, ${item.place}`)}"><span></span></button>`).join("");
+  if (state.mapEvent) {
+    const item = state.events.find((entry) => entry.id === state.mapEvent);
+    if (item) {
+      mapNote.textContent = item.place || "Map";
+      document.querySelector("#callout-title").textContent = item.title || "Event";
+      document.querySelector("#callout-place").textContent = item.place || "";
+      mapCallout.hidden = false;
+      mapCallout.dataset.event = item.id;
+    }
+  }
+}
+
+function renderSelectBar() {
+  return;
+  const bar = document.querySelector("#select-bar");
+  const toggle = document.querySelector("#select-toggle");
+  bar.hidden = !state.selecting;
+  toggle.setAttribute("aria-pressed", state.selecting ? "true" : "false");
+  toggle.textContent = state.selecting ? "Done selecting" : "Select";
+  const count = state.checked.size;
+  const mixed = count >= 2 && !sameKind();
+  document.querySelector("#select-count").textContent = count === 0
+    ? "Select items"
+    : `${count} selected${mixed ? " · select one kind to edit together" : ""}`;
+  const shown = [...document.querySelectorAll("[data-check]")];
+  const shownButton = document.querySelector("#select-shown");
+  const allOn = shown.length > 0 && shown.every((input) => input.checked);
+  shownButton.textContent = allOn ? "Clear shown" : "Select shown";
+  shownButton.disabled = shown.length === 0;
+  document.querySelector("#edit-selected").disabled = count !== 1;
+  document.querySelector("#bulk-edit").disabled = !(count >= 2 && sameKind());
+  document.querySelector("#remove-selected").disabled = count === 0;
+}
+
+function renderAll() {
+  renderProfile();
+  renderJobs();
+  renderMediaCard();
+  renderPins();
+  if (gallery.open) renderGallery();
+  if (peopleDialog.open) renderPeople();
+  if (personalDialog.open) renderPersonal();
+  const bioHome = document.querySelector("#bio-editor-home");
+  if (bioEditor.open && bioHome && !bioHome.hidden) renderBioEditor();
+  const home = document.querySelector("#editor-home");
+  if (editor.open && home && !home.hidden) renderRoleEditor();
+}
+
+function closeAdd() {}
+
+function startAdd(kind) {
+  closeAdd();
+  if (kind === "job") openEditor({ type: "job" });
+  else if (!focusedJob()) openEditor({ type: "job" });
+  else if (kind === "media") openEditor({ type: "media", kind: "photo" });
+  else openEditor({ type: "event" });
+}
+
+function editKey(key) {
+  const id = key.slice(key.indexOf(":") + 1);
+  if (key.startsWith("job:")) openEditor({ type: "job", id });
+  else if (key.startsWith("media:")) openEditor({ type: "media", id });
+  else openEditor({ type: "event", id });
+}
+
+function editSelected() {
+  const keys = checkedKeys();
+  if (keys.length === 1) editKey(keys[0]);
+}
+
+function bulkEdit() {
+  const kind = sameKind();
+  const keys = checkedKeys();
+  if (!kind || keys.length < 2) return;
+  openEditor({ type: `bulk-${kind}`, keys });
+}
+
+function toggleShown() {
+  const shown = [...document.querySelectorAll("[data-check]")];
+  const allOn = shown.length > 0 && shown.every((input) => input.checked);
+  for (const input of shown) {
+    input.checked = !allOn;
+    if (allOn) state.checked.delete(input.dataset.check);
+    else state.checked.add(input.dataset.check);
+  }
+  renderSelectBar();
+}
+
+function openJobDetail(id) {
+  const job = jobById(id);
+  if (!job) return;
+  state.focus = id;
+  document.querySelector("#job-detail-title").textContent = job.organization || "Untitled";
+  document.querySelector("#job-detail-sub").textContent = job.title || "";
+  const items = (job.achievements || []).map((line) => `<li>${esc(line)}</li>`).join("");
+  document.querySelector("#job-detail-body").innerHTML = `<section><h3>Description</h3><p>${esc(job.description || "No description yet.")}</p></section><section><h3>Title</h3><p>${esc(job.title || "Untitled")}</p></section><section><h3>Responsibilities</h3>${items ? `<ul>${items}</ul>` : "<p>No achievements yet.</p>"}</section>`;
+  jobDetail.showModal();
+}
+
+function focusOnMap(id) {
+  const item = state.events.find((entry) => entry.id === id);
+  const pin = mapWorld.querySelector(`.pin[data-event="${id}"]`);
+  if (!item || !pin) return;
+  state.mapEvent = id;
+  mapWorld.querySelectorAll(".pin").forEach((entry) => entry.classList.toggle("is-on", entry.dataset.event === id));
+  const map = document.querySelector("#map");
+  mapWorld.style.transition = "none";
+  mapWorld.style.transform = "translate(0px, 0px)";
+  void mapWorld.offsetWidth;
+  const mapBox = map.getBoundingClientRect();
+  const pinBox = pin.getBoundingClientRect();
+  const dx = mapBox.left + mapBox.width * 0.7 - (pinBox.left + pinBox.width / 2);
+  const dy = mapBox.top + mapBox.height * 0.42 - (pinBox.top + pinBox.height / 2);
+  mapWorld.style.transition = "";
+  mapWorld.style.transform = `translate(${dx}px, ${dy}px)`;
+  mapNote.textContent = item.place || "Map";
+  mapCallout.hidden = false;
+  mapCallout.dataset.event = id;
+  document.querySelector("#callout-title").textContent = item.title || "Event";
+  document.querySelector("#callout-place").textContent = item.place || "";
+}
+
+function openGallery(eventId) {
+  const job = state.events.find((item) => item.id === eventId);
+  if (job) state.focus = job.jobId;
+  state.galleryEvent = eventId || null;
+  state.reveal = Boolean(eventId);
+  renderGallery();
+  if (!gallery.open) gallery.showModal();
+}
+
+document.querySelector("#close-people").addEventListener("click", () => peopleDialog.close());
+peopleDialog.addEventListener("click", (event) => {
+  if (event.target === peopleDialog) peopleDialog.close();
+});
+document.querySelector("#close-job").addEventListener("click", () => jobDetail.close());
+jobDetail.addEventListener("click", (event) => {
+  if (event.target === jobDetail) jobDetail.close();
+});
+document.querySelector("#close-gallery").addEventListener("click", () => gallery.close());
+document.querySelector("#editor-cancel").addEventListener("click", () => editor.close());
+document.querySelector("#editor-back").addEventListener("click", () => {
+  showEditorHome();
+  renderRoleEditor();
+});
+editor.addEventListener("click", (event) => {
+  if (event.target === editor) editor.close();
+});
+document.querySelector("#bio-editor-cancel").addEventListener("click", () => bioEditor.close());
+document.querySelector("#bio-editor-back").addEventListener("click", () => {
+  showBioHome();
+  renderBioEditor();
+});
+bioEditor.addEventListener("click", (event) => {
+  if (event.target === bioEditor) bioEditor.close();
+});
+bioEditor.addEventListener("submit", (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  if (form.id === "profile-form") {
+    event.preventDefault();
+    const data = new FormData(form);
+    state.profile.name = String(data.get("name") || "").trim();
+    state.profile.headline = String(data.get("headline") || "").trim();
+    state.profile.address = String(data.get("address") || "").trim();
+    state.profile.bio = String(data.get("bio") || "").trim();
+    renderAll();
+    return;
+  }
+  if (form.id === "personal-form") bioMode = { type: "personal" };
+  if (form.id === "social-form") bioMode = { type: "social" };
+  void saveBioItem(event);
+});
+document.querySelector("#close-github").addEventListener("click", () => githubDialog.close());
+githubDialog.addEventListener("click", (event) => {
+  if (event.target === githubDialog) githubDialog.close();
+});
+document.querySelector("#close-personal").addEventListener("click", () => personalDialog.close());
+personalDialog.addEventListener("click", (event) => {
+  if (event.target === personalDialog) personalDialog.close();
+});
+editor.addEventListener("submit", (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement)) return;
+  if (form.id === "overview-form") {
+    event.preventDefault();
+    const job = focusedJob();
+    if (job) writeJob(job, form, false);
+    renderAll();
+    return;
+  }
+  if (form.id === "media-form") editorMode = { type: "media" };
+  if (form.id === "event-form") editorMode = { type: "event" };
+  if (form.id === "person-form") editorMode = { type: "person" };
+  void saveEditor(event);
+});
+gallery.addEventListener("close", () => {
+  if (state.reveal && state.galleryEvent) focusOnMap(state.galleryEvent);
+  state.reveal = false;
+  state.galleryEvent = null;
+});
+gallery.addEventListener("click", (event) => {
+  if (event.target === gallery) gallery.close();
+});
+document.querySelector("#callout-open").addEventListener("click", () => {
+  if (mapCallout.dataset.event) openGallery(mapCallout.dataset.event);
+});
+mapWorld.addEventListener("click", (event) => {
+  const pin = event.target.closest(".pin");
+  if (pin) focusOnMap(pin.dataset.event);
+});
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-edit-profile]")) {
+    showBioHome();
+    renderBioEditor();
+    if (!bioEditor.open) bioEditor.showModal();
+    return;
+  }
+  if (event.target.closest("[data-know]")) {
+    renderPersonal();
+    if (!personalDialog.open) personalDialog.showModal();
+    return;
+  }
+  if (event.target.closest("[data-edit-role]")) {
+    showEditorHome();
+    renderRoleEditor();
+    if (!editor.open) editor.showModal();
+    return;
+  }
+  if (event.target.closest("[data-worked]")) {
+    renderPeople();
+    if (!peopleDialog.open) peopleDialog.showModal();
+    return;
+  }
+  const more = event.target.closest("[data-more]");
+  if (more) {
+    openJobDetail(more.dataset.more);
+    return;
+  }
+  if (event.target.closest("#open-gallery")) {
+    state.galleryEvent = null;
+    state.reveal = false;
+    renderGallery();
+    gallery.showModal();
+    return;
+  }
+  const editMedia = event.target.closest("[data-edit-media]");
+  if (editMedia) {
+    openEditor({ type: "media", id: editMedia.dataset.editMedia });
+    return;
+  }
+  const removeMedia = event.target.closest("[data-remove-media]");
+  if (removeMedia) {
+    void removeKeys([`media:${removeMedia.dataset.removeMedia}`]);
+    return;
+  }
+  const editEvent = event.target.closest("[data-edit-event]");
+  if (editEvent) {
+    openEditor({ type: "event", id: editEvent.dataset.editEvent });
+    return;
+  }
+  const removeEvent = event.target.closest("[data-remove-event]");
+  if (removeEvent) {
+    void removeKeys([`event:${removeEvent.dataset.removeEvent}`]);
+    return;
+  }
+  const editPerson = event.target.closest("[data-edit-person]");
+  if (editPerson) {
+    openEditor({ type: "person", id: editPerson.dataset.editPerson });
+    return;
+  }
+  const editPersonal = event.target.closest("[data-edit-personal]");
+  if (editPersonal) {
+    openBioItem({ type: "personal", id: editPersonal.dataset.editPersonal });
+    return;
+  }
+  const editSocial = event.target.closest("[data-edit-social]");
+  if (editSocial) {
+    openBioItem({ type: "social", id: editSocial.dataset.editSocial });
+    return;
+  }
+  const removeSocial = event.target.closest("[data-remove-social]");
+  if (removeSocial) {
+    void removeKeys([`social:${removeSocial.dataset.removeSocial}`]);
+    return;
+  }
+  const github = event.target.closest("[data-github]");
+  if (github) {
+    openGithub(github.dataset.github);
+    return;
+  }
+  const removePersonal = event.target.closest("[data-remove-personal]");
+  if (removePersonal) {
+    void removeKeys([`personal:${removePersonal.dataset.removePersonal}`]);
+    return;
+  }
+  if (event.target.closest("[data-clear-profile-photo]")) {
+    state.profile.photo = "";
+    renderAll();
+    return;
+  }
+  const removePerson = event.target.closest("[data-remove-person]");
+  if (removePerson) {
+    void removeKeys([`person:${removePerson.dataset.removePerson}`]);
+    return;
+  }
+  const open = event.target.closest("[data-open]");
+  if (open) {
+    state.galleryEvent = open.dataset.open;
+    state.reveal = true;
+    renderGallery();
+    return;
+  }
+  const step = event.target.closest("[data-step]");
+  if (step && state.galleryEvent) {
+    const list = jobEvents(focusedJob()?.id);
+    const index = list.findIndex((item) => item.id === state.galleryEvent);
+    const next = list[(index + Number(step.dataset.step) + list.length) % list.length];
+    if (next) {
+      state.galleryEvent = next.id;
+      renderGallery();
+    }
+    return;
+  }
+  const map = event.target.closest("[data-map]");
+  if (map) {
+    state.galleryEvent = map.dataset.map;
+    state.reveal = true;
+    gallery.close();
+    return;
+  }
+  if (event.target.closest(".event-back")) {
+    state.reveal = false;
+    state.galleryEvent = null;
+    renderGallery();
+    return;
+  }
+  const card = event.target.closest("[data-focus]");
+  if (card && !event.target.closest("button, a, input, label")) {
+    state.focus = card.dataset.focus;
+    renderJobs();
+    renderMediaCard();
+    if (!state.mapEvent) mapNote.textContent = focusedJob()?.place || "Map";
+    if (gallery.open) renderGallery();
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement)) return;
+  if (input.dataset.check) {
+    if (input.checked) state.checked.add(input.dataset.check);
+    else state.checked.delete(input.dataset.check);
+    renderSelectBar();
+    return;
+  }
+  if (input.dataset.profilePhoto && input.files && input.files[0]) {
+    void fileUrl(input.files[0]).then((url) => {
+      state.profile.photo = url;
+      renderAll();
+    });
+    return;
+  }
+  if (input.dataset.cover && input.files && input.files[0]) {
+    const jobId = input.dataset.cover;
+    const file = input.files[0];
+    void fileUrl(file).then((url) => {
+      const cover = state.media.find((item) => item.jobId === jobId && item.kind === "photo");
+      if (cover) {
+        cover.url = url;
+        delete cover.player;
+      } else {
+        state.media.unshift({ id: nid("media"), jobId, kind: "photo", title: "Cover photo", url, caption: "", isPublic: false });
+      }
+      renderAll();
+    });
+  }
+});
+
+renderAll();
+    </script>
+  </body>
+</html>

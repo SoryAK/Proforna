@@ -1,0 +1,239 @@
+<!--
+  Prototype, throwaway. Not production.
+  Variation 2: the bar under the name holds Publish on the right.
+  Preview is the other end of that same bar, a way to look at the career.
+  Neither control sits on the map or in the history panel.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prototype · Publish in the top bar, preview as a mode</title>
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --line: rgba(199, 164, 123, 0.4);
+        --paper: #080706;
+        --card: #13100d;
+        --gold: #a78b71;
+        --gold-hover: #e8d5b7;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        min-width: 1100px;
+        background: #0a0a0a;
+        color: var(--ink);
+        font: 16px/1.5 "Geist Variable", system-ui, sans-serif;
+      }
+      body { padding: 1.25rem 1.5rem 5rem; }
+      .mark { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.875rem; }
+      .identity {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 2.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .brand { margin: 0; font-size: 1rem; font-weight: 600; color: var(--gold-hover); }
+      .who { display: flex; align-items: center; gap: 0.75rem; }
+      .name { font-size: 0.875rem; font-weight: 600; }
+      .stage {
+        display: flex;
+        gap: 0.75rem;
+        min-height: calc(100vh - 11rem);
+      }
+      .ledger {
+        display: flex;
+        flex-direction: column;
+        width: 26rem;
+        flex: none;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+      }
+      .head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+      h1 { margin: 0; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+      .status { margin-right: auto; color: var(--gold); font-size: 0.875rem; font-weight: 600; }
+      .icon, .mode button, .switch button, .pub {
+        font: 600 0.875rem/1 "Geist Variable", system-ui, sans-serif;
+      }
+      .icon {
+        width: 2.75rem;
+        height: 2.75rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+      }
+      .icon:focus-visible, .pub:focus-visible, .mode button:focus-visible, .switch button:focus-visible, .proto a:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 3px;
+      }
+      .search {
+        width: 100%;
+        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #0d0b09;
+        color: var(--ink);
+        font: 1rem/1.4 "Geist Variable", system-ui, sans-serif;
+      }
+      .role {
+        display: grid;
+        gap: 0.15rem;
+        padding: 0.85rem 1rem;
+        border-top: 1px solid var(--line);
+      }
+      .role b { font-weight: 600; }
+      .role span { color: var(--muted); font-size: 0.875rem; }
+      .canvas {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 0;
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        min-height: 4.5rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+      }
+      .mode {
+        display: flex;
+        gap: 0.35rem;
+        padding: 0.35rem;
+        border-radius: 8px;
+        background: #0c0a08;
+      }
+      .mode button, .pub {
+        min-height: 2.75rem;
+        padding: 0.5rem 0.9rem;
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .mode button { background: transparent; color: var(--muted); }
+      .mode button.is-on { background: var(--gold); color: #080706; }
+      .pub { padding: 0.75rem 1.1rem; background: var(--gold); color: #080706; }
+      .map {
+        position: relative;
+        flex: 1;
+        min-height: 32rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background:
+          radial-gradient(circle at 30% 40%, rgba(232, 213, 183, 0.16), transparent 18%),
+          radial-gradient(circle at 62% 55%, rgba(232, 213, 183, 0.2), transparent 12%),
+          radial-gradient(circle at 48% 70%, rgba(232, 213, 183, 0.12), transparent 10%),
+          #0d0b09;
+      }
+      .switch {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        display: flex;
+        gap: 0.35rem;
+        padding: 0.4rem;
+        border-radius: 8px;
+        background: #0c0a08;
+      }
+      .switch button {
+        min-height: 2.75rem;
+        padding: 0.5rem 0.9rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+      }
+      .switch button.is-on { background: var(--gold); color: #080706; }
+      .pin {
+        position: absolute;
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 50%;
+        background: var(--gold-hover);
+      }
+      .pin span {
+        position: absolute;
+        top: 0.9rem;
+        left: 0;
+        color: var(--muted);
+        font-size: 0.875rem;
+        white-space: nowrap;
+      }
+      .proto {
+        position: fixed;
+        left: 50%;
+        bottom: 0.85rem;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 0.75rem;
+        margin: 0;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+      }
+      .proto a { color: var(--muted); font-size: 0.875rem; }
+      .proto a[aria-current="page"] { color: var(--gold-hover); }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Prototype. Variation 2. The bar under your name holds Publish on the right. Preview is the other end of that bar.</p>
+    <header class="identity">
+      <p class="brand">Proforna</p>
+      <div class="who">
+        <button class="icon" type="button" aria-label="Notices">N</button>
+        <span class="name">Your name</span>
+      </div>
+    </header>
+    <div class="stage">
+      <aside class="ledger" aria-label="Career History">
+        <div class="head">
+          <h1>Career History</h1>
+          <span class="status">Private</span>
+          <button class="icon" type="button" aria-label="Homes">H</button>
+          <button class="icon" type="button" aria-label="Settings">S</button>
+        </div>
+        <input class="search" type="search" aria-label="Search career history" placeholder="Search" />
+        <article class="role"><b>Current workshop</b><span>Technician · Lancaster · 2024–now</span></article>
+        <article class="role"><b>Packaging line</b><span>Technician · Allentown · 2023–now</span></article>
+        <article class="role"><b>Community support</b><span>Household manager · 2016–now</span></article>
+        <article class="role"><b>Instruments bench</b><span>Engineering technician · 2022</span></article>
+      </aside>
+      <section class="canvas" aria-label="Map column">
+        <div class="actions">
+          <div class="mode" aria-label="How you are looking">
+            <button class="is-on" type="button">Working</button>
+            <button type="button">Preview</button>
+          </div>
+          <button class="pub" type="button">Publish</button>
+        </div>
+        <main class="map" aria-label="Map">
+          <div class="switch" aria-label="Career History view">
+            <button class="is-on" type="button">Map</button>
+            <button type="button">Timeline</button>
+          </div>
+          <p class="pin" style="left: 34%; top: 42%"><span>Lancaster</span></p>
+          <p class="pin" style="left: 58%; top: 56%"><span>Allentown</span></p>
+          <p class="pin" style="left: 46%; top: 68%"><span>Media</span></p>
+        </main>
+      </section>
+    </div>
+    <nav class="proto" aria-label="Prototype variations">
+      <a href="prototype-publish-corner-1.html">1 Alone</a>
+      <a href="prototype-publish-corner-2.html" aria-current="page">2 Preview mode</a>
+      <a href="prototype-publish-corner-3.html">3 With status</a>
+    </nav>
+  </body>
+</html>
