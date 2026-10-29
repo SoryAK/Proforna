@@ -1,3 +1,4 @@
+import type { CanvasBoard } from "./canvas-board";
 import { formatHistoryPlace } from "./career-history";
 import type { ProjectionVisibility } from "./projection";
 import {
@@ -317,6 +318,7 @@ export type WorkMapRole = {
   isCurrent: boolean;
   description: string;
   achievements: string[];
+  achievementIds?: string[];
   factId: string | null;
   factVersion: number | null;
   evidenceIds: string[];
@@ -325,6 +327,7 @@ export type WorkMapRole = {
   media: WorkMapMedia[];
   linkedEvidence: LinkedEvidence[];
   details: WorkMapRoleDetails;
+  canvasBoards?: CanvasBoard[];
 };
 
 export type WorkMapPublishSection =

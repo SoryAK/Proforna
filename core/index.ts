@@ -424,6 +424,20 @@ export {
   type WorkMapSnapshot,
 } from "./work-map";
 export {
+  readCanvasBoards,
+  type CanvasBoard,
+  type CanvasGroup,
+  type CanvasLink,
+  type CanvasNode,
+} from "./canvas-board";
+export {
+  achievementStatement,
+  readRoleAchievements,
+  reconcileRoleAchievements,
+  roleAchievementStatements,
+  type RoleAchievement,
+} from "./role-achievements";
+export {
   LINKED_PAGE_TEXT_LIMIT,
   isPublicAddress,
   readLinkedPage,
