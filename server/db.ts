@@ -69,6 +69,7 @@ export function openDatabase(path: string): DatabaseSync {
       is_current INTEGER NOT NULL DEFAULT 0,
       description TEXT NOT NULL DEFAULT '',
       achievements_json TEXT NOT NULL DEFAULT '[]',
+      canvas_boards_json TEXT NOT NULL DEFAULT '[]',
       degree TEXT NOT NULL DEFAULT '',
       field TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
@@ -566,6 +567,12 @@ export function openDatabase(path: string): DatabaseSync {
   makeLegacyProjectionRevisionOptional(db);
   addColumnIfMissing(db, "profiles", "avatar_stored_name", "TEXT");
   addColumnIfMissing(db, "work_history_media", "stored_name", "TEXT");
+  addColumnIfMissing(
+    db,
+    "work_history",
+    "canvas_boards_json",
+    "TEXT NOT NULL DEFAULT '[]'",
+  );
   addColumnIfMissing(
     db,
     "career_plans",

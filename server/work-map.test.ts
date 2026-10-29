@@ -648,3 +648,121 @@ describe("Work Map role create HTTP seam", () => {
     }
   });
 });
+
+describe("achievement identity", () => {
+  it("keeps the same id when an achievement line changes", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            {
+              company: "Acme",
+              title: "Lead",
+              isCurrent: true,
+              achievements: ["Cut recovery from 42 to 11 minutes."],
+            },
+          ],
+        }),
+      });
+      const first = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; achievements: string[]; achievementIds: string[] }>;
+      };
+      const role = first.roles[0];
+      expect(role?.achievements).toEqual(["Cut recovery from 42 to 11 minutes."]);
+      expect(role?.achievementIds?.[0]).toEqual(expect.any(String));
+      const again = (await (await app.request("/api/work-map")).json()) as typeof first;
+      expect(again.roles[0]?.achievementIds).toEqual(role?.achievementIds);
+
+      const saved = await app.request(`/api/work-map/roles/${role?.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          achievements: ["Cut recovery from 42 to 9 minutes."],
+        }),
+      });
+      expect(saved.status).toBe(200);
+      const body = (await saved.json()) as {
+        role: { achievements: string[]; achievementIds: string[] };
+      };
+      expect(body.role.achievements).toEqual(["Cut recovery from 42 to 9 minutes."]);
+      expect(body.role.achievementIds).toEqual(role?.achievementIds);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("canvas arrangement", () => {
+  it("keeps a placed node on the role after the role itself is updated", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; canvasBoards?: unknown }>;
+      };
+      const roleId = workMap.roles[0].id;
+      expect(workMap.roles[0].canvasBoards).toBeUndefined();
+
+      const saved = await app.request(`/api/work-map/roles/${roleId}/canvas`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          boards: [
+            {
+              id: roleId,
+              name: "Lead",
+              nodes: [{ id: "node-1", kind: "Design", title: "Hinge", x: 320, y: 140 }],
+              groups: [],
+            },
+          ],
+        }),
+      });
+      expect(saved.status).toBe(200);
+
+      const renamed = await app.request(`/api/work-map/roles/${roleId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Principal" }),
+      });
+      expect(renamed.status).toBe(200);
+
+      const again = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ canvasBoards?: Array<{ nodes: Array<{ title: string; x: number; y: number }> }> }>;
+      };
+      expect(again.roles[0].canvasBoards?.[0].nodes).toEqual([
+        expect.objectContaining({ title: "Hinge", x: 320, y: 140 }),
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+});

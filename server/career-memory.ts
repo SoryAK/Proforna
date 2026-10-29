@@ -12,6 +12,7 @@ import {
   type ChangeSet,
   type Evidence,
   type Sensitivity,
+  roleAchievementStatements,
 } from "../core/index";
 
 type JsonObject = Record<string, unknown>;
@@ -554,13 +555,7 @@ function stringArray(value: unknown): string[] {
 }
 
 function parseAchievements(value: unknown): string[] {
-  try {
-    return stringArray(JSON.parse(String(value)))
-      .map((item) => item.trim())
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
+  return roleAchievementStatements(value);
 }
 
 function firstEvidenceId(raw: string | undefined): string | undefined {

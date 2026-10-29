@@ -213,6 +213,7 @@ import {
   removeWorkMapRole,
   removeWorkMapMedia,
   setWorkMapMediaPublic,
+  saveWorkMapCanvasBoards,
   saveWorkMapDetails,
   saveWorkMapSettings,
   updateWorkMapLocation,
@@ -1077,6 +1078,24 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/work-map/roles/:id/canvas", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const boards = saveWorkMapCanvasBoards(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ boards });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, error.code === "role-missing" ? 404 : 400);
       }
       throw error;
     }

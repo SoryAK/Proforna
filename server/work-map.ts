@@ -28,6 +28,9 @@ import {
   type PreparedLinkedEvidence,
   prepareWorkMapRoleCreate,
   prepareWorkMapRoleDelete,
+  readCanvasBoards,
+  readRoleAchievements,
+  reconcileRoleAchievements,
   nominatimAddressLine,
   presentWorkMapPlace,
   type WorkMapLocation,
@@ -101,7 +104,14 @@ export async function updateWorkMapRole(
        FROM work_history WHERE id = ? AND occupant_id = ?`,
     )
     .get(roleId, occupantId) as JsonObject;
-  const achievements = stringArray(input.achievements);
+  const achievementLines = stringArray(input.achievements);
+  const previousAchievements = readRoleAchievements(
+    existing.achievements_json,
+    randomUUID,
+  ).items;
+  const achievements = achievementLines.length
+    ? reconcileRoleAchievements(previousAchievements, achievementLines, randomUUID)
+    : previousAchievements;
   const nextKind = "kind" in input
     ? prepareWorkMapRoleCreate({ kind: input.kind })
     : {
@@ -129,7 +139,7 @@ export async function updateWorkMapRole(
       ? Number(input.isCurrent)
       : Number(existing.is_current),
     "description" in input ? text(input.description) : String(existing.description),
-    achievements.length
+    achievementLines.length
       ? JSON.stringify(achievements)
       : String(existing.achievements_json),
     roleId,
@@ -1108,7 +1118,7 @@ function mapRole(
     endDate: String(row.end_date),
     isCurrent: Number(row.is_current) === 1,
     description: String(row.description),
-    achievements: parseStringArray(row.achievements_json),
+    ...roleAchievements(db, occupantId, String(row.id), row.achievements_json),
     factId: null,
     factVersion: null,
     evidenceIds: [],
@@ -1117,7 +1127,46 @@ function mapRole(
     media: readMedia(db, occupantId, String(row.id)),
     linkedEvidence: readLinkedEvidence(db, occupantId, String(row.id)),
     details: readDetails(db, occupantId, String(row.id)),
+    ...canvasBoardsField(db, occupantId, String(row.id)),
   };
+}
+
+function canvasBoardsField(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+): { canvasBoards?: NonNullable<ReturnType<typeof readCanvasBoards>> } {
+  const row = db
+    .prepare(
+      `SELECT canvas_boards_json FROM work_history
+       WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(roleId, occupantId) as { canvas_boards_json: string } | undefined;
+  if (!row) return {};
+  let parsed: unknown = [];
+  try {
+    parsed = JSON.parse(row.canvas_boards_json);
+  } catch {
+    return {};
+  }
+  const boards = readCanvasBoards(parsed);
+  return boards ? { canvasBoards: boards } : {};
+}
+
+export function saveWorkMapCanvasBoards(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  input: JsonObject,
+): NonNullable<ReturnType<typeof readCanvasBoards>> {
+  requireRole(db, occupantId, roleId);
+  const boards = readCanvasBoards(input.boards);
+  if (!boards) throw new WorkMapStoreError("canvas-invalid");
+  db.prepare(
+    `UPDATE work_history SET canvas_boards_json = ?
+     WHERE id = ? AND occupant_id = ?`,
+  ).run(JSON.stringify(boards), roleId, occupantId);
+  return boards;
 }
 
 function readDetails(
@@ -1260,12 +1309,22 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-function parseStringArray(value: unknown): string[] {
-  try {
-    return stringArray(JSON.parse(String(value)));
-  } catch {
-    return [];
+function roleAchievements(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  raw: unknown,
+): { achievements: string[]; achievementIds: string[] } {
+  const stored = readRoleAchievements(raw, randomUUID);
+  if (stored.changed) {
+    db.prepare(
+      `UPDATE work_history SET achievements_json = ? WHERE id = ? AND occupant_id = ?`,
+    ).run(JSON.stringify(stored.items), roleId, occupantId);
   }
+  return {
+    achievements: stored.items.map((item) => item.statement),
+    achievementIds: stored.items.map((item) => item.id),
+  };
 }
 
 function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
