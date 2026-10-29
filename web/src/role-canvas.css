@@ -2,6 +2,10 @@
   padding: 0 0.9rem 0.9rem;
 }
 
+.role-canvas-entry:empty {
+  display: none;
+}
+
 .focus-job .job-pills:has(+ .role-canvas-entry) {
   margin-bottom: 0.35rem;
 }
@@ -69,10 +73,10 @@
   position: fixed;
   z-index: 740;
   top: 4.75rem;
-  left: max(0.75rem, min(22rem, calc(100vw - 53rem)));
+  left: max(0.75rem, min(22rem, calc(100vw - 69rem)));
   display: flex;
   flex-direction: column;
-  width: min(52rem, calc(100vw - 1.5rem));
+  width: min(68rem, calc(100vw - 1.5rem));
   height: min(36rem, calc(100vh - 6rem));
   border: 1px solid transparent;
   border-radius: 16px;
@@ -146,6 +150,7 @@
 
 .role-canvas.is-minimized .resize,
 .role-canvas.is-maximized .resize,
+.role-canvas.is-minimized .role-canvas-body,
 .role-canvas.is-minimized .role-canvas-stage,
 .role-canvas.is-minimized .role-canvas-controls,
 .role-canvas.is-minimized .role-canvas-drawer,
@@ -163,6 +168,8 @@
 .role-canvas .resize {
   position: absolute;
   z-index: 6;
+  border: 0;
+  background: transparent;
   touch-action: none;
   cursor: default;
 }
@@ -230,7 +237,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.5rem 0.5rem 0.75rem;
-  border-bottom: 1px solid rgba(199, 164, 123, 0.28);
+  border-bottom: 0;
   border-radius: 16px 16px 0 0;
   background: #0d0b09;
   cursor: grab;
@@ -246,12 +253,58 @@
 }
 
 .role-canvas-bar h2 {
+  position: relative;
   flex: 1;
   min-width: 0;
   margin: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.35;
+}
+
+.role-canvas-title-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 16rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #1c1c1c;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  color: #f5f2ee;
+  cursor: default;
+}
+
+.role-canvas.is-minimized .role-canvas-title-menu {
+  display: none;
+}
+
+.role-canvas-title-menu p {
+  margin: 0;
+  padding: 0.35rem 0.45rem 0.25rem;
+  color: #e8d5b7;
+  font: 500 0.75rem/1.4 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.role-canvas-title-menu button {
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f5f2ee;
+  font: 600 0.75rem/1.3 "Geist Variable", "Geist", system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-canvas-title-menu button:hover,
+.role-canvas-title-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .role-canvas-title {
@@ -346,6 +399,10 @@
 .role-canvas-all svg {
   width: 0.75rem;
   height: 0.75rem;
+}
+
+.role-canvas:not(.is-rail-shut) .role-canvas-controls {
+  left: 16.9rem;
 }
 
 .role-canvas-controls {
@@ -501,11 +558,150 @@
   filter: drop-shadow(0 0 5px rgba(232, 213, 183, 0.95));
 }
 
+.role-canvas-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0 0.65rem 0.7rem 0;
+}
+
+.role-canvas.is-rail-shut .role-canvas-body {
+  padding-left: 0.65rem;
+}
+
+.role-canvas-rail {
+  display: flex;
+  flex: 0 0 15.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 15.5rem;
+  min-width: 0;
+  padding: 0.7rem 0.7rem 0.85rem 0.85rem;
+  background: #100e0c;
+}
+
+.role-canvas-rail-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.role-canvas-rail-head strong {
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.role-canvas-rail-head button,
+.role-canvas-rail-expand {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #e8d5b7;
+  cursor: pointer;
+}
+
+.role-canvas-rail-head button:hover,
+.role-canvas-rail-expand:hover {
+  background: rgba(232, 213, 183, 0.12);
+}
+
+.role-canvas-rail-head svg,
+.role-canvas-rail-expand svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.role-canvas-rail input {
+  width: 100%;
+  min-height: 2rem;
+  margin-top: 0.15rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 8px;
+  background: #161310;
+  color: #f5f2ee;
+  font: 0.8125rem/1.4 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.role-canvas-rail-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+  overflow: auto;
+}
+
+.role-canvas-rail-groups p {
+  margin: 0.45rem 0 0.1rem;
+  padding: 0 0.45rem;
+  color: #c9b8a0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.role-canvas-rail-groups button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f5f2ee;
+  font: 600 0.8125rem/1.3 "Geist Variable", "Geist", system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-canvas-rail-groups button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-canvas-rail-groups button b {
+  margin-left: auto;
+  color: #c9b8a0;
+  font-size: 0.75rem;
+  font-weight: 550;
+}
+
+.role-canvas-rail-groups button:hover {
+  background: rgba(245, 242, 238, 0.05);
+}
+
+.role-canvas-rail-groups button.is-on {
+  background: #2c261f;
+}
+
+.role-canvas-rail-expand {
+  position: absolute;
+  z-index: 4;
+  top: 0.55rem;
+  left: 0.45rem;
+}
+
 .role-canvas-board {
   position: relative;
   display: flex;
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(232, 213, 183, 0.22);
+  border-radius: 12px;
+  background: #221e1a;
 }
 
 .role-canvas-stage {
@@ -513,10 +709,10 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  border-radius: 0 0 15px 15px;
-  background-color: #100e0c;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.8px, transparent 1.3px);
-  background-size: 20px 20px;
+  border-radius: 12px;
+  background-color: transparent;
+  background-image: radial-gradient(rgba(232, 213, 183, 0.16) 1px, transparent 1px);
+  background-size: 18px 18px;
   scrollbar-width: none;
   overflow-anchor: none;
 }
@@ -1158,12 +1354,8 @@
 .role-canvas-zoom {
   position: absolute;
   z-index: 2;
-  left: 0.65rem;
+  right: 0.65rem;
   bottom: 0.65rem;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-start;
-  gap: 0.45rem;
   pointer-events: none;
 }
 
@@ -1183,6 +1375,15 @@
   background: #1c1c1c;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   color: #ffffff;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+}
+
+.role-canvas-zoom-bar:active {
+  cursor: grabbing;
 }
 
 .role-canvas-zoom-bar button {
@@ -1223,12 +1424,20 @@
 }
 
 .role-canvas-minimap {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
   width: 11.5rem;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   background: #100e0c;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.role-canvas-zoom.is-map-below .role-canvas-minimap {
+  bottom: auto;
+  top: calc(100% + 0.45rem);
 }
 
 .role-canvas-minimap[hidden] {

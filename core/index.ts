@@ -430,6 +430,11 @@ export {
   type LinkedPage,
 } from "./linked-page";
 export {
+  isFrameTarget,
+  pageAllowsFrame,
+  type FrameHeaderSet,
+} from "./frame-policy";
+export {
   careerFrame,
   careerMoments,
   careerMonth,

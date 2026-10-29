@@ -3177,6 +3177,7 @@
 
 .career-bio.is-named-edit .career-bio-row .focus-edit {
   align-self: center;
+  font: 600 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
 }
 
 .profile-links {
@@ -3343,27 +3344,30 @@
   object-fit: cover;
 }
 
-.job-pills a {
+.job-pills a,
+.job-pills button.job-site {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid rgba(199, 164, 123, 0.45);
   border-radius: 999px;
+  background: transparent;
   color: var(--gold-light);
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.2;
+  font: 600 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
   text-decoration: none;
+  cursor: pointer;
 }
 
-.job-pills a svg {
+.job-pills a svg,
+.job-pills button.job-site svg {
   width: 0.875rem;
   height: 0.875rem;
   flex: none;
 }
 
-.job-pills a span {
+.job-pills a span,
+.job-pills button.job-site span {
   padding-left: 0.5rem;
   border-left: 1px solid rgba(199, 164, 123, 0.35);
 }

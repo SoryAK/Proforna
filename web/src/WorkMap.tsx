@@ -59,6 +59,7 @@ import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import { RoleCanvasEntry } from "./RoleCanvas";
+import { useSiteSurface } from "./SiteWindow";
 import "./work-map.css";
 
 type WorkMapResponse = {
@@ -143,6 +144,7 @@ export function WorkMap({
     null,
   );
   const [cameraNonce, setCameraNonce] = useState(0);
+  const [pinFocus, setPinFocus] = useState(0);
   const cameraBeforePlace = useRef<MapCamera | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewDrafts, setReviewDrafts] = useState<ReviewDraft[]>([]);
@@ -403,6 +405,7 @@ export function WorkMap({
       : "hold";
   const cameraFitKey = [
     selectedId ?? "",
+    String(pinFocus),
     timelineActive ? shownMonth : "map",
     fitMode,
     mapRoles
@@ -1008,6 +1011,11 @@ export function WorkMap({
           slot={selectedId === canvasRole.id ? canvasSlot : null}
           dockSlot={canvasDock}
           onMinimizedChange={setCanvasMinimized}
+          onShowRole={() => {
+            setSelectedId(canvasRole.id);
+            setView("map");
+            setPinFocus((value) => value + 1);
+          }}
           onClose={() => {
             setCanvasRoleId(null);
             setCanvasMinimized(false);
@@ -1706,10 +1714,9 @@ function CareerBio({
   editOnName?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [githubOpen, setGithubOpen] = useState(false);
+  const site = useSiteSurface();
   const [note, setNote] = useState("");
   const editorRef = useRef<HTMLDialogElement>(null);
-  const githubRef = useRef<HTMLDialogElement>(null);
   const place = [
     profile.address,
     [profile.city, profile.state].filter(Boolean).join(", "),
@@ -1723,15 +1730,9 @@ function CareerBio({
     .join("")
     .toUpperCase();
   const socials = [
-    profile.githubUrl
-      ? { name: "GitHub", url: profile.githubUrl, github: true }
-      : null,
-    profile.linkedinUrl
-      ? { name: "LinkedIn", url: profile.linkedinUrl, github: false }
-      : null,
-    profile.portfolioUrl
-      ? { name: "Site", url: profile.portfolioUrl, github: false }
-      : null,
+    profile.githubUrl ? { name: "GitHub", url: profile.githubUrl } : null,
+    profile.linkedinUrl ? { name: "LinkedIn", url: profile.linkedinUrl } : null,
+    profile.portfolioUrl ? { name: "Site", url: profile.portfolioUrl } : null,
   ].filter((item) => item !== null);
 
   useEffect(() => {
@@ -1740,13 +1741,6 @@ function CareerBio({
     if (editing && !dialog.open) dialog.showModal();
     if (!editing && dialog.open) dialog.close();
   }, [editing]);
-
-  useEffect(() => {
-    const dialog = githubRef.current;
-    if (!dialog) return;
-    if (githubOpen && !dialog.open) dialog.showModal();
-    if (!githubOpen && dialog.open) dialog.close();
-  }, [githubOpen]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1835,55 +1829,19 @@ function CareerBio({
       </div>
       {socials.length > 0 ? (
         <div className="socials">
-          {socials.map((item) =>
-            item.github ? (
-              <button
-                key={item.name}
-                className="social-mark"
-                type="button"
-                onClick={() => setGithubOpen(true)}
-              >
-                {item.name}
-              </button>
-            ) : (
-              <a
-                key={item.name}
-                className="social-mark"
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {item.name}
-              </a>
-            ),
-          )}
+          {socials.map((item) => (
+            <button
+              key={item.name}
+              className="social-mark"
+              type="button"
+              onClick={(event) => site.open(item.url, event.currentTarget)}
+            >
+              {item.name}
+            </button>
+          ))}
         </div>
       ) : null}
-
-      <dialog
-        ref={githubRef}
-        className="focus-pop"
-        aria-label="GitHub"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) setGithubOpen(false);
-        }}
-        onClose={() => setGithubOpen(false)}
-      >
-        <div className="sheet">
-          <div className="sheet-head">
-            <div>
-              <h2>GitHub</h2>
-              <p>{githubHandle(profile.githubUrl)}</p>
-            </div>
-            <button className="close" type="button" onClick={() => setGithubOpen(false)}>
-              Close
-            </button>
-          </div>
-          <a className="close" href={profile.githubUrl} target="_blank" rel="noreferrer">
-            Open GitHub
-          </a>
-        </div>
-      </dialog>
+      {site.surface}
 
       <dialog
         ref={editorRef}
@@ -1955,16 +1913,6 @@ function CareerBio({
       </dialog>
     </section>
   );
-}
-
-function githubHandle(url: string): string {
-  try {
-    const parsed = new URL(url);
-    const name = parsed.pathname.split("/").filter(Boolean)[0];
-    return name || url;
-  } catch {
-    return url;
-  }
 }
 
 function RoleSheet({

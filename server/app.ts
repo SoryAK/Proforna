@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { DatabaseSync } from "node:sqlite";
-import { PRODUCT, type ApplicationStage } from "../core/index";
+import { isFrameTarget, pageAllowsFrame, PRODUCT, type ApplicationStage } from "../core/index";
 import {
   isHttpUrl,
   normalizeBaseUrl,
@@ -222,7 +222,13 @@ import {
   removeLinkedEvidence,
   updateLinkedEvidence,
 } from "./work-map";
-import { fetchPublicPage, type PageFetch } from "./page-capture";
+import {
+  fetchPublicFrameHeaders,
+  fetchPublicPage,
+  PageCaptureError,
+  type FrameHeaderFetch,
+  type PageFetch,
+} from "./page-capture";
 
 export type AppOptions = {
   uploadsDir?: string;
@@ -242,6 +248,7 @@ export type AppOptions = {
   localScanConnect?: (port: number, signal?: AbortSignal) => Promise<boolean>;
   relayPublicOrigin?: string | null;
   pages?: { fetch?: PageFetch };
+  frameHeaders?: FrameHeaderFetch;
 };
 
 type PlaceSearch = {
@@ -257,6 +264,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   const externalActions = options.externalActions;
   const complete = options.complete;
   const fetchPage = options.pages?.fetch ?? fetchPublicPage;
+  const readFrameHeaders = options.frameHeaders ?? fetchPublicFrameHeaders;
   async function fallbackPlaces(query: string) {
     if (options.places?.lookup) {
       const found = await options.places.lookup(query);
@@ -350,6 +358,20 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.get("/api/health", (c) =>
     c.json({ ok: true, product: PRODUCT.name, db: pingDatabase(db) }),
   );
+
+  app.get("/api/sites/frame", async (c) => {
+    const url = c.req.query("url") ?? "";
+    if (!isFrameTarget(url)) return c.json({ error: "url-invalid" }, 400);
+    try {
+      const headers = await readFrameHeaders(url);
+      return c.json({ frameable: pageAllowsFrame(headers) });
+    } catch (error) {
+      if (error instanceof PageCaptureError && error.code === "page-blocked") {
+        return c.json({ error: "url-invalid" }, 400);
+      }
+      return c.json({ frameable: true });
+    }
+  });
 
   app.get("/api/me", (c) => {
     const occupant = ensureOccupant(db);

@@ -2,11 +2,13 @@ import { lookup as dnsLookup, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import { isIP, type LookupFunction } from "node:net";
-import { isLinkedEvidenceUrl, isPublicAddress } from "../core/index";
+import { isFrameTarget, isLinkedEvidenceUrl, isPublicAddress, type FrameHeaderSet } from "../core/index";
 
 export type FetchedPage = { url: string; contentType: string; html: string };
 
 export type PageFetch = (url: string) => Promise<FetchedPage>;
+
+export type FrameHeaderFetch = (url: string) => Promise<FrameHeaderSet>;
 
 const MAX_BYTES = 3_000_000;
 const MAX_REDIRECTS = 5;
@@ -121,4 +123,84 @@ function requestOnce(url: string): Promise<{
       reject(error instanceof PageCaptureError ? error : new PageCaptureError("page-unreachable")),
     );
   });
+}
+
+export const fetchPublicFrameHeaders: FrameHeaderFetch = async (url) => {
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    let response = await requestHeaders(current, "HEAD");
+    if (response.status === 403 || response.status === 405 || response.status === 501) {
+      response = await requestHeaders(current, "GET");
+    }
+    if (response.location) {
+      current = new URL(response.location, current).toString();
+      continue;
+    }
+    if (response.status < 200 || response.status >= 300) {
+      throw new PageCaptureError("page-unreachable");
+    }
+    return {
+      frameOptions: response.frameOptions,
+      contentSecurityPolicy: response.contentSecurityPolicy,
+    };
+  }
+  throw new PageCaptureError("page-unreachable");
+};
+
+function requestHeaders(
+  url: string,
+  method: "GET" | "HEAD",
+): Promise<{
+  status: number;
+  location: string | null;
+  frameOptions: string | null;
+  contentSecurityPolicy: string | string[] | null;
+}> {
+  if (!isFrameTarget(url)) return Promise.reject(new PageCaptureError("page-blocked"));
+  const target = new URL(url);
+  const host = target.hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host) && !isPublicAddress(host)) {
+    return Promise.reject(new PageCaptureError("page-blocked"));
+  }
+  const client = target.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const request = client.request(
+      target,
+      {
+        method,
+        lookup: guardedLookup,
+        timeout: TIMEOUT_MS,
+        headers: {
+          "user-agent": "Proforna linked evidence capture",
+          accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+        },
+      },
+      (response) => {
+        response.resume();
+        const status = response.statusCode ?? 0;
+        const location = response.headers.location;
+        resolve({
+          status,
+          location: status >= 300 && status < 400 && location ? String(location) : null,
+          frameOptions: oneHeader(response.headers["x-frame-options"]),
+          contentSecurityPolicy: headerList(response.headers["content-security-policy"]),
+        });
+      },
+    );
+    request.on("timeout", () => request.destroy(new PageCaptureError("page-unreachable")));
+    request.on("error", (error) =>
+      reject(error instanceof PageCaptureError ? error : new PageCaptureError("page-unreachable")),
+    );
+    request.end();
+  });
+}
+
+function oneHeader(value: string | string[] | undefined): string | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value.join(", ") : value;
+}
+
+function headerList(value: string | string[] | undefined): string | string[] | null {
+  if (!value || (Array.isArray(value) && value.length === 0)) return null;
+  return value;
 }

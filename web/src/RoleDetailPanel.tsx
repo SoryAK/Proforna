@@ -17,6 +17,7 @@ import {
   type WorkMapRole,
 } from "@core/work-map";
 import { lookupNote, searchPlaces, type PlaceHit } from "./place-search";
+import { useSiteSurface } from "./SiteWindow";
 
 export type DetailTab = "story" | "conditions" | "media" | "evidence" | "places";
 
@@ -73,6 +74,7 @@ export function RoleDetailPanel({
   onCanvasSlot?: (node: HTMLDivElement | null) => void;
 }) {
   const [message, setMessage] = useState("");
+  const site = useSiteSurface();
   const [editing, setEditing] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
@@ -395,16 +397,16 @@ export function RoleDetailPanel({
         />
         <div className="job-pills">
           {role.details.website ? (
-            <a href={role.details.website} target="_blank" rel="noreferrer">
+            <button className="job-site" type="button" onClick={(event) => site.open(role.details.website, event.currentTarget)}>
               <GlobeIcon />
               <span>Website</span>
-            </a>
+            </button>
           ) : null}
           {role.details.linkedin ? (
-            <a href={role.details.linkedin} target="_blank" rel="noreferrer">
+            <button className="job-site" type="button" onClick={(event) => site.open(role.details.linkedin, event.currentTarget)}>
               <PersonIcon />
               <span>LinkedIn</span>
-            </a>
+            </button>
           ) : null}
           <button className="job-more-toggle" type="button" onClick={() => setPeopleOpen(true)}>
             Worked with
@@ -417,19 +419,20 @@ export function RoleDetailPanel({
               Review duplicates ({reviewCount})
             </button>
           ) : null}
+          {onShowCanvas ? (
+            <button
+              className="job-more-toggle"
+              type="button"
+              aria-expanded={canvasExpanded}
+              onClick={onShowCanvas}
+            >
+              Show on canvas
+            </button>
+          ) : null}
         </div>
         <div className="role-canvas-entry" ref={onCanvasSlot} />
-        {onShowCanvas ? (
-          <button
-            className="job-more-toggle"
-            type="button"
-            aria-expanded={canvasExpanded}
-            onClick={onShowCanvas}
-          >
-            Show on canvas
-          </button>
-        ) : null}
       </article>
+      {site.surface}
 
       <section className="focus-hub">
         <button

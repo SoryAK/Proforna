@@ -7,6 +7,7 @@ import {
   removeCanvasNode,
   type CanvasNodeKind,
 } from "@core/canvas-node";
+import { formatHistoryPeriod, formatHistoryPlace } from "@core/career-history";
 import type { WorkMapRole } from "@core/work-map";
 import "./role-canvas.css";
 
@@ -255,6 +256,7 @@ export function RoleCanvasEntry({
   slot,
   dockSlot,
   onMinimizedChange,
+  onShowRole,
   onClose,
 }: {
   role: WorkMapRole;
@@ -262,6 +264,7 @@ export function RoleCanvasEntry({
   slot: HTMLElement | null;
   dockSlot: HTMLElement | null;
   onMinimizedChange: (minimized: boolean) => void;
+  onShowRole: () => void;
   onClose: () => void;
 }) {
   const seeded = useMemo(() => boardsForRole(role), [role]);
@@ -278,14 +281,15 @@ export function RoleCanvasEntry({
   const [guides, setGuides] = useState<GuideLine[]>([]);
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(openingViewport?.zoom ?? 1);
-  const [allOpen, setAllOpen] = useState(false);
+  const [railOpen, setRailOpen] = useState(true);
+  const [boardQuery, setBoardQuery] = useState("");
+  const [titleOpen, setTitleOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [frame, setFrame] = useState<Frame | null>(null);
   const [viewer, setViewer] = useState<Viewer>(null);
   const [note, setNote] = useState("");
   const [tool, setTool] = useState<"select" | "pan">("select");
-  const [pinned, setPinned] = useState<string[]>([]);
   const [mapOpen, setMapOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -311,6 +315,9 @@ export function RoleCanvasEntry({
   const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [view, setView] = useState({ left: 0, top: 0, width: 1, height: 1 });
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+  const [zoomPos, setZoomPos] = useState<{ left: number; top: number } | null>(null);
+  const [mapBelow, setMapBelow] = useState(false);
+  const zoomClusterRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<{
     id: string | null;
     kind: CanvasNodeKind;
@@ -329,10 +336,10 @@ export function RoleCanvasEntry({
   const commandRef = useRef<CanvasCommands | null>(null);
 
   useEffect(() => {
-    if (!allOpen && !historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt) return;
+    if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen) return;
     function onPointer(event: PointerEvent) {
       const target = event.target as HTMLElement | null;
-      if (!target?.closest(".role-canvas-menu, .role-canvas-all")) setAllOpen(false);
+      if (!target?.closest(".role-canvas-title-menu, .role-canvas-title")) setTitleOpen(false);
       if (!target?.closest(".role-canvas-history-panel, .role-canvas-history, .role-canvas-save")) {
         setHistoryOpen(false);
       }
@@ -345,7 +352,7 @@ export function RoleCanvasEntry({
     }
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, [allOpen, historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt]);
+  }, [historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt, titleOpen]);
 
   useEffect(() => {
     try {
@@ -476,6 +483,7 @@ export function RoleCanvasEntry({
     setNodeMenu(null);
     setCanvasMenu(null);
     setWireMenu(null);
+    setTitleOpen(false);
   }
 
   function applyBoardSnap(snap: BoardSnap) {
@@ -557,7 +565,7 @@ export function RoleCanvasEntry({
     setCanvasId(nextId);
     setSelectedId(null);
     setLinkOpen(false);
-    setAllOpen(false);
+    setTitleOpen(false);
     setPanelPos(null);
   }
 
@@ -573,7 +581,6 @@ export function RoleCanvasEntry({
     rememberViewport();
     setSelectedId(null);
     setMaximized(false);
-    setAllOpen(false);
     setLinkOpen(false);
     onMinimizedChange(false);
     onClose();
@@ -640,6 +647,51 @@ export function RoleCanvasEntry({
       width: rect?.width ?? 672,
       height: rect?.height ?? 480,
     };
+  }
+
+  useEffect(() => {
+    const cluster = zoomClusterRef.current;
+    if (!cluster || !mapOpen) return;
+    const host = cluster.offsetParent instanceof HTMLElement ? cluster.offsetParent : null;
+    const map = cluster.querySelector<HTMLElement>(".role-canvas-minimap");
+    if (!host || !map) return;
+    const roomAbove = cluster.offsetTop;
+    const roomBelow = host.clientHeight - cluster.offsetTop - cluster.offsetHeight;
+    setMapBelow(roomAbove < map.offsetHeight + 8 && roomBelow > roomAbove);
+  }, [mapOpen, zoomPos]);
+
+  function dragZoom(event: ReactPointerEvent<HTMLElement>) {
+    if (event.button !== 0 || (event.target as HTMLElement).closest("button")) return;
+    const cluster = event.currentTarget.parentElement;
+    if (!cluster) return;
+    event.preventDefault();
+    const originLeft = cluster.offsetLeft;
+    const originTop = cluster.offsetTop;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const bar = event.currentTarget;
+    try {
+      bar.setPointerCapture(event.pointerId);
+    } catch {
+      /* capture is optional */
+    }
+    function move(next: PointerEvent) {
+      if (next.pointerId !== event.pointerId) return;
+      const host = cluster.offsetParent instanceof HTMLElement ? cluster.offsetParent : null;
+      const maxLeft = Math.max(8, (host?.clientWidth ?? 320) - cluster.offsetWidth - 8);
+      const maxTop = Math.max(8, (host?.clientHeight ?? 240) - cluster.offsetHeight - 8);
+      setZoomPos({
+        left: Math.min(Math.max(8, originLeft + next.clientX - startX), maxLeft),
+        top: Math.min(Math.max(8, originTop + next.clientY - startY), maxTop),
+      });
+    }
+    function up(next: PointerEvent) {
+      if (next.pointerId !== event.pointerId) return;
+      bar.removeEventListener("pointermove", move);
+      bar.removeEventListener("pointerup", up);
+    }
+    bar.addEventListener("pointermove", move);
+    bar.addEventListener("pointerup", up);
   }
 
   function dragWindow(event: ReactPointerEvent<HTMLElement>) {
@@ -1641,11 +1693,24 @@ export function RoleCanvasEntry({
       ? undefined
       : { left: frame.left, top: frame.top, width: frame.width, height: frame.height };
 
+  const roleFacts = [
+    role.organization.trim(),
+    formatHistoryPlace({
+      organization: role.organization,
+      locationLabel: role.locationLabel,
+      locations: role.locations.map((location) => ({ address: location.address })),
+    }),
+    formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   const windowNode = open ? (
     <div
       className={[
         "role-canvas",
         minimized ? "is-minimized" : "",
+        railOpen ? "" : "is-rail-shut",
         maximized ? "is-maximized" : "",
         selected ? "is-focus" : "",
       ]
@@ -1674,12 +1739,47 @@ export function RoleCanvasEntry({
       >
         <h2>
           {role.title.trim() ? (
-            <button type="button" className="role-canvas-title">
+            <button
+              type="button"
+              className="role-canvas-title"
+              aria-expanded={titleOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                if (minimized) return;
+                setTitleOpen((value) => !value);
+              }}
+            >
               {role.title.trim()}
             </button>
           ) : (
             "Canvas"
           )}
+          {titleOpen && role.title.trim() ? (
+            <div className="role-canvas-title-menu" role="menu">
+              {roleFacts ? <p>{roleFacts}</p> : null}
+              <button
+                type="button"
+                role="menuitem"
+                aria-current={canvasId === role.id ? "page" : undefined}
+                onClick={() => {
+                  setTitleOpen(false);
+                  if (canvasId !== role.id) showHome(role.id);
+                }}
+              >
+                This role's board
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setTitleOpen(false);
+                  onShowRole();
+                }}
+              >
+                Show on the map
+              </button>
+            </div>
+          ) : null}
         </h2>
         <div className="role-canvas-actions">
           <button
@@ -1912,7 +2012,48 @@ export function RoleCanvasEntry({
           {nodeError ? <p className="role-canvas-node-error">{nodeError}</p> : null}
         </section>
       ) : null}
+      <div className="role-canvas-body">
+      {railOpen ? (
+        <aside className="role-canvas-rail" aria-label="Boards">
+          <div className="role-canvas-rail-head">
+            <strong>Boards</strong>
+            <button type="button" aria-label="Collapse boards" onClick={() => setRailOpen(false)}>
+              <RailCollapseIcon />
+            </button>
+          </div>
+          <input
+            aria-label="Find a board"
+            placeholder="Find a board"
+            value={boardQuery}
+            onChange={(event) => setBoardQuery(event.target.value)}
+          />
+          <div className="role-canvas-rail-groups">
+            {boardGroups(boards, role.id, boardQuery).map((group) => (
+              <div key={group.label}>
+                <p>{group.label}</p>
+                {group.boards.map((board) => (
+                  <button
+                    key={board.id}
+                    type="button"
+                    className={board.id === canvasId ? "is-on" : ""}
+                    aria-current={board.id === canvasId ? "page" : undefined}
+                    onClick={() => showHome(board.id)}
+                  >
+                    <span>{board.name}</span>
+                    <b>{board.nodes.length}</b>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </aside>
+      ) : null}
       <div className="role-canvas-board">
+      {railOpen ? null : (
+        <button type="button" className="role-canvas-rail-expand" aria-label="Expand boards" onClick={() => setRailOpen(true)}>
+          <RailExpandIcon />
+        </button>
+      )}
       <div
         className={["role-canvas-stage", tool === "pan" ? "is-pan" : ""].filter(Boolean).join(" ")}
         ref={stageRef}
@@ -2216,8 +2357,12 @@ export function RoleCanvasEntry({
           })}
         </div>
       </div>
-      <div className="role-canvas-zoom">
-        <div className="role-canvas-zoom-bar" role="toolbar" aria-label="Canvas zoom">
+      <div
+        ref={zoomClusterRef}
+        className={["role-canvas-zoom", mapBelow ? "is-map-below" : ""].filter(Boolean).join(" ")}
+        style={zoomPos ? { left: zoomPos.left, top: zoomPos.top, right: "auto", bottom: "auto" } : undefined}
+      >
+        <div className="role-canvas-zoom-bar" role="toolbar" aria-label="Canvas zoom" onPointerDown={dragZoom}>
           <button type="button" aria-label="Zoom out" onClick={() => changeZoom(zoom / 1.2)}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9" /></svg>
           </button>
@@ -2247,6 +2392,37 @@ export function RoleCanvasEntry({
             }}
           />
         </div>
+      </div>
+      <div className="role-canvas-drawer">
+        <div className="role-canvas-tools" role="toolbar" aria-label="Canvas">
+          <button type="button" className="tool" aria-pressed={tool === "select"} aria-label="Select" onClick={() => setTool("select")}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3.1 1.6 3.3 12.4 6.5 9.4 9.3 14.1 11.1 13.1 8.3 8.4 12.3 8 3.1 1.6Z" /></svg>
+          </button>
+          <button type="button" className="tool" aria-pressed={tool === "pan"} aria-label="Pan" onClick={() => setTool("pan")}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" d="M6.3 7.5V3.6a.9.9 0 0 1 1.8 0v3.3M8.1 6.4V3a.9.9 0 0 1 1.8 0V7.2M9.9 6.8V4.1a.9.9 0 0 1 1.8 0v4.2c0 2.3-1.5 4-3.8 4h-.5c-2.1 0-3.4-1.4-3.4-3.4V7.2a.9.9 0 0 1 1.8 0" /></svg>
+          </button>
+          <input
+            aria-label="Find a node"
+            placeholder="Find a node"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                jumpSearch();
+              }
+            }}
+          />
+          {query.trim() ? (
+            <span className="role-canvas-count">
+              {canvas?.nodes.filter((node) => `${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase())).length ?? 0} of {canvas?.nodes.length ?? 0}
+            </span>
+          ) : null}
+          <button type="button" className="tool" aria-label="Add" onClick={beginAdd}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
+          </button>
+        </div>
+      </div>
       </div>
       </div>
       {nodeMenu && canvas ? (
@@ -2330,85 +2506,6 @@ export function RoleCanvasEntry({
           onCancel={() => setRelationPrompt(null)}
         />
       ) : null}
-      <div className={allOpen ? "role-canvas-drawer is-open" : "role-canvas-drawer"}>
-        {allOpen ? (
-          <div className="role-canvas-menu" role="menu">
-            {boards.filter((board) => board.id !== role.id).map((board) => (
-              <div key={board.id} className="role-canvas-menu-row">
-                <button type="button" role="menuitem" onClick={() => showHome(board.id)}>
-                  {board.name}
-                </button>
-                <button
-                  type="button"
-                  className="role-canvas-pin"
-                  aria-pressed={pinned.includes(board.id)}
-                  aria-label={pinned.includes(board.id) ? `Unpin ${board.name}` : `Pin ${board.name} to the bar`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setPinned((current) =>
-                      current.includes(board.id) ? current.filter((id) => id !== board.id) : [...current, board.id],
-                    );
-                  }}
-                >
-                  {pinned.includes(board.id) ? "Unpin" : "Pin"}
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        <div className="role-canvas-tools" role="toolbar" aria-label="Canvas">
-          <button type="button" className="tool" aria-pressed={tool === "select"} aria-label="Select" onClick={() => setTool("select")}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3.1 1.6 3.3 12.4 6.5 9.4 9.3 14.1 11.1 13.1 8.3 8.4 12.3 8 3.1 1.6Z" /></svg>
-          </button>
-          <button type="button" className="tool" aria-pressed={tool === "pan"} aria-label="Pan" onClick={() => setTool("pan")}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" d="M6.3 7.5V3.6a.9.9 0 0 1 1.8 0v3.3M8.1 6.4V3a.9.9 0 0 1 1.8 0V7.2M9.9 6.8V4.1a.9.9 0 0 1 1.8 0v4.2c0 2.3-1.5 4-3.8 4h-.5c-2.1 0-3.4-1.4-3.4-3.4V7.2a.9.9 0 0 1 1.8 0" /></svg>
-          </button>
-          <input
-            aria-label="Find a node"
-            placeholder="Find a node"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                jumpSearch();
-              }
-            }}
-          />
-          {query.trim() ? (
-            <span className="role-canvas-count">
-              {canvas?.nodes.filter((node) => `${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase())).length ?? 0} of {canvas?.nodes.length ?? 0}
-            </span>
-          ) : null}
-          <button type="button" className="tool" aria-label="Add" onClick={beginAdd}>
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
-          </button>
-          <div className="role-canvas-tabs" role="tablist" aria-label="Pinned canvases">
-            {boards.filter((board) => board.id !== role.id && pinned.includes(board.id)).map((board) => (
-              <button
-                key={board.id}
-                type="button"
-                role="tab"
-                aria-selected={board.id === canvas?.id}
-                title={board.name}
-                onClick={() => showHome(board.id)}
-              >
-                {board.name}
-              </button>
-            ))}
-          </div>
-          <button
-            className="role-canvas-all"
-            type="button"
-            aria-expanded={allOpen}
-            aria-haspopup="menu"
-            onClick={() => setAllOpen((value) => !value)}
-          >
-            All
-            <CaretIcon />
-          </button>
-        </div>
-      </div>
     </div>
   ) : null;
 
@@ -2908,10 +3005,27 @@ function CloseIcon() {
   );
 }
 
-function CaretIcon() {
+function boardGroups(boards: CanvasBoard[], roleId: string, query: string) {
+  const needle = query.trim().toLowerCase();
+  const listed = boards.filter((board) => !needle || board.name.toLowerCase().includes(needle));
+  return [
+    { label: "This role", boards: listed.filter((board) => board.id === roleId) },
+    { label: "Studies", boards: listed.filter((board) => board.id !== roleId) },
+  ].filter((group) => group.boards.length > 0);
+}
+
+function RailCollapseIcon() {
   return (
     <svg viewBox="0 0 12 12" aria-hidden="true">
-      <path d="M2.5 7.5 L6 4.2 L9.5 7.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M7.5 2.2 3.5 6 7.5 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function RailExpandIcon() {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true">
+      <path d="M4.5 2.2 8.5 6 4.5 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }
