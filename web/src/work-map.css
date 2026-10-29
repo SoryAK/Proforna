@@ -503,6 +503,22 @@
   font-weight: 650;
 }
 
+.history-panel-head .history-canvas-open {
+  min-height: 1.7rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid rgba(199, 164, 123, 0.32);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--gold-light);
+  font-size: 0.75rem;
+}
+
+.history-panel-head .history-canvas-open:hover,
+.history-panel-head .history-canvas-open[aria-expanded="true"] {
+  border-color: var(--gold-hover);
+  color: var(--gold-hover);
+}
+
 .history-panel-head .history-review-open {
   margin-left: auto;
   min-height: 1.7rem;

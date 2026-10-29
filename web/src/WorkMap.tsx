@@ -118,6 +118,7 @@ export function WorkMap({
     focusRoleId ?? null,
   );
   const [canvasRoleId, setCanvasRoleId] = useState<string | null>(null);
+  const [canvasAll, setCanvasAll] = useState(false);
   const [canvasMinimized, setCanvasMinimized] = useState(false);
   const [canvasSlot, setCanvasSlot] = useState<HTMLDivElement | null>(null);
   const [canvasDock, setCanvasDock] = useState<HTMLDivElement | null>(null);
@@ -290,6 +291,21 @@ export function WorkMap({
     }
   }
 
+  const canvasRoles = useMemo(() => {
+    if (!data) return [];
+    const byId = new Map(data.roles.map((role) => [role.id, role]));
+    return CAREER_HISTORY_SECTIONS.flatMap((section) =>
+      sortCareerHistory(
+        data.roles
+          .filter((role) => classifyCareerHistorySection(role) === section.key)
+          .map(asHistoryItem),
+        "newest",
+      ).flatMap((item) => {
+        const role = byId.get(item.id);
+        return role ? [role] : [];
+      }),
+    );
+  }, [data]);
   const historyItems = useMemo(() => {
     if (!data) return [];
     return sortCareerHistory(
@@ -465,7 +481,9 @@ export function WorkMap({
   ]);
 
   const selected = data?.roles.find((role) => role.id === selectedId) ?? null;
-  const canvasRole = data?.roles.find((role) => role.id === canvasRoleId) ?? null;
+  const canvasRole = canvasAll
+    ? (data?.roles[0] ?? null)
+    : (data?.roles.find((role) => role.id === canvasRoleId) ?? null);
   const latest = publications.find(
     (publication) => publication.slug === settings?.slug,
   );
@@ -1005,18 +1023,28 @@ export function WorkMap({
     <section className="work-map">
       {canvasRole ? (
         <RoleCanvasEntry
-          key={canvasRole.id}
+          key={canvasAll ? "all" : canvasRole.id}
           role={canvasRole}
+          roles={canvasAll ? canvasRoles : undefined}
+          scope={canvasAll ? "all" : "role"}
           minimized={canvasMinimized}
-          slot={selectedId === canvasRole.id ? canvasSlot : null}
+          slot={canvasAll || selectedId !== canvasRole.id ? null : canvasSlot}
           dockSlot={canvasDock}
           onMinimizedChange={setCanvasMinimized}
           onShowRole={() => {
+            if (canvasAll) return;
             setSelectedId(canvasRole.id);
             setView("map");
             setPinFocus((value) => value + 1);
           }}
+          onOpenRole={(item) => {
+            setSelectedId(item.id);
+            setCanvasMinimized(false);
+            setCanvasRoleId(item.id);
+            setCanvasAll(false);
+          }}
           onClose={() => {
+            setCanvasAll(false);
             setCanvasRoleId(null);
             setCanvasMinimized(false);
           }}
@@ -1097,13 +1125,14 @@ export function WorkMap({
             onSaved={load}
             reviewCount={duplicateCount.active}
             onOpenReview={duplicateCount.total > 0 ? () => setReviewOpen(true) : undefined}
-            canvasExpanded={canvasRoleId === selected.id && !canvasMinimized}
+            canvasExpanded={!canvasAll && canvasRoleId === selected.id && !canvasMinimized}
             onShowCanvas={() => {
-              if (canvasRoleId === selected.id && !canvasMinimized) {
+              if (!canvasAll && canvasRoleId === selected.id && !canvasMinimized) {
                 setCanvasRoleId(null);
                 setCanvasMinimized(false);
                 return;
               }
+              setCanvasAll(false);
               setCanvasRoleId(selected.id);
               setCanvasMinimized(false);
             }}
@@ -1126,6 +1155,25 @@ export function WorkMap({
         <aside className="work-map-ledger">
           <header className="history-panel-head">
             <h2>Career History</h2>
+            {data && data.roles.length > 0 ? (
+              <button
+                type="button"
+                className="history-canvas-open"
+                aria-expanded={canvasAll && !canvasMinimized}
+                onClick={() => {
+                  if (canvasAll && !canvasMinimized) {
+                    setCanvasAll(false);
+                    setCanvasRoleId(null);
+                    setCanvasMinimized(false);
+                    return;
+                  }
+                  setCanvasAll(true);
+                  setCanvasMinimized(false);
+                }}
+              >
+                Show on canvas
+              </button>
+            ) : null}
             {duplicateCount.total > 0 ? (
               <button
                 type="button"

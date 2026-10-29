@@ -7,40 +7,36 @@ import {
   removeCanvasNode,
   type CanvasNodeKind,
 } from "@core/canvas-node";
-import { formatHistoryPeriod, formatHistoryPlace } from "@core/career-history";
+import {
+  CAREER_HISTORY_SECTIONS,
+  classifyCareerHistorySection,
+  formatHistoryPeriod,
+  formatHistoryPlace,
+  type CareerHistorySectionKey,
+} from "@core/career-history";
+import {
+  readCanvasBoards,
+  type CanvasBoard,
+  type CanvasGroup,
+  type CanvasLink,
+  type CanvasNode,
+} from "@core/canvas-board";
+import { achievementStatement } from "@core/role-achievements";
 import type { WorkMapRole } from "@core/work-map";
+import { Icon } from "./HomeNav";
 import "./role-canvas.css";
 
-type CanvasLink = { key: string; id: string; label: string; relation?: string };
-type CanvasNode = {
-  id: string;
-  kind: string;
-  title: string;
-  body: string;
-  x: number;
-  y: number;
-  w?: number;
-  h?: number;
-  url: string;
-  notes: string[];
-  links: CanvasLink[];
-  locked?: boolean;
-};
-type CanvasGroup = {
-  id: string;
-  name: string;
-  members: string[];
-  collapsed: boolean;
-  x: number;
-  y: number;
-};
-type CanvasBoard = { id: string; name: string; nodes: CanvasNode[]; groups: CanvasGroup[] };
 type Snap = { id: string; name: string; at: number; nodes: CanvasNode[]; groups?: CanvasGroup[] };
 type GuideLine = { x1: number; y1: number; x2: number; y2: number };
 type Chrome = { left: number; top: number; bottom: number; extraRight: number };
 
 const SNAP_KEY = "proforna-canvas-saves";
 const VIEWPORT_KEY = "proforna-canvas-viewports";
+const BOARD_KEY = "proforna-canvas-boards";
+const vaultBoards = new Map<string, CanvasBoard[]>();
+const savedBoardJson = new Map<string, string>();
+const pendingBoards = new Map<string, CanvasBoard[]>();
+const saveTail = new Map<string, Promise<void>>();
 const DESIGN_FILM = "https://www.youtube-nocookie.com/embed/xIZYqNS6so0?rel=0";
 const RELATION_KINDS = ["evidence", "example", "design", "outsource", "feedback", "approved"];
 const EMPTY_CHROME: Chrome = { left: 0, top: 0, bottom: 0, extraRight: 0 };
@@ -127,19 +123,7 @@ export function boardsForRole(role: WorkMapRole): CanvasBoard[] {
     {
       id: role.id,
       name: role.title || role.organization || "This role",
-      nodes: [
-        {
-          id: "role",
-          kind: "Role",
-          title: role.title || "Untitled",
-          body: role.description,
-          x: 24,
-          y: 48,
-          url: "",
-          notes: [],
-          links: [],
-        },
-      ],
+      nodes: [],
       groups: [],
     },
     ...sampleBoards(),
@@ -174,15 +158,6 @@ function sampleBoards(): CanvasBoard[] {
       name: "Foldable",
       nodes: [
         card(
-          "role",
-          "Role",
-          "Product Designer",
-          "Apple. Helped design the foldable, from the hinge studies through the design review.",
-          24,
-          28,
-          { links: [link("design", "Foldable")] },
-        ),
-        card(
           "design",
           "Design",
           "Foldable",
@@ -208,14 +183,166 @@ function sampleBoards(): CanvasBoard[] {
       id: "sample-hinge",
       name: "Hinge study",
       nodes: [
-        card("role", "Role", "Product Designer", "Apple. A second canvas, for the hinge on its own.", 36, 48, {
-          links: [link("hinge", "Hinge")],
-        }),
         card("hinge", "Design", "Hinge", "The mechanism, kept apart from the whole foldable.", 320, 140),
       ],
       groups: [],
     },
   ];
+}
+
+function withoutRoleCard(board: CanvasBoard): CanvasBoard {
+  const hadRole =
+    board.nodes.some((node) => node.id === "role" || node.links.some((link) => link.id === "role")) ||
+    board.groups.some((group) => group.members.includes("role"));
+  if (!hadRole) return board;
+  const nodes = board.nodes
+    .filter((node) => node.id !== "role")
+    .map((node) => ({ ...node, links: node.links.filter((link) => link.id !== "role") }));
+  const groups = board.groups.flatMap((group) => {
+    const members = group.members.filter((id) => id !== "role");
+    return members.length > 1 ? [{ ...group, members }] : [];
+  });
+  return { ...board, nodes, groups };
+}
+
+function loadBoards(role: WorkMapRole): CanvasBoard[] {
+  const seed = boardsForRole(role);
+  const stored = readStoredBoards(role);
+  if (!stored) return seed;
+  const roleBoard = stored.find((board) => board.id === role.id);
+  if (!roleBoard) return seed;
+  const extras = stored.filter((board) => board.id !== role.id).map(withoutRoleCard);
+  const missing = seed.filter(
+    (board) => board.id !== role.id && !extras.some((item) => item.id === board.id),
+  );
+  return [withoutRoleCard(roleBoard), ...extras, ...missing];
+}
+
+function loadAllBoards(roles: WorkMapRole[]): CanvasBoard[] {
+  const studies = sampleBoards();
+  const studyIds = new Set(studies.map((board) => board.id));
+  const collected: CanvasBoard[] = [];
+  const seen = new Set<string>();
+  for (const item of roles) {
+    for (const board of reflectRole(loadBoards(item), item)) {
+      if (seen.has(board.id) || studyIds.has(board.id)) continue;
+      seen.add(board.id);
+      collected.push(board);
+    }
+  }
+  return [...collected, ...studies];
+}
+
+function reflectRole(boards: CanvasBoard[], role: WorkMapRole): CanvasBoard[] {
+  let changed = false;
+  const next = boards.map((board) => {
+    const source = withoutRoleCard(board);
+    const isRoleBoard = source.id === role.id;
+    const name = isRoleBoard ? role.title || role.organization || "This role" : source.name;
+    let boardChanged = source !== board || name !== source.name;
+    const nodes = source.nodes.map((node) => {
+      if (!node.achievementId) return node;
+      const statement = achievementStatement(role.achievements, role.achievementIds, node.achievementId);
+      if (!statement || node.title === statement) return node;
+      boardChanged = true;
+      return { ...node, title: statement };
+    });
+    if (!boardChanged) return source;
+    changed = true;
+    return { ...source, name, nodes };
+  });
+  return changed ? next : boards;
+}
+
+function readStoredBoards(role: WorkMapRole): CanvasBoard[] | null {
+  const cached = vaultBoards.get(role.id);
+  if (cached) return cached;
+  const fromVault = readCanvasBoards(role.canvasBoards);
+  if (fromVault) {
+    vaultBoards.set(role.id, fromVault);
+    savedBoardJson.set(role.id, JSON.stringify(fromVault));
+    return fromVault;
+  }
+  return readLegacyBoards(role.id);
+}
+
+function readLegacyBoards(roleId: string): CanvasBoard[] | null {
+  try {
+    const raw = localStorage.getItem(BOARD_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") return null;
+    return readCanvasBoards((parsed as Record<string, unknown>)[roleId]);
+  } catch {
+    return null;
+  }
+}
+
+function forgetLegacyBoards(roleId: string) {
+  try {
+    const raw = localStorage.getItem(BOARD_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object" || !(roleId in parsed)) return;
+    delete parsed[roleId];
+    if (Object.keys(parsed).length === 0) localStorage.removeItem(BOARD_KEY);
+    else localStorage.setItem(BOARD_KEY, JSON.stringify(parsed));
+  } catch {
+    /* storage can be unavailable */
+  }
+}
+
+function scheduleVaultSave(roleId: string, boards: CanvasBoard[]) {
+  const json = JSON.stringify(boards);
+  vaultBoards.set(roleId, boards);
+  if (savedBoardJson.get(roleId) === json) return;
+  pendingBoards.set(roleId, boards);
+  const previous = saveTail.get(roleId) ?? Promise.resolve();
+  const next = previous.then(() => sendLatestBoards(roleId), () => sendLatestBoards(roleId));
+  saveTail.set(roleId, next);
+}
+
+async function sendLatestBoards(roleId: string) {
+  const boards = pendingBoards.get(roleId);
+  if (!boards) return;
+  pendingBoards.delete(roleId);
+  const json = JSON.stringify(boards);
+  if (savedBoardJson.get(roleId) === json) return;
+  let response: Response;
+  try {
+    response = await fetch(`/api/work-map/roles/${roleId}/canvas`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: `{"boards":${json}}`,
+    });
+  } catch {
+    if (!pendingBoards.has(roleId)) pendingBoards.set(roleId, boards);
+    return;
+  }
+  if (!response.ok) {
+    if (!pendingBoards.has(roleId)) pendingBoards.set(roleId, boards);
+    return;
+  }
+  if (pendingBoards.has(roleId)) return;
+  savedBoardJson.set(roleId, json);
+  forgetLegacyBoards(roleId);
+}
+
+function nodeDraft(node: CanvasNode): {
+  id: string;
+  kind: CanvasNodeKind;
+  title: string;
+  body: string;
+  url: string;
+  achievementId?: string;
+} {
+  return {
+    id: node.id,
+    kind: isCanvasNodeKind(node.kind) ? node.kind : "Design",
+    title: node.title,
+    body: node.body,
+    url: node.url,
+    achievementId: node.achievementId,
+  };
 }
 
 type Frame = { left: number; top: number; width: number; height: number };
@@ -252,25 +379,39 @@ type Viewer = { title: string; url: string; kind: string } | null;
 
 export function RoleCanvasEntry({
   role,
+  roles,
+  scope = "role",
   minimized,
   slot,
   dockSlot,
   onMinimizedChange,
   onShowRole,
+  onOpenRole,
   onClose,
 }: {
   role: WorkMapRole;
+  roles?: WorkMapRole[];
+  scope?: "role" | "all";
   minimized: boolean;
   slot: HTMLElement | null;
   dockSlot: HTMLElement | null;
   onMinimizedChange: (minimized: boolean) => void;
   onShowRole: () => void;
+  onOpenRole?: (role: WorkMapRole) => void;
   onClose: () => void;
 }) {
-  const seeded = useMemo(() => boardsForRole(role), [role]);
-  const openingViewport = readViewport(role.id, seeded[0]?.id ?? "");
-  const [boards, setBoards] = useState(seeded);
-  const [canvasId, setCanvasId] = useState(seeded[0]?.id ?? "");
+  const catalog = useMemo(
+    () => (scope === "all" ? (roles ?? []) : [role]),
+    [scope, role, roles],
+  );
+  const openingId = scope === "all" ? (catalog[0]?.id ?? role.id) : role.id;
+  const openingViewport = readViewport(scope === "all" ? openingId : role.id, openingId);
+  const [boards, setBoards] = useState(() =>
+    scope === "all" ? loadAllBoards(catalog) : reflectRole(loadBoards(role), role),
+  );
+  const [canvasId, setCanvasId] = useState(openingId);
+  const [boardKind, setBoardKind] = useState<"all" | CareerHistorySectionKey>("all");
+  const [boardRoleId, setBoardRoleId] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
@@ -314,7 +455,6 @@ export function RoleCanvasEntry({
   const panPadRef = useRef(0);
   const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [view, setView] = useState({ left: 0, top: 0, width: 1, height: 1 });
-  const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [zoomPos, setZoomPos] = useState<{ left: number; top: number } | null>(null);
   const [mapBelow, setMapBelow] = useState(false);
   const zoomClusterRef = useRef<HTMLDivElement>(null);
@@ -324,8 +464,15 @@ export function RoleCanvasEntry({
     title: string;
     body: string;
     url: string;
+    achievementId?: string;
   } | null>(null);
+  const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
+  const [panelWidth, setPanelWidth] = useState(288);
   const [nodeError, setNodeError] = useState("");
+
+  useEffect(() => {
+    if (!draft) setPanelPos(null);
+  }, [draft]);
   const windowRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const planeRef = useRef<HTMLDivElement>(null);
@@ -377,27 +524,56 @@ export function RoleCanvasEntry({
   }, [open, maximized]);
 
   useEffect(() => {
-    setBoards(seeded);
-    setCanvasId(seeded[0]?.id ?? "");
-    setSelectedId(null);
-    setSelection([]);
-    setSelectedGroupId(null);
-    setNodeMenu(null);
-    setCanvasMenu(null);
-    setGuides([]);
-    setDraft(null);
-    setNodeError("");
-    setViewer(null);
-    undoRef.current = [];
-    redoRef.current = [];
-    copiedRef.current = [];
-  }, [seeded]);
+    if (scope === "all") {
+      setBoards((current) => catalog.reduce((next, item) => reflectRole(next, item), current));
+      return;
+    }
+    setBoards((current) => reflectRole(current, role));
+    setDraft((current) => {
+      if (!current?.achievementId) return current;
+      const statement = achievementStatement(role.achievements, role.achievementIds, current.achievementId);
+      if (!statement || current.title === statement) return current;
+      return { ...current, title: statement };
+    });
+  }, [role, scope, catalog]);
 
   const canvas = boards.find((board) => board.id === canvasId) ?? boards[0];
   const selected = canvas?.nodes.find((node) => node.id === selectedId) ?? null;
-  const linked = (canvas?.nodes.filter((node) => node.id !== "role" && node.kind !== "Achievement") ?? []);
+  const focusRole = scope === "all" ? (catalog.find((item) => item.id === canvas?.id) ?? null) : role;
+  const roleBoard = boards.find((board) => board.id === (focusRole?.id ?? role.id));
+  const linkedIds = new Set<string>();
+  for (const node of roleBoard?.nodes ?? []) {
+    for (const link of node.links) {
+      if (!link.id || link.id === node.id) continue;
+      linkedIds.add(node.id);
+      linkedIds.add(link.id);
+    }
+  }
+  const linked = roleBoard?.nodes.filter((node) => node.id !== "role" && linkedIds.has(node.id)) ?? [];
+  const achievementRefs = (focusRole?.achievements ?? []).flatMap((line, index) => {
+    const statement = line.trim();
+    if (!statement) return [];
+    return [{ id: focusRole?.achievementIds?.[index] ?? "", statement }];
+  });
   const boardsRef = useRef(boards);
   boardsRef.current = boards;
+
+  useEffect(() => {
+    if (scope === "all") {
+      for (const item of catalog) {
+        const own = boards.find((board) => board.id === item.id);
+        if (!own) continue;
+        const stored = readStoredBoards(item) ?? boardsForRole(item);
+        const next = stored.some((board) => board.id === own.id)
+          ? stored.map((board) => (board.id === own.id ? own : board))
+          : [own, ...stored];
+        if (JSON.stringify(stored) !== JSON.stringify(next)) scheduleVaultSave(item.id, next);
+      }
+      return;
+    }
+    if (!boards.some((board) => board.id === role.id)) return;
+    scheduleVaultSave(role.id, boards);
+  }, [boards, role.id, scope, catalog]);
 
   useEffect(() => {
     if (!open || minimized) return;
@@ -507,6 +683,7 @@ export function RoleCanvasEntry({
         title: node.title,
         body: node.body,
         url: node.url,
+        achievementId: node.achievementId,
       };
     });
     setSelectedId((current) => (current && ids.has(current) ? current : null));
@@ -537,13 +714,7 @@ export function RoleCanvasEntry({
     if (!selectedId) return;
     const node = boardsRef.current.flatMap((board) => board.nodes).find((item) => item.id === selectedId);
     if (!node) return;
-    setDraft({
-      id: node.id,
-      kind: isCanvasNodeKind(node.kind) ? node.kind : "Design",
-      title: node.title,
-      body: node.body,
-      url: node.url,
-    });
+    setDraft(nodeDraft(node));
     setNodeError("");
   }, [selectedId]);
 
@@ -556,17 +727,53 @@ export function RoleCanvasEntry({
     );
   }
 
+  function viewOwner(boardId: string) {
+    if (scope !== "all") return role.id;
+    return catalog.some((item) => item.id === boardId) ? boardId : "all";
+  }
+
   function showHome(nextId: string) {
     rememberViewport();
-    const saved = readViewport(role.id, nextId);
+    const saved = readViewport(viewOwner(nextId), nextId);
     chromeRef.current = EMPTY_CHROME;
     pendingScroll.current = { left: saved?.x ?? 0, top: saved?.y ?? 0 };
     setZoom(saved?.zoom ?? 1);
+    if (nextId !== canvasId) {
+      setDraft(null);
+      setNodeError("");
+    }
     setCanvasId(nextId);
     setSelectedId(null);
     setLinkOpen(false);
     setTitleOpen(false);
-    setPanelPos(null);
+  }
+
+  function showRoleBoards(item: WorkMapRole) {
+    setBoardRoleId(item.id);
+    if (canvasId !== item.id) showHome(item.id);
+  }
+
+  function openMainBoard(item: WorkMapRole) {
+    if (boardRoleId === item.id) {
+      setBoardRoleId(null);
+      return;
+    }
+    showRoleBoards(item);
+  }
+
+  function chooseKind(next: "all" | CareerHistorySectionKey) {
+    if (next !== "all" && next === boardKind && boardRoleId) {
+      setBoardRoleId(null);
+      return;
+    }
+    setBoardKind(next);
+    if (next === "all") return;
+    const sectionRoles = catalog.filter((item) => classifyCareerHistorySection(item) === next);
+    const current =
+      catalog.find((item) => item.id === canvasId) ??
+      catalog.find((item) => item.id === boardRoleId);
+    const match = sectionRoles.find((item) => item.id === current?.id) ?? sectionRoles[0];
+    if (match) openMainBoard(match);
   }
 
   function openCanvas(nodeId: string | null) {
@@ -574,7 +781,6 @@ export function RoleCanvasEntry({
     if (minimized) onMinimizedChange(false);
     setSelectedId(nodeId);
     setLinkOpen(false);
-    setPanelPos(null);
   }
 
   function closeCanvas() {
@@ -592,6 +798,7 @@ export function RoleCanvasEntry({
   }
 
   function onLinked(node: CanvasNode) {
+    if (scope !== "all" && canvasId !== role.id) showHome(role.id);
     if (node.kind === "Video" || node.kind === "Photo") {
       openViewer(node);
       return;
@@ -692,6 +899,96 @@ export function RoleCanvasEntry({
     }
     bar.addEventListener("pointermove", move);
     bar.addEventListener("pointerup", up);
+  }
+
+  function dragPanel(event: ReactPointerEvent<HTMLElement>) {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button, input, textarea, select, a, .role-canvas-controls-resize")) return;
+    const panel = event.currentTarget;
+    const host = windowRef.current;
+    if (!host) return;
+    const hostBox = host.getBoundingClientRect();
+    const box = panel.getBoundingClientRect();
+    const originLeft = box.left - hostBox.left;
+    const originTop = box.top - hostBox.top;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const width = box.width;
+    let dragging = false;
+    let place: { left: number; top: number } | null = null;
+    try {
+      panel.setPointerCapture(event.pointerId);
+    } catch {
+      /* capture is optional */
+    }
+    function move(next: PointerEvent) {
+      if (next.pointerId !== event.pointerId) return;
+      if (!dragging) {
+        if ((next.clientX - startX) ** 2 + (next.clientY - startY) ** 2 < 16) return;
+        dragging = true;
+      }
+      const maxLeft = Math.max(8, host.clientWidth - width - 8);
+      const maxTop = Math.max(40, host.clientHeight - 48);
+      place = {
+        left: Math.min(Math.max(8, originLeft + next.clientX - startX), maxLeft),
+        top: Math.min(Math.max(40, originTop + next.clientY - startY), maxTop),
+      };
+      setPanelPos(place);
+    }
+    function up(next: PointerEvent) {
+      if (next.pointerId !== event.pointerId) return;
+      panel.removeEventListener("pointermove", move);
+      panel.removeEventListener("pointerup", up);
+      panel.removeEventListener("pointercancel", up);
+      if (!dragging || !place) return;
+      const gap = host.clientWidth - (place.left + width);
+      if (gap <= 80) setPanelPos(null);
+    }
+    panel.addEventListener("pointermove", move);
+    panel.addEventListener("pointerup", up);
+    panel.addEventListener("pointercancel", up);
+  }
+
+  function resizePanel(event: ReactPointerEvent<HTMLElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const host = windowRef.current;
+    const panel = event.currentTarget.parentElement;
+    if (!host || !panel) return;
+    const hostBox = host.getBoundingClientRect();
+    const box = panel.getBoundingClientRect();
+    const originWidth = box.width;
+    const originLeft = box.left - hostBox.left;
+    const originTop = panelPos?.top ?? box.top - hostBox.top;
+    const floating = panelPos !== null;
+    const startX = event.clientX;
+    const grip = event.currentTarget;
+    try {
+      grip.setPointerCapture(event.pointerId);
+    } catch {
+      /* capture is optional */
+    }
+    function move(next: PointerEvent) {
+      if (next.pointerId !== event.pointerId) return;
+      const max = Math.max(240, Math.min(host.clientWidth - 48, host.clientWidth * 0.62));
+      const width = Math.round(Math.min(max, Math.max(240, originWidth - (next.clientX - startX))));
+      setPanelWidth(width);
+      if (!floating) return;
+      setPanelPos({
+        left: Math.min(Math.max(8, originLeft + originWidth - width), Math.max(8, host.clientWidth - width - 8)),
+        top: originTop,
+      });
+    }
+    function up(next: PointerEvent) {
+      if (next.pointerId !== event.pointerId) return;
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+    }
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
   }
 
   function dragWindow(event: ReactPointerEvent<HTMLElement>) {
@@ -1321,7 +1618,7 @@ export function RoleCanvasEntry({
     const stage = stageRef.current;
     if (!boardId || !stage || stage.clientWidth < 1 || stage.clientHeight < 1) return;
     const origin = planeOrigin();
-    writeViewport(role.id, boardId, {
+    writeViewport(viewOwner(boardId), boardId, {
       x: stage.scrollLeft - origin.left,
       y: stage.scrollTop - origin.top,
       zoom,
@@ -1560,9 +1857,49 @@ export function RoleCanvasEntry({
     setDraft({ id: null, kind: "Design", title: "", body: "", url: "" });
   }
 
+  function placeAchievement(achievement: { id: string; statement: string }, targetId?: string) {
+    if (!canvas) return;
+    const title = achievement.statement.trim();
+    if (!title) return;
+    const prepared = prepareCanvasNode({ kind: "Design", title, body: "", url: "" });
+    if (!prepared.ok) return;
+    const target = targetId ? canvas.nodes.find((node) => node.id === targetId) : null;
+    if (targetId && !target) return;
+    remember();
+    const anchor = canvas.nodes[canvas.nodes.length - 1];
+    const created: CanvasNode = {
+      id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      ...prepared.value,
+      achievementId: achievement.id || undefined,
+      x: anchor ? anchor.x + 36 : 24,
+      y: anchor ? anchor.y + 36 : 48,
+      notes: [],
+      links: target
+        ? [{ key: target.id, id: target.id, label: target.title || target.kind, relation: "evidence" }]
+        : [],
+    };
+    const boardId = canvas.id;
+    setBoards((current) =>
+      current.map((board) =>
+        board.id === boardId ? { ...board, nodes: [...board.nodes, created] } : board,
+      ),
+    );
+    setDraft({ id: created.id, ...prepared.value, achievementId: created.achievementId });
+    setSelectedId(created.id);
+    setNodeError("");
+    setLinkOpen(false);
+  }
+
   function saveNode() {
     if (!draft || !canvas) return;
-    const prepared = prepareCanvasNode(draft);
+    const title = draft.achievementId
+      ? achievementStatement(
+          focusRole?.achievements ?? [],
+          focusRole?.achievementIds,
+          draft.achievementId,
+        ) ?? draft.title
+      : draft.title;
+    const prepared = prepareCanvasNode({ ...draft, title });
     if (!prepared.ok) {
       setNodeError(prepared.error === "title-required" ? "A node needs a title." : "Choose a kind.");
       return;
@@ -1571,7 +1908,7 @@ export function RoleCanvasEntry({
     remember();
     if (draft.id) {
       patchNode(draft.id, prepared.value);
-      setDraft({ id: draft.id, ...prepared.value });
+      setDraft({ id: draft.id, ...prepared.value, achievementId: draft.achievementId });
       return;
     }
     const anchor = canvas.nodes[canvas.nodes.length - 1];
@@ -1710,6 +2047,8 @@ export function RoleCanvasEntry({
       className={[
         "role-canvas",
         minimized ? "is-minimized" : "",
+        draft ? "is-editing" : "",
+        panelPos ? "is-panel-free" : "",
         railOpen ? "" : "is-rail-shut",
         maximized ? "is-maximized" : "",
         selected ? "is-focus" : "",
@@ -1719,7 +2058,7 @@ export function RoleCanvasEntry({
       ref={windowRef}
       role="dialog"
       aria-label="Canvas"
-      style={geometry}
+      style={{ ...(geometry ?? {}), "--panel-width": `${panelWidth}px` }}
     >
       {["n", "s", "e", "w", "nw", "ne", "sw", "se"].map((edge) => (
         <div
@@ -1738,7 +2077,18 @@ export function RoleCanvasEntry({
         }}
       >
         <h2>
-          {role.title.trim() ? (
+          <button
+            type="button"
+            className="role-canvas-panel-toggle"
+            aria-expanded={railOpen}
+            aria-label={railOpen ? "Close boards" : "Open boards"}
+            onClick={() => setRailOpen((open) => !open)}
+          >
+            <Icon name={railOpen ? "rail" : "railOff"} />
+          </button>
+          {scope === "all" ? (
+            <span className="role-canvas-title">Career history</span>
+          ) : role.title.trim() ? (
             <button
               type="button"
               className="role-canvas-title"
@@ -1752,7 +2102,7 @@ export function RoleCanvasEntry({
               {role.title.trim()}
             </button>
           ) : (
-            "Canvas"
+            <span className="role-canvas-title">Canvas</span>
           )}
           {titleOpen && role.title.trim() ? (
             <div className="role-canvas-title-menu" role="menu">
@@ -1861,46 +2211,80 @@ export function RoleCanvasEntry({
       </div>
       {draft && canvas ? (
         <section
-          className="role-canvas-controls"
+          className={panelPos ? "role-canvas-controls is-free" : "role-canvas-controls"}
           aria-label={draft.id ? `${draft.kind} ${draft.title}` : "New node"}
-          style={panelPos ?? undefined}
+          style={panelPos ? { left: panelPos.left, top: panelPos.top } : undefined}
+          onPointerDown={dragPanel}
         >
-          <div
-            className="role-canvas-controls-head"
-            onPointerDown={(event) => {
-              if (event.button !== 0 || (event.target as HTMLElement).closest("button, input, textarea, select")) return;
-              const panel = event.currentTarget.parentElement;
-              if (!panel) return;
-              const box = panel;
-              const originLeft = box.offsetLeft;
-              const originTop = box.offsetTop;
-              const startX = event.clientX;
-              const startY = event.clientY;
-              const head = event.currentTarget;
-              function move(next: PointerEvent) {
-                if (next.pointerId !== event.pointerId) return;
-                const host = windowRef.current;
-                const maxLeft = Math.max(8, (host?.clientWidth ?? 320) - box.offsetWidth - 8);
-                const maxTop = Math.max(40, (host?.clientHeight ?? 240) - 80);
-                setPanelPos({
-                  left: Math.min(Math.max(8, originLeft + next.clientX - startX), maxLeft),
-                  top: Math.min(Math.max(40, originTop + next.clientY - startY), maxTop),
-                });
-              }
-              function up(next: PointerEvent) {
-                if (next.pointerId !== event.pointerId) return;
-                head.removeEventListener("pointermove", move);
-                head.removeEventListener("pointerup", up);
-              }
-              head.addEventListener("pointermove", move);
-              head.addEventListener("pointerup", up);
+          <button
+            type="button"
+            className="role-canvas-controls-resize"
+            aria-label="Resize width"
+            aria-valuemin={240}
+            aria-valuenow={Math.round(panelWidth)}
+            aria-valuemax={560}
+            onPointerDown={resizePanel}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              event.preventDefault();
+              const host = windowRef.current;
+              const step = event.shiftKey ? 32 : 16;
+              const delta = event.key === "ArrowLeft" ? step : -step;
+              const max = host ? Math.max(240, Math.min(host.clientWidth - 48, host.clientWidth * 0.62)) : 560;
+              const width = Math.round(Math.min(max, Math.max(240, panelWidth + delta)));
+              setPanelWidth(width);
+              if (!panelPos || !host) return;
+              setPanelPos({
+                left: Math.min(Math.max(8, panelPos.left + panelWidth - width), Math.max(8, host.clientWidth - width - 8)),
+                top: panelPos.top,
+              });
             }}
           >
-            <p>{draft.id ? `${draft.kind} · ${draft.title || "Untitled"}` : "New node"}</p>
+            <span />
+            <span />
+            <span />
+          </button>
+          <div className="role-canvas-controls-body">
+          <div className="role-canvas-controls-head">
             <button type="button" onClick={() => { setSelectedId(null); setSelection([]); setSelectedGroupId(null); setDraft(null); setNodeError(""); }}>
               Done
             </button>
           </div>
+          {!draft.id && achievementRefs.length > 0 ? (
+            <div className="role-canvas-suggest" aria-label="Achievements on this role">
+              <p>Achievements on this role</p>
+              <ul>
+                {achievementRefs.map((achievement, index) => (
+                  <li key={achievement.id || `${index}-${achievement.statement.slice(0, 24)}`}>
+                    <button type="button" onClick={() => placeAchievement(achievement)}>
+                      {achievement.statement}
+                    </button>
+                    {canvas.nodes.length > 0 ? (
+                      <label>
+                        Link to
+                        <select
+                          aria-label="Link this achievement to a node"
+                          defaultValue=""
+                          onChange={(event) => {
+                            const targetId = event.target.value;
+                            event.target.value = "";
+                            if (targetId) placeAchievement(achievement, targetId);
+                          }}
+                        >
+                          <option value="">A node on this board</option>
+                          {canvas.nodes.map((node) => (
+                            <option key={node.id} value={node.id}>
+                              {node.title || node.kind}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <label>
             Kind
             <select
@@ -1924,6 +2308,7 @@ export function RoleCanvasEntry({
             <input
               aria-label="Title"
               value={draft.title}
+              readOnly={Boolean(draft.achievementId)}
               onChange={(event) => setDraft({ ...draft, title: event.target.value })}
             />
           </label>
@@ -2010,6 +2395,7 @@ export function RoleCanvasEntry({
             ) : null}
           </div>
           {nodeError ? <p className="role-canvas-node-error">{nodeError}</p> : null}
+          </div>
         </section>
       ) : null}
       <div className="role-canvas-body">
@@ -2017,43 +2403,66 @@ export function RoleCanvasEntry({
         <aside className="role-canvas-rail" aria-label="Boards">
           <div className="role-canvas-rail-head">
             <strong>Boards</strong>
-            <button type="button" aria-label="Collapse boards" onClick={() => setRailOpen(false)}>
-              <RailCollapseIcon />
-            </button>
           </div>
-          <input
-            aria-label="Find a board"
-            placeholder="Find a board"
-            value={boardQuery}
-            onChange={(event) => setBoardQuery(event.target.value)}
-          />
-          <div className="role-canvas-rail-groups">
-            {boardGroups(boards, role.id, boardQuery).map((group) => (
-              <div key={group.label}>
-                <p>{group.label}</p>
-                {group.boards.map((board) => (
-                  <button
-                    key={board.id}
-                    type="button"
-                    className={board.id === canvasId ? "is-on" : ""}
-                    aria-current={board.id === canvasId ? "page" : undefined}
-                    onClick={() => showHome(board.id)}
-                  >
-                    <span>{board.name}</span>
-                    <b>{board.nodes.length}</b>
-                  </button>
+          <div className="role-canvas-rail-find">
+            <input
+              aria-label="Find a board"
+              placeholder="Find a board"
+              value={boardQuery}
+              onChange={(event) => setBoardQuery(event.target.value)}
+            />
+            {scope === "all" ? (
+              <select
+                aria-label="Sort jobs"
+                value={boardKind}
+                onChange={(event) => chooseKind(event.target.value as "all" | CareerHistorySectionKey)}
+              >
+                <option value="all">All</option>
+                {CAREER_HISTORY_SECTIONS.map((section) => (
+                  <option key={section.key} value={section.key}>
+                    {section.label}
+                  </option>
                 ))}
-              </div>
-            ))}
+              </select>
+            ) : null}
+          </div>
+          <div className="role-canvas-rail-groups">
+            {scope === "all" ? (
+              <OverviewRail
+                roles={catalog}
+                boards={boards}
+                kind={boardKind}
+                query={boardQuery}
+                roleId={boardRoleId}
+                canvasId={canvasId}
+                onKind={chooseKind}
+                onRole={openMainBoard}
+                onOpenRole={onOpenRole}
+                onBoard={showHome}
+              />
+            ) : (
+              boardGroups(boards, role.id, boardQuery).map((group) => (
+                <div key={group.label}>
+                  <p>{group.label}</p>
+                  {group.boards.map((board) => (
+                    <button
+                      key={board.id}
+                      type="button"
+                      className={board.id === canvasId ? "is-on" : ""}
+                      aria-current={board.id === canvasId ? "page" : undefined}
+                      onClick={() => showHome(board.id)}
+                    >
+                      <span>{board.name}</span>
+                      <b>{board.nodes.length}</b>
+                    </button>
+                  ))}
+                </div>
+              ))
+            )}
           </div>
         </aside>
       ) : null}
       <div className="role-canvas-board">
-      {railOpen ? null : (
-        <button type="button" className="role-canvas-rail-expand" aria-label="Expand boards" onClick={() => setRailOpen(true)}>
-          <RailExpandIcon />
-        </button>
-      )}
       <div
         className={["role-canvas-stage", tool === "pan" ? "is-pan" : ""].filter(Boolean).join(" ")}
         ref={stageRef}
@@ -2357,6 +2766,18 @@ export function RoleCanvasEntry({
           })}
         </div>
       </div>
+      {(canvas?.nodes.length ?? 0) === 0 ? (
+        <div className="role-canvas-empty">
+          <button type="button" className="role-canvas-empty-add" onClick={beginAdd}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
+            add node
+          </button>
+          <p>
+            Use add node to start.
+            {achievementRefs.length > 0 ? " Achievements on this role can be suggested." : null}
+          </p>
+        </div>
+      ) : null}
       <div
         ref={zoomClusterRef}
         className={["role-canvas-zoom", mapBelow ? "is-map-below" : ""].filter(Boolean).join(" ")}
@@ -2418,8 +2839,9 @@ export function RoleCanvasEntry({
               {canvas?.nodes.filter((node) => `${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase())).length ?? 0} of {canvas?.nodes.length ?? 0}
             </span>
           ) : null}
-          <button type="button" className="tool" aria-label="Add" onClick={beginAdd}>
+          <button type="button" className="tool is-add" aria-label="Add node" onClick={beginAdd}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
+            add node
           </button>
         </div>
       </div>
@@ -2469,7 +2891,7 @@ export function RoleCanvasEntry({
       {canvasMenu ? (
         <CanvasContextMenu x={canvasMenu.x} y={canvasMenu.y}>
           <MenuButton
-            label="Add"
+            label="Add node"
             icon={<PlusMark />}
             onClick={() => {
               closeMenus();
@@ -2846,9 +3268,7 @@ function useWires(canvas: CanvasBoard | undefined, active: boolean, zoom: number
       return;
     }
     const next: Array<{ id: string; fromId: string; toId: string; d: string; hit: string; live: boolean; explicit: boolean; relation: string; mx: number; my: number }> = [];
-    const pairs: Array<[string, string]> = canvas.nodes
-      .filter((node) => node.id !== "role")
-      .map((node) => ["role", node.id]);
+    const pairs: Array<[string, string]> = [];
     for (const node of canvas.nodes) {
       for (const link of node.links) {
         if (!canvas.nodes.some((item) => item.id === link.id)) continue;
@@ -3005,27 +3425,182 @@ function CloseIcon() {
   );
 }
 
-function boardGroups(boards: CanvasBoard[], roleId: string, query: string) {
+function boardsUnderRole(item: WorkMapRole, live: CanvasBoard[]): CanvasBoard[] {
+  return reflectRole(loadBoards(item), item).map(
+    (board) => live.find((current) => current.id === board.id) ?? board,
+  );
+}
+
+function OverviewRail({
+  roles,
+  boards,
+  kind,
+  query,
+  roleId,
+  canvasId,
+  onKind,
+  onRole,
+  onOpenRole,
+  onBoard,
+}: {
+  roles: WorkMapRole[];
+  boards: CanvasBoard[];
+  kind: "all" | CareerHistorySectionKey;
+  query: string;
+  roleId: string | null;
+  canvasId: string;
+  onKind: (next: "all" | CareerHistorySectionKey) => void;
+  onRole: (item: WorkMapRole) => void;
+  onOpenRole?: (item: WorkMapRole) => void;
+  onBoard: (boardId: string) => void;
+}) {
   const needle = query.trim().toLowerCase();
-  const listed = boards.filter((board) => !needle || board.name.toLowerCase().includes(needle));
-  return [
-    { label: "This role", boards: listed.filter((board) => board.id === roleId) },
-    { label: "Studies", boards: listed.filter((board) => board.id !== roleId) },
-  ].filter((group) => group.boards.length > 0);
-}
-
-function RailCollapseIcon() {
+  const sections = CAREER_HISTORY_SECTIONS.filter((section) => kind === "all" || kind === section.key);
+  const rendered = sections.map((section) => {
+    const rows = roles.flatMap((item) => {
+      if (classifyCareerHistorySection(item) !== section.key) return [];
+      const owned = boardsUnderRole(item, boards);
+      const roleHit =
+        !needle || [item.organization, item.title].join(" ").toLowerCase().includes(needle);
+      const visible = roleHit
+        ? owned
+        : owned.filter((board) => board.name.toLowerCase().includes(needle));
+      if (!roleHit && visible.length === 0) return [];
+      return [{ item, boards: visible }];
+    });
+    if (rows.length === 0) return null;
+    return (
+      <div key={section.key}>
+        <button type="button" className="role-canvas-rail-cat" onClick={() => onKind(section.key)}>
+          {section.label}
+        </button>
+        {rows.map(({ item, boards: owned }) => {
+          const name = item.organization || item.title || "This role";
+          const opened = roleId === item.id;
+          return (
+          <div key={item.id}>
+            <div className={opened ? "role-canvas-rail-role is-on" : "role-canvas-rail-role"}>
+              <button
+                type="button"
+                className="role-canvas-rail-name"
+                aria-expanded={opened}
+                onClick={() => onRole(item)}
+              >
+                {name}
+              </button>
+              <b>{owned.length}</b>
+              <button
+                type="button"
+                className="role-canvas-rail-open"
+                aria-label={`Open ${name}`}
+                onClick={() => (onOpenRole ?? onRole)(item)}
+              >
+                <svg viewBox="0 0 12 12" aria-hidden="true">
+                  <path d="M4 2.2 8 6 4 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+            {opened ? (
+              <div className="role-canvas-rail-own">
+                {owned.map((board) => (
+                  <button
+                    key={board.id}
+                    type="button"
+                    className={board.id === canvasId ? "is-on" : ""}
+                    aria-current={board.id === canvasId ? "page" : undefined}
+                    onClick={() => onBoard(board.id)}
+                  >
+                    <span>{board.id === item.id ? item.title || "This role" : board.name}</span>
+                    <b>{board.nodes.length}</b>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          );
+        })}
+      </div>
+    );
+  });
+  const studies =
+    kind === "all"
+      ? boards.filter(
+          (board) =>
+            !roles.some((item) => item.id === board.id) &&
+            (!needle || board.name.toLowerCase().includes(needle)),
+        )
+      : [];
+  if (rendered.every((section) => section === null) && studies.length === 0) {
+    return <p>No boards match.</p>;
+  }
   return (
-    <svg viewBox="0 0 12 12" aria-hidden="true">
-      <path d="M7.5 2.2 3.5 6 7.5 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
+    <>
+      {rendered}
+      {studies.length > 0 ? (
+        <div>
+          <p>Studies</p>
+          {studies.map((board) => (
+            <button
+              key={board.id}
+              type="button"
+              className={board.id === canvasId ? "is-on" : ""}
+              aria-current={board.id === canvasId ? "page" : undefined}
+              onClick={() => onBoard(board.id)}
+            >
+              <span>{board.name}</span>
+              <b>{board.nodes.length}</b>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </>
   );
 }
 
-function RailExpandIcon() {
-  return (
-    <svg viewBox="0 0 12 12" aria-hidden="true">
-      <path d="M4.5 2.2 8.5 6 4.5 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
+function boardGroups(
+  boards: CanvasBoard[],
+  roleId: string,
+  query: string,
+  scope: "role" | "all" = "role",
+  roles: WorkMapRole[] = [],
+  kind: "all" | CareerHistorySectionKey = "all",
+) {
+  const needle = query.trim().toLowerCase();
+  const matches = (board: CanvasBoard) => {
+    if (!needle) return true;
+    const owner = roles.find((item) => item.id === board.id);
+    return [board.name, owner?.organization, owner?.title]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(needle);
+  };
+  if (scope !== "all") {
+    const listed = boards.filter((board) => !needle || board.name.toLowerCase().includes(needle));
+    return [
+      { label: "This role", boards: listed.filter((board) => board.id === roleId) },
+      { label: "Studies", boards: listed.filter((board) => board.id !== roleId) },
+    ].filter((group) => group.boards.length > 0);
+  }
+  const sections =
+    kind === "all"
+      ? CAREER_HISTORY_SECTIONS
+      : CAREER_HISTORY_SECTIONS.filter((section) => section.key === kind);
+  const groups: { label: string; boards: CanvasBoard[] }[] = sections
+    .map((section) => ({
+      label: section.label,
+      boards: roles
+        .filter((item) => classifyCareerHistorySection(item) === section.key)
+        .map((item) => boards.find((board) => board.id === item.id))
+        .filter((board): board is CanvasBoard => Boolean(board && matches(board))),
+    }))
+    .filter((group) => group.boards.length > 0);
+  if (kind === "all") {
+    const studies = boards.filter(
+      (board) => !roles.some((item) => item.id === board.id) && matches(board),
+    );
+    if (studies.length > 0) groups.push({ label: "Studies", boards: studies });
+  }
+  return groups;
 }
+
