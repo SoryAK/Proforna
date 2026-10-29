@@ -8,6 +8,26 @@
         "value": "geist",
         "createdAt": "2026-09-28T22:56:08.499Z",
         "reason": "DESIGN.md names Geist as the one typeface for identity, headings, and controls."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "web/prototypes/prototype-publish-corner-1.html",
+          "web/prototypes/prototype-publish-corner-2.html",
+          "web/prototypes/prototype-publish-corner-3.html"
+        ],
+        "createdAt": "2026-10-23T14:18:28.280Z",
+        "reason": "Throwaway Career History sketches. The user asked for Geist, which is the documented typeface."
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "web/prototypes/prototype-focus-panel.html"
+        ],
+        "createdAt": "2026-10-25T00:16:54.290Z",
+        "reason": "Throwaway focus-panel sketch. The user asked for Geist, the documented typeface."
       }
     ]
   }

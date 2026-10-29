@@ -431,6 +431,12 @@
   background: #0d5c2b;
 }
 
+.role-canvas-save-error {
+  margin-right: 0.45rem;
+  color: #f5f2ee;
+  font-size: 0.75rem;
+}
+
 .role-canvas-actions > button:hover {
   background: rgba(167, 139, 113, 0.16);
 }
@@ -1167,6 +1173,14 @@
   pointer-events: none;
 }
 
+.role-canvas-edge-label {
+  pointer-events: none;
+}
+
+.role-canvas-edge-label-plate {
+  fill: #221e1a;
+}
+
 .role-canvas-node {
   position: absolute;
   width: 13rem;
@@ -1314,8 +1328,59 @@
   color: var(--gold-hover);
 }
 
+.role-canvas-group-bounds {
+  position: absolute;
+  z-index: 0;
+  box-sizing: border-box;
+  border: 1.5px dashed #e8d5b7;
+  border-radius: 12px;
+  background: rgba(232, 213, 183, 0.12);
+  pointer-events: none;
+}
+
+.role-canvas.is-wiring .role-canvas-group-bounds {
+  pointer-events: auto;
+}
+
+.role-canvas-group-bounds.is-hot {
+  border-color: #f5f2ee;
+  background: rgba(232, 213, 183, 0.2);
+}
+
+.role-canvas-group-bounds.is-selected {
+  border-color: #f5f2ee;
+  border-width: 2px;
+  background: rgba(245, 242, 238, 0.16);
+  box-shadow: 0 0 0 1px rgba(245, 242, 238, 0.35), 0 0 22px rgba(232, 213, 183, 0.45);
+}
+
+.role-canvas-group-bounds.is-selected .role-canvas-group-label {
+  color: #f5f2ee;
+}
+
+.role-canvas-group-label {
+  position: absolute;
+  top: 0;
+  left: 0.7rem;
+  max-width: calc(100% - 1.4rem);
+  padding: 0 0.35rem;
+  overflow: hidden;
+  background: #221e1a;
+  color: #e8d5b7;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateY(-50%);
+}
+
 .role-canvas-node.is-group {
   z-index: 4;
+}
+
+.role-canvas-node.is-group.is-selected:not(.is-open) {
+  box-shadow: 0 0 0 1px #f5f2ee, 0 0 18px rgba(232, 213, 183, 0.4);
 }
 
 .role-canvas-node.is-group:not(.is-open) {

@@ -1,0 +1,345 @@
+<!--
+  Throwaway. Overview mode: bio and the job list stay open; totals collapse.
+  Not the Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Overview cards</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --hair: rgba(199, 164, 123, 0.22);
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-width: 1100px;
+        background: #0a0a0a;
+        color: var(--ink);
+        font: 16px/1.5 var(--sans);
+      }
+
+      .mark {
+        margin: 0;
+        padding: 0.45rem 0.9rem 0;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+
+      .stage {
+        position: relative;
+        height: calc(100vh - 2.4rem);
+        min-height: 44rem;
+        margin: 0.45rem 0.75rem 0.75rem;
+        overflow: hidden;
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(199, 164, 123, 0.08) 1px, transparent 1px),
+          #100e0c;
+        background-size: 48px 48px;
+      }
+
+      .column {
+        position: absolute;
+        top: 1rem;
+        bottom: 1rem;
+        left: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        width: min(24rem, 38vw);
+        overflow: auto;
+      }
+
+      .card {
+        flex: none;
+        border: 1px solid var(--hair);
+        border-radius: 16px;
+        background: #0d0b09;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+
+      .profile { padding: 0.85rem 0.9rem 1rem; }
+
+      .profile-bar {
+        margin: 0 0 0.75rem;
+        color: var(--gold-light);
+        font: 600 0.8125rem/1.45 var(--sans);
+      }
+
+      .who { display: flex; align-items: center; gap: 0.85rem; }
+
+      .face {
+        display: grid;
+        width: 2.75rem;
+        height: 2.75rem;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(199, 164, 123, 0.16);
+        color: var(--gold-hover);
+        font-weight: 600;
+      }
+
+      .profile h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.35;
+      }
+
+      .pad { padding: 0.7rem 0.9rem 0.85rem; }
+
+      h3, .collapse {
+        margin: 0;
+        color: var(--ink);
+        font: 600 0.875rem/1.35 var(--sans);
+      }
+
+      .collapse {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .collapse:hover { color: var(--gold-hover); }
+
+      .collapse:focus-visible,
+      .row:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      .chevron {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(45deg) translateY(-0.1rem);
+      }
+
+      .collapse[aria-expanded="false"] .chevron {
+        transform: rotate(-45deg);
+      }
+
+      .snapshot {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.85rem 1rem;
+        margin: 0.75rem 0 0;
+      }
+
+      .snapshot div { display: grid; gap: 0.1rem; }
+
+      .snapshot dt {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .snapshot dd {
+        margin: 0;
+        color: var(--ink);
+        font-size: 0.875rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.45;
+      }
+
+      .is-collapsed .snapshot { display: none; }
+
+      .totals.is-collapsed .pad { padding-bottom: 0.7rem; }
+
+      .group { margin-top: 0.85rem; }
+
+      .group h4 {
+        margin: 0 0 0.15rem;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+
+      .group h4 em {
+        font-style: normal;
+        font-weight: 500;
+      }
+
+      .row {
+        display: block;
+        width: 100%;
+        padding: 0.55rem 0;
+        border: 0;
+        border-top: 1px solid var(--hair);
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .row strong {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1.35;
+      }
+
+      .row b,
+      .row small {
+        display: block;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1.45;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .current {
+        color: #6ee7b7;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.35;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Prototype · overview. Bio and the job list stay open. Totals collapse. Not wired to Career History.</p>
+    <div class="stage">
+      <div class="column">
+        <section class="card profile" aria-label="Profile">
+          <div class="profile-bar">Home · History · Revoked · Preview · Publish · Edit</div>
+          <div class="who">
+            <span class="face">SK</span>
+            <h2>Sory Kaba</h2>
+          </div>
+        </section>
+
+        <section class="card totals" data-card aria-label="Totals">
+          <div class="pad">
+            <button class="collapse" type="button" aria-expanded="true" aria-controls="totals-stats">
+              <span>Totals</span>
+              <i class="chevron" aria-hidden="true"></i>
+            </button>
+            <dl class="snapshot" id="totals-stats">
+              <div>
+                <dt>Total tenure</dt>
+                <dd>10y 7m</dd>
+              </div>
+              <div>
+                <dt>Roles</dt>
+                <dd>9</dd>
+              </div>
+              <div>
+                <dt>Miles traveled</dt>
+                <dd>65</dd>
+              </div>
+              <div>
+                <dt>Cities</dt>
+                <dd>7</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="card jobs" aria-label="Career History">
+          <div class="pad">
+            <h3>Career History</h3>
+            <div class="group">
+              <h4>Jobs <em>(8)</em></h4>
+              <button class="row" type="button">
+                <strong>Giants Direct <span class="current">Current</span></strong>
+                <b>Mechatronics and Robotics Technician</b>
+                <small>Lancaster, PA · Jun 2024 – Present (2y 4m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Sharp Packaging <span class="current">Current</span></strong>
+                <b>Systems and Automation Technician</b>
+                <small>Allentown, PA · Jan 2023 – Present (3y 9m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Waters Corp. TA Instruments</strong>
+                <b>Manufacturing Engineering Technician</b>
+                <small>New Castle, DE · Mar 2022 – Sep 2022 (6m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Temple University</strong>
+                <b>Researcher at Temple Material Institute fellowship</b>
+                <small>Philadelphia, PA · May 2021 – Aug 2021 (3m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Rowa Group LLC</strong>
+                <b>Technical Support Engineer</b>
+                <small>Croydon, PA · Aug 2020 – Dec 2021 (1y 4m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Amazon</strong>
+                <b>Package Handler</b>
+                <small>Philadelphia, PA · Oct 2017 – Feb 2018 (4m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Values into Action- Media, PA <span class="current">Current</span></strong>
+                <b>Community Support Worker/ Household Manager</b>
+                <small>Mar 2016 – Present (10y 7m)</small>
+              </button>
+              <button class="row" type="button">
+                <strong>Values into Action</strong>
+                <b>Direct Care Provider</b>
+                <small>Mar 2016 – Jan 2023 (6y 10m)</small>
+              </button>
+            </div>
+            <div class="group">
+              <h4>Internships <em>(1)</em></h4>
+              <button class="row" type="button">
+                <strong>Widener University</strong>
+                <b>Robotics Research Intern</b>
+                <small>Chester, PA · Sep 2022 – Dec 2022 (3m)</small>
+              </button>
+            </div>
+            <div class="group">
+              <h4>Education <em>(1)</em></h4>
+              <button class="row" type="button">
+                <strong>DELAWARE COUNTY COMMUNITY COLLEGE</strong>
+                <b>Associate in mechanical engineering</b>
+                <small>Media, PA · Aug 2018 – Dec 2020 (2y 4m)</small>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script>
+      document.querySelectorAll(".collapse").forEach((button) => {
+        button.addEventListener("click", () => {
+          const card = button.closest("[data-card]");
+          const open = button.getAttribute("aria-expanded") === "true";
+          button.setAttribute("aria-expanded", open ? "false" : "true");
+          card.classList.toggle("is-collapsed", open);
+        });
+      });
+    </script>
+  </body>
+</html>

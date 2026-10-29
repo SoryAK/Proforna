@@ -1,0 +1,1931 @@
+<!--
+  Throwaway. The career canvas is the homepage.
+  Not the live Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Canvas homepage</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --gold: #a78b71;
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --ground: #d9d2c6;
+        --water: #c5d0c8;
+        --road: #efe8dc;
+        --pin: #13100d;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #0d0b09;
+        color: #2a241c;
+        font: 16px/1.5 var(--sans);
+      }
+
+      ::selection {
+        background: rgba(167, 139, 113, 0.45);
+        color: #080706;
+      }
+
+      button, input {
+        font: inherit;
+        color: inherit;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 2px;
+      }
+
+      .viewport {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        border-radius: 16px;
+        cursor: grab;
+        background: var(--ground);
+        touch-action: none;
+      }
+
+      .viewport.is-panning { cursor: grabbing; }
+
+      .world {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 4200px;
+        height: 2800px;
+        transform-origin: 0 0;
+        background:
+          linear-gradient(rgba(42, 36, 28, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(42, 36, 28, 0.05) 1px, transparent 1px),
+          var(--ground);
+        background-size: 80px 80px;
+      }
+
+      .water {
+        position: absolute;
+        background: var(--water);
+      }
+
+      .water.delaware {
+        left: 2480px;
+        top: 0;
+        width: 90px;
+        height: 2800px;
+        transform: rotate(8deg);
+        transform-origin: top center;
+      }
+
+      .water.schuylkill {
+        left: 1180px;
+        top: 900px;
+        width: 54px;
+        height: 1500px;
+        border-radius: 40px;
+        transform: rotate(-18deg);
+      }
+
+      .road {
+        position: absolute;
+        background: var(--road);
+        box-shadow: 0 0 0 1px rgba(42, 36, 28, 0.08);
+      }
+
+      .road.h {
+        left: 0;
+        height: 10px;
+        width: 4200px;
+      }
+
+      .road.v {
+        top: 0;
+        width: 10px;
+        height: 2800px;
+      }
+
+      .pin {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+        width: 9rem;
+        margin-left: -4.5rem;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .pin.is-dim { opacity: 0.28; }
+
+      .pin i {
+        width: 0.85rem;
+        height: 0.85rem;
+        border: 2px solid var(--pin);
+        border-radius: 50%;
+        background: #f5f2ee;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+      }
+
+      .pin strong {
+        display: block;
+        color: #1c1814;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .pin span {
+        display: block;
+        color: #5c5146;
+        font-size: 0.72rem;
+        line-height: 1.35;
+      }
+
+      .float-bar {
+        position: fixed;
+        z-index: 5;
+        top: 1rem;
+        left: calc(50% + 6.5rem);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        width: min(26rem, calc(100vw - 2rem));
+        padding: 0.35rem 0.35rem 0.35rem 0.85rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        background: #13100d;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        color: var(--ink);
+        transform: translateX(-50%);
+      }
+
+      .search {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: 0.55rem;
+        min-width: 0;
+        color: var(--gold-light);
+      }
+
+      .search svg,
+      .icon-btn svg,
+      .who svg {
+        width: 1rem;
+        height: 1rem;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .search input {
+        width: 100%;
+        min-width: 0;
+        padding: 0.45rem 0;
+        border: 0;
+        background: transparent;
+        color: var(--ink);
+        caret-color: var(--gold-hover);
+      }
+
+      .search input::placeholder { color: var(--muted); }
+
+      .search input:focus-visible { outline: none; }
+
+      .search:focus-within {
+        color: var(--gold-hover);
+      }
+
+      .icon-btn,
+      .who {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.25rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        cursor: pointer;
+      }
+
+      .icon-btn {
+        position: relative;
+        width: 2.25rem;
+      }
+
+      .icon-btn:hover,
+      .who:hover,
+      .icon-btn[aria-expanded="true"],
+      .who[aria-expanded="true"] {
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--gold-hover);
+      }
+
+      .who {
+        gap: 0.55rem;
+        padding: 0.15rem 0.7rem 0.15rem 0.15rem;
+      }
+
+      .photo {
+        display: grid;
+        width: 1.9rem;
+        height: 1.9rem;
+        place-items: center;
+        border-radius: 50%;
+        background: #2a241c;
+        color: var(--gold-hover);
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      .who-name {
+        font-size: 0.875rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+
+      .menu {
+        position: absolute;
+        top: calc(100% + 0.55rem);
+        right: 0;
+        width: 16rem;
+        padding: 0.75rem 0.85rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 16px;
+        background: #13100d;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+        color: var(--ink);
+      }
+
+      .menu[hidden] { display: none; }
+
+      .menu p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.8125rem;
+        line-height: 1.45;
+      }
+
+      .menu strong {
+        display: block;
+        margin-bottom: 0.2rem;
+        color: var(--ink);
+        font-size: 0.95rem;
+      }
+
+      .notice-anchor,
+      .who-anchor {
+        position: relative;
+      }
+
+      .status {
+        position: fixed;
+        z-index: 4;
+        top: 4.6rem;
+        left: 50%;
+        margin: 0;
+        color: #3a322a;
+        font-size: 0.8125rem;
+        transform: translateX(-50%);
+      }
+
+      .status:empty { display: none; }
+
+      .shell-menu {
+        --text: #f5f2ee;
+        --gold: #a78b71;
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --wm-muted: #b9aa97;
+        --wm-line: rgba(199, 164, 123, 0.2);
+        position: fixed;
+        z-index: 4;
+        top: 4.75rem;
+        left: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        width: min(26rem, calc(100vw - 2.5rem));
+        max-height: calc(100vh - 6rem);
+        color: var(--text);
+        pointer-events: auto;
+      }
+
+      .shell-nav {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        gap: 0.15rem;
+        padding: 0.45rem;
+      }
+
+      .shell-nav[hidden] { display: none; }
+
+      #history-body[hidden] { display: none; }
+
+      .shell-nav button {
+        min-height: 2.5rem;
+        padding: 0.45rem 0.7rem;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: #f5f2ee;
+        font-size: 0.95rem;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .shell-nav button:hover,
+      .shell-nav button:focus-visible {
+        background: rgba(167, 139, 113, 0.12);
+        color: #e8d5b7;
+      }
+
+      .shell-nav button.is-current {
+        background: rgba(167, 139, 113, 0.18);
+        color: #e8d5b7;
+      }
+
+      .shell-menu .career-bio,
+      .shell-menu .history-overview,
+      .shell-menu .work-map-ledger {
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 16px;
+        background: #0d0b09;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+
+      .menu-pop {
+        width: min(28rem, calc(100vw - 2rem));
+        padding: 0;
+      }
+
+      .menu-pop .sheet-lead {
+        margin: 0;
+        padding: 1rem 1.25rem 1.25rem;
+      }
+
+      .shell-menu .career-bio {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        padding: 0.7rem 0.9rem 0.85rem;
+      }
+
+      .shell-menu .profile-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .shell-menu .career-bio-home,
+      .shell-menu .publication-status,
+      .shell-menu .focus-edit {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.8125rem/1 var(--sans);
+        cursor: pointer;
+      }
+
+      .shell-menu .career-bio-home:hover,
+      .shell-menu .publication-status:hover,
+      .shell-menu .focus-edit:hover {
+        color: var(--text);
+      }
+
+      .shell-menu .profile-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-left: auto;
+      }
+
+      .shell-menu .career-bio-row {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+      }
+
+      .shell-menu .career-bio-mark {
+        display: grid;
+        width: 3.5rem;
+        height: 3.5rem;
+        flex: none;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(199, 164, 123, 0.16);
+        color: var(--gold-hover);
+        font-size: 1.15rem;
+      }
+
+      .shell-menu .career-bio h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+      }
+
+      .shell-menu .career-bio-place {
+        margin: 0.2rem 0 0;
+        color: var(--wm-muted);
+        font-size: 0.875rem;
+        line-height: 1.35;
+      }
+
+      .shell-menu .history-overview { flex: none; }
+
+      .shell-menu .history-overview-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        width: 100%;
+        margin: 0;
+        padding: 0.7rem 0.75rem 0.55rem;
+        border: 0;
+        background: transparent;
+        color: var(--text);
+        font-size: 1.05rem;
+        font-weight: 650;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .shell-menu .history-overview.is-collapsed .history-overview-toggle {
+        padding-bottom: 0.7rem;
+      }
+
+      .shell-menu .history-overview-chevron {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(45deg) translateY(-0.1rem);
+      }
+
+      .shell-menu .history-overview-toggle[aria-expanded="false"] .history-overview-chevron {
+        transform: rotate(-45deg);
+      }
+
+      .shell-menu .history-overview.is-collapsed .work-map-stats { display: none; }
+
+      .shell-menu .work-map-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin: 0 0.75rem 0.55rem;
+        border: 1px solid var(--wm-line);
+        border-radius: 12px;
+      }
+
+      .shell-menu .work-map-stats div {
+        padding: 0.55rem 0.3rem;
+        text-align: center;
+      }
+
+      .shell-menu .work-map-stats div + div { border-left: 1px solid var(--wm-line); }
+
+      .shell-menu .work-map-stats span,
+      .shell-menu .work-map-stats strong { display: block; }
+
+      .shell-menu .work-map-stats span {
+        margin-bottom: 0.15rem;
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-weight: 650;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .shell-menu .work-map-stats strong {
+        font-variant-numeric: tabular-nums;
+        font-size: 0.92rem;
+      }
+
+      .shell-menu .work-map-ledger {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+      }
+
+      .shell-menu .work-map-ledger.is-open {
+        min-height: 0;
+        flex: 1;
+      }
+
+      #history-body {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
+      }
+
+      .shell-menu .history-panel-head {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 0.75rem 0.4rem;
+      }
+
+      .shell-menu .history-panel-head h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 650;
+      }
+
+      .shell-menu .history-publish {
+        display: flex;
+        margin-left: auto;
+        gap: 0.15rem;
+      }
+
+      .shell-menu .history-icon {
+        display: grid;
+        width: 1.75rem;
+        height: 1.75rem;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--gold-light);
+        cursor: pointer;
+      }
+
+      .shell-menu .history-icon:hover,
+      .shell-menu .history-icon[aria-expanded="true"] { color: var(--gold-hover); }
+
+      .shell-menu .history-icon svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .shell-menu .work-map-tools {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0 0.75rem 0.7rem;
+        border-bottom: 1px solid var(--wm-line);
+      }
+
+      .shell-menu .work-map-tools > input {
+        flex: 1;
+        min-width: 0;
+        padding: 0.5rem 0;
+        border: 0;
+        border-bottom: 1px solid rgba(199, 164, 123, 0.32);
+        background: transparent;
+        color: var(--text);
+        caret-color: var(--gold-hover);
+        font-size: 0.76rem;
+      }
+
+      .shell-menu .work-map-sort {
+        display: flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        color: var(--gold);
+        font-size: 0.75rem;
+      }
+
+      .shell-menu .work-map-sort select {
+        padding: 0.4rem 0.2rem;
+        border: 0;
+        border-bottom: 1px solid rgba(199, 164, 123, 0.32);
+        background: transparent;
+        color: var(--text);
+      }
+
+      .shell-menu .history-tool-group {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .shell-menu .history-menu { position: relative; }
+
+      .shell-menu .history-tool {
+        display: grid;
+        width: 1.7rem;
+        height: 1.7rem;
+        place-items: center;
+        padding: 0;
+        border: 1px solid rgba(199, 164, 123, 0.32);
+        border-radius: 0.25rem;
+        background: transparent;
+        color: var(--gold-hover);
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .shell-menu .history-tool svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .shell-menu .history-tool:hover,
+      .shell-menu .history-tool[aria-expanded="true"],
+      .shell-menu .history-tool[aria-pressed="true"] {
+        border-color: var(--gold-hover);
+        background: rgba(199, 164, 123, 0.12);
+      }
+
+      .shell-menu .history-menu-panel {
+        position: absolute;
+        z-index: 6;
+        top: calc(100% + 0.35rem);
+        right: 0;
+        min-width: 8.5rem;
+        padding: 0.25rem;
+        border: 1px solid rgba(199, 164, 123, 0.32);
+        border-radius: 0.4rem;
+        background: #14110e;
+      }
+
+      .shell-menu .history-menu-panel[hidden] { display: none; }
+
+      .shell-menu .history-menu-panel button {
+        display: block;
+        width: 100%;
+        padding: 0.4rem 0.55rem;
+        border: 0;
+        border-radius: 0.2rem;
+        background: transparent;
+        color: var(--text);
+        font-size: 0.8rem;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .shell-menu .history-menu-panel button:hover {
+        background: rgba(199, 164, 123, 0.12);
+        color: var(--gold-hover);
+      }
+
+      .shell-menu .work-map-role-list {
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
+      }
+
+      .shell-menu .history-cat {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        width: 100%;
+        margin-top: 0.35rem;
+        padding: 0.4rem 0.5rem 0.2rem 0.9rem;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .shell-menu .history-cat b {
+        font-size: 0.88rem;
+        font-weight: 650;
+      }
+
+      .shell-menu .history-cat em {
+        color: var(--gold);
+        font-size: 0.8rem;
+        font-style: normal;
+      }
+
+      .shell-menu .history-cat span {
+        margin-left: auto;
+        color: var(--gold);
+      }
+
+      .shell-menu .career-history-row {
+        display: block;
+        width: 100%;
+        padding: 0.55rem 0.9rem;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .shell-menu .career-history-row:hover {
+        background: rgba(199, 164, 123, 0.09);
+      }
+
+      .shell-menu .career-history-row strong,
+      .shell-menu .career-history-row b,
+      .shell-menu .career-history-row small {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .shell-menu .career-history-row strong {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.92rem;
+        font-weight: 600;
+        white-space: normal;
+      }
+
+      .shell-menu .career-history-row mark {
+        padding: 0;
+        background: transparent;
+        color: #6ee7b7;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .shell-menu .career-history-row b {
+        margin-top: 0.2rem;
+        color: var(--gold-light);
+        font-size: 0.8rem;
+        font-weight: 450;
+      }
+
+      .shell-menu .career-history-row small {
+        margin-top: 0.28rem;
+        color: var(--wm-muted);
+        font-size: 0.8rem;
+      }
+
+      .shell-menu .history-search-miss {
+        margin: 0;
+        padding: 1.2rem;
+        color: var(--wm-muted);
+        font-size: 0.75rem;
+      }
+
+      .shell-menu .history-search-miss[hidden] { display: none; }
+
+      .shell-menu .career-history-row[hidden] { display: none; }
+
+      .action-dock {
+        position: fixed;
+        z-index: 4;
+        bottom: 0;
+        left: calc(1.25rem + min(26rem, 100vw - 2.5rem) + 1rem);
+        right: 0.5rem;
+        display: flex;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .action-tab {
+        display: flex;
+        align-items: stretch;
+        max-width: 100%;
+        pointer-events: auto;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-bottom: 0;
+        border-radius: 14px 14px 0 0;
+        background: #13100d;
+        box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45);
+      }
+
+      .action-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.45rem 0.35rem 0.4rem 0.55rem;
+      }
+
+      .action-dock.is-collapsed .action-bar { display: none; }
+
+      .action-bar > button,
+      .publication-menu-anchor > button {
+        height: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0.35rem 0.7rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 600 0.75rem/1.35 var(--sans);
+        cursor: pointer;
+      }
+
+      .action-bar > button:hover,
+      .action-bar > button[aria-pressed="true"],
+      .publication-menu-anchor > button:hover,
+      .publication-menu-anchor > button[aria-expanded="true"] {
+        border-color: var(--gold-hover);
+        background: rgba(167, 139, 113, 0.2);
+        color: var(--ink);
+      }
+
+      .publication-menu-anchor { position: relative; }
+
+      .publication-menu {
+        position: absolute;
+        z-index: 6;
+        right: auto;
+        bottom: calc(100% + 0.45rem);
+        left: 0;
+        display: grid;
+        min-width: 11rem;
+        padding: 0.35rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 12px;
+        background: #13100d;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+      }
+
+      .publication-menu[hidden] { display: none; }
+
+      .publication-menu button {
+        min-height: 2.25rem;
+        padding: 0.4rem 0.75rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--gold-light);
+        font: 500 0.875rem/1.35 var(--sans);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .publication-menu button:hover {
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--ink);
+      }
+
+      .action-handle {
+        display: grid;
+        width: 2.4rem;
+        flex: none;
+        place-items: center;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-left: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 0 12px 0 0;
+        background: #1c1814;
+        color: var(--gold-hover);
+        cursor: pointer;
+      }
+
+      .action-handle:hover { color: var(--ink); }
+
+      .action-handle i {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(45deg) translate(-0.05rem, -0.05rem);
+      }
+
+      .action-dock.is-collapsed .action-tab {
+        width: 4.5rem;
+        height: 1.2rem;
+      }
+
+      .action-dock.is-collapsed .action-handle {
+        width: 100%;
+        border-left: 0;
+        border-radius: 12px 12px 0 0;
+        background: transparent;
+      }
+
+      .action-dock.is-collapsed .action-handle i {
+        transform: rotate(-135deg) translate(-0.05rem, -0.05rem);
+      }
+
+      #account-menu {
+        width: min(16rem, calc(100vw - 1.5rem));
+        padding: 0.35rem 0 0.45rem;
+        background: #111;
+      }
+
+      #account-menu .user-card {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.65rem 0.85rem 0.75rem;
+      }
+
+      #account-menu .user-card .photo {
+        width: 2.25rem;
+        height: 2.25rem;
+      }
+
+      #account-menu .user-card strong {
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      #account-menu .user-item {
+        display: block;
+        width: 100%;
+        padding: 0.55rem 0.85rem;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: #f5f2ee;
+        font-size: 0.88rem;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      #account-menu .user-item:hover,
+      #account-menu .user-item:focus-visible {
+        background: rgba(167, 139, 113, 0.12);
+        color: var(--gold-light);
+      }
+
+      .sheet {
+        margin: auto;
+        border: 1px solid rgba(167, 139, 113, 0.28);
+        border-radius: 1.1rem;
+        background: #101010;
+        color: #f5f2ee;
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+      }
+
+      .sheet::backdrop { background: rgba(5, 5, 5, 0.72); }
+
+      #profile-dialog {
+        width: min(42rem, calc(100vw - 2rem));
+        max-height: min(85vh, 40rem);
+        overflow: auto;
+        padding: 1.25rem 1.5rem 1.5rem;
+      }
+
+      #settings-dialog {
+        display: flex;
+        flex-direction: column;
+        width: min(90vw, 72rem);
+        height: min(85vh, 52rem);
+        padding: 0;
+        overflow: hidden;
+      }
+
+      #settings-dialog:not([open]) { display: none; }
+
+      .sheet-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(167, 139, 113, 0.18);
+      }
+
+      .sheet h1,
+      .sheet h2 {
+        margin: 0;
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .sheet h1 { font-size: 1.7rem; }
+
+      .sheet-head h2 { font-size: 1.1rem; }
+
+      .sheet-close,
+      .sheet-ghost,
+      .sheet-solid {
+        border-radius: 999px;
+        cursor: pointer;
+        font: 600 0.82rem/1.2 var(--sans);
+      }
+
+      .sheet-close,
+      .sheet-ghost {
+        padding: 0.4rem 0.9rem;
+        border: 1px solid rgba(167, 139, 113, 0.35);
+        background: transparent;
+        color: #e8d5b7;
+      }
+
+      .sheet-close:hover,
+      .sheet-ghost:hover {
+        border-color: #e8d5b7;
+        color: #f5f2ee;
+      }
+
+      .sheet-solid:hover {
+        background: #f5f2ee;
+        color: #1c1814;
+      }
+
+      .sheet-solid {
+        padding: 0.45rem 1rem;
+        border: 0;
+        background: #e8d5b7;
+        color: #1c1814;
+      }
+
+      .sheet-body {
+        display: grid;
+        grid-template-columns: 12.5rem minmax(0, 1fr);
+        flex: 1;
+        min-height: 0;
+      }
+
+      .sheet-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        padding: 0.85rem 0.7rem;
+        border-right: 1px solid rgba(167, 139, 113, 0.16);
+      }
+
+      .sheet-nav button {
+        padding: 0.55rem 0.75rem;
+        border: 0;
+        border-radius: 0.55rem;
+        background: transparent;
+        color: #e8d5b7;
+        font-size: 0.9rem;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .sheet-nav button[data-active="true"],
+      .sheet-nav button:hover {
+        background: rgba(167, 139, 113, 0.16);
+        color: var(--gold-light);
+      }
+
+      .sheet-pane {
+        min-width: 0;
+        overflow: auto;
+        padding: 1.25rem 1.5rem 1.75rem;
+      }
+
+      .sheet-pane[hidden] { display: none; }
+
+      .sheet-lead {
+        margin: 0.65rem 0 0;
+        color: #f5f2ee;
+        font-size: 0.95rem;
+        line-height: 1.45;
+      }
+
+      .sheet-field {
+        display: grid;
+        gap: 0.35rem;
+        margin: 0.85rem 0 0;
+      }
+
+      .sheet-field span,
+      .sheet-row span {
+        font-size: 0.875rem;
+      }
+
+      .sheet-field input,
+      .sheet-field textarea,
+      .sheet-field select {
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid rgba(167, 139, 113, 0.35);
+        border-radius: 8px;
+        background: transparent;
+        color: #f5f2ee;
+      }
+
+      .sheet-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+
+      .sheet-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.6rem;
+        margin-top: 1.1rem;
+      }
+
+      .sheet-note {
+        margin: 0.8rem 0 0;
+        color: #f5f2ee;
+        font-size: 0.875rem;
+      }
+
+      @media (max-width: 720px) {
+        .sheet-body { grid-template-columns: 1fr; }
+        .sheet-nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid rgba(167, 139, 113, 0.16); }
+        .sheet-row { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 640px) {
+        .float-bar {
+          top: 0.65rem;
+          width: calc(100vw - 1rem);
+          border-radius: 18px;
+        }
+
+        .who-name { display: none; }
+
+        .action-dock { left: 0.5rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="viewport" id="viewport">
+      <div class="world" id="world">
+        <div class="water delaware"></div>
+        <div class="water schuylkill"></div>
+        <div class="road h" style="top: 620px"></div>
+        <div class="road h" style="top: 1180px"></div>
+        <div class="road h" style="top: 1760px"></div>
+        <div class="road v" style="left: 980px"></div>
+        <div class="road v" style="left: 1680px"></div>
+        <div class="road v" style="left: 2460px"></div>
+        <article class="pin" data-place="clifton heights home" style="left: 1680px; top: 1500px">
+          <i></i>
+          <div>
+            <strong>Clifton Heights</strong>
+            <span>Home</span>
+          </div>
+        </article>
+        <article class="pin" data-place="lancaster giants direct" style="left: 980px; top: 980px">
+          <i></i>
+          <div>
+            <strong>Lancaster</strong>
+            <span>Giants Direct</span>
+          </div>
+        </article>
+        <article class="pin" data-place="allentown sharp packaging" style="left: 2460px; top: 620px">
+          <i></i>
+          <div>
+            <strong>Allentown</strong>
+            <span>Sharp Packaging</span>
+          </div>
+        </article>
+        <article class="pin" data-place="chester widener" style="left: 1520px; top: 1760px">
+          <i></i>
+          <div>
+            <strong>Chester</strong>
+            <span>Widener University</span>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <header class="float-bar">
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25"/><path d="M10.5 10.5 14 14"/></svg>
+        <input id="search" type="search" placeholder="Search" aria-label="Search the canvas" autocomplete="off" />
+      </label>
+      <div class="notice-anchor">
+        <button class="icon-btn" id="notices" type="button" aria-expanded="false" aria-controls="notice-menu" aria-label="Notices">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.75a3.25 3.25 0 0 1 3.25 3.25v2.1l.9 1.8a.75.75 0 0 1-.67 1.1H4.52a.75.75 0 0 1-.67-1.1l.9-1.8v-2.1A3.25 3.25 0 0 1 8 1.75Z"/><path d="M6.5 12.25a1.5 1.5 0 0 0 3 0"/></svg>
+        </button>
+        <div class="menu" id="notice-menu" role="region" aria-label="Notices" hidden>
+          <p>No notices.</p>
+        </div>
+      </div>
+      <div class="who-anchor">
+        <button class="who" id="account" type="button" aria-expanded="false" aria-haspopup="menu" aria-controls="account-menu" aria-label="Sory Kaba">
+          <span class="photo" aria-hidden="true">SK</span>
+          <span class="who-name">Sory Kaba</span>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+        </button>
+        <div class="menu" id="account-menu" role="menu" aria-label="Account" hidden>
+          <div class="user-card">
+            <span class="photo" aria-hidden="true">SK</span>
+            <strong>Sory Kaba</strong>
+          </div>
+          <button class="user-item" id="open-profile" type="button" role="menuitem">Profile</button>
+          <button class="user-item" id="open-settings" type="button" role="menuitem">Settings</button>
+        </div>
+      </div>
+    </header>
+    <p class="status" id="status" role="status"></p>
+
+    <aside class="shell-menu" aria-label="Main">
+      <section class="career-bio" aria-label="Profile">
+        <div class="profile-bar">
+          <button class="career-bio-home" type="button">Home</button>
+          <div class="profile-controls">
+            <span class="publication-status">Revoked</span>
+            <button class="focus-edit" type="button">Edit</button>
+          </div>
+        </div>
+        <div class="career-bio-row">
+          <span class="career-bio-mark" aria-hidden="true">SK</span>
+          <div>
+            <h2>Sory Kaba</h2>
+            <p class="career-bio-place">67 E Broadway Ave, Clifton Heights, PA</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="history-overview" id="overview" aria-label="Overview">
+        <button class="history-overview-toggle" id="overview-toggle" type="button" aria-expanded="true" aria-controls="history-overview-stats">
+          <span>Overview</span>
+          <i class="history-overview-chevron" aria-hidden="true"></i>
+        </button>
+        <div class="work-map-stats" id="history-overview-stats">
+          <div><span>Total Tenure</span><strong>10y 7m</strong></div>
+          <div><span>Roles</span><strong>9</strong></div>
+          <div><span>Miles Traveled</span><strong>65</strong></div>
+          <div><span>Cities</span><strong>7</strong></div>
+        </div>
+      </section>
+
+      <aside class="work-map-ledger is-open">
+        <nav class="shell-nav" aria-label="Main">
+          <button type="button" id="history-toggle" aria-expanded="true" aria-controls="history-body" class="is-current">Career History</button>
+          <button type="button" data-pop="network-pop">Network</button>
+          <button type="button" data-pop="documents-pop">My Documents</button>
+          <button type="button" data-pop="opportunities-pop">Opportunities</button>
+        </nav>
+        <div id="history-body">
+        <header class="history-panel-head">
+          <h2>Career History</h2>
+          <div class="history-publish">
+            <button class="history-icon" type="button" aria-label="Homes (1)" title="Homes (1)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+            </button>
+            <button class="history-icon" type="button" aria-label="Settings" title="Settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="11" cy="17" r="1.7"/></svg>
+            </button>
+          </div>
+        </header>
+        <div class="work-map-tools">
+          <input id="history-search" type="search" placeholder="Search…" aria-label="Search career history" autocomplete="off" />
+          <label class="work-map-sort">
+            <span>Sort</span>
+            <select id="history-sort">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+            </select>
+          </label>
+          <div class="history-tool-group">
+            <div class="history-menu">
+              <button class="history-tool" id="import-tool" type="button" aria-label="Import" aria-haspopup="menu" aria-expanded="false" aria-controls="import-menu">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v10"/><path d="m8 9.5 4 4 4-4"/><path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5"/></svg>
+              </button>
+              <div class="history-menu-panel" id="import-menu" role="menu" aria-label="Import" hidden>
+                <button type="button" role="menuitem">Resume</button>
+              </div>
+            </div>
+            <div class="history-menu">
+              <button class="history-tool" id="add-tool" type="button" aria-label="Add" aria-haspopup="menu" aria-expanded="false" aria-controls="add-menu">+</button>
+              <div class="history-menu-panel" id="add-menu" role="menu" aria-label="Add" hidden>
+                <button type="button" role="menuitem">Job</button>
+                <button type="button" role="menuitem">Internship</button>
+                <button type="button" role="menuitem">Education</button>
+              </div>
+            </div>
+            <button class="history-tool" type="button" aria-label="Select" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="m8 12.2 2.6 2.6L16.2 9"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="work-map-role-list" id="history-list">
+          <section class="history-section" data-section="job">
+            <button class="history-cat" type="button" aria-expanded="true"><b>Jobs</b><em>(8)</em><span aria-hidden="true">▾</span></button>
+            <div class="history-section-rows">
+              <button class="career-history-row" type="button" data-start="2024-06-01" data-role="giants direct mechatronics and robotics technician lancaster">
+                <strong>Giants Direct<mark>Current</mark></strong>
+                <b>Mechatronics and Robotics Technician</b>
+                <small>Lancaster, PA · Jun 2024 – Present (2y 4m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2023-01-01" data-role="sharp packaging systems and automation technician allentown">
+                <strong>Sharp Packaging<mark>Current</mark></strong>
+                <b>Systems and Automation Technician</b>
+                <small>Allentown, PA · Jan 2023 – Present (3y 9m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2016-03-01" data-role="values into action media community support worker household manager">
+                <strong>Values into Action- Media, PA<mark>Current</mark></strong>
+                <b>Community Support Worker/ Household Manager</b>
+                <small>Mar 2016 – Present (10y 7m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2022-03-01" data-role="waters corp ta instruments manufacturing engineering technician new castle">
+                <strong>Waters Corp. TA Instruments</strong>
+                <b>Manufacturing Engineering Technician</b>
+                <small>New Castle, DE · Mar 2022 – Sep 2022 (6m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2021-05-01" data-role="temple university researcher material institute philadelphia">
+                <strong>Temple University</strong>
+                <b>Researcher at Temple Material Institute fellowship</b>
+                <small>Philadelphia, PA · May 2021 – Aug 2021 (3m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2020-08-01" data-role="rowa group technical support engineer croydon">
+                <strong>Rowa Group LLC</strong>
+                <b>Technical Support Engineer</b>
+                <small>Croydon, PA · Aug 2020 – Dec 2021 (1y 4m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2017-10-01" data-role="amazon package handler philadelphia">
+                <strong>Amazon</strong>
+                <b>Package Handler</b>
+                <small>Philadelphia, PA · Oct 2017 – Feb 2018 (4m)</small>
+              </button>
+              <button class="career-history-row" type="button" data-start="2016-03-01" data-role="values into action direct care provider">
+                <strong>Values into Action</strong>
+                <b>Direct Care Provider</b>
+                <small>Mar 2016 – Jan 2023 (6y 10m)</small>
+              </button>
+            </div>
+          </section>
+          <section class="history-section" data-section="internship">
+            <button class="history-cat" type="button" aria-expanded="true"><b>Internships</b><em>(1)</em><span aria-hidden="true">▾</span></button>
+            <div class="history-section-rows">
+              <button class="career-history-row" type="button" data-start="2022-09-01" data-role="widener university robotics research intern chester">
+                <strong>Widener University</strong>
+                <b>Robotics Research Intern</b>
+                <small>Chester, PA · Sep 2022 – Dec 2022 (3m)</small>
+              </button>
+            </div>
+          </section>
+          <section class="history-section" data-section="school">
+            <button class="history-cat" type="button" aria-expanded="true"><b>Education</b><em>(1)</em><span aria-hidden="true">▾</span></button>
+            <div class="history-section-rows">
+              <button class="career-history-row" type="button" data-start="2018-08-01" data-role="delaware county community college associate in mechanical engineering media">
+                <strong>DELAWARE COUNTY COMMUNITY COLLEGE</strong>
+                <b>Associate in mechanical engineering</b>
+                <small>Media, PA · Aug 2018 – Dec 2020 (2y 4m)</small>
+              </button>
+            </div>
+          </section>
+          <p class="history-search-miss" id="history-miss" role="status" hidden>No roles match that search.</p>
+        </div>
+        </div>
+      </aside>
+    </aside>
+
+    <dialog class="sheet menu-pop" id="network-pop" aria-label="Network">
+      <div class="sheet-head">
+        <h2>Network</h2>
+        <button class="sheet-close" type="button" data-close="network-pop">Close</button>
+      </div>
+      <p class="sheet-lead">Network</p>
+    </dialog>
+    <dialog class="sheet menu-pop" id="documents-pop" aria-label="My Documents">
+      <div class="sheet-head">
+        <h2>My Documents</h2>
+        <button class="sheet-close" type="button" data-close="documents-pop">Close</button>
+      </div>
+      <p class="sheet-lead">My Documents</p>
+    </dialog>
+    <dialog class="sheet menu-pop" id="opportunities-pop" aria-label="Opportunities">
+      <div class="sheet-head">
+        <h2>Opportunities</h2>
+        <button class="sheet-close" type="button" data-close="opportunities-pop">Close</button>
+      </div>
+      <p class="sheet-lead">Opportunities</p>
+    </dialog>
+
+    <div class="action-dock" id="action-dock">
+      <div class="action-tab">
+        <div class="action-bar" role="toolbar" aria-label="Actions">
+          <div class="publication-menu-anchor">
+            <button id="publish-btn" type="button" aria-expanded="false" aria-haspopup="menu" aria-controls="publish-menu">Publish</button>
+            <div class="publication-menu" id="publish-menu" role="menu" aria-label="Publish" hidden>
+              <button type="button" role="menuitem">Confirm publish</button>
+              <button type="button" role="menuitem">Cancel</button>
+            </div>
+          </div>
+          <div class="publication-menu-anchor">
+            <button id="preview-btn" type="button" aria-expanded="false" aria-haspopup="menu" aria-controls="preview-menu">Preview</button>
+            <div class="publication-menu" id="preview-menu" role="menu" aria-label="Open preview" hidden>
+              <button type="button" role="menuitem">This window</button>
+              <button type="button" role="menuitem">New window</button>
+            </div>
+          </div>
+          <button id="map-btn" type="button" aria-pressed="true">Map</button>
+          <button id="timeline-btn" type="button" aria-pressed="false">Timeline</button>
+        </div>
+        <button class="action-handle" id="action-handle" type="button" aria-expanded="true" aria-label="Collapse actions">
+          <i aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <dialog class="sheet" id="profile-dialog" aria-label="Profile">
+      <form class="profile-form">
+        <h1>Profile</h1>
+        <label class="sheet-field">
+          <span>Photo</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+        </label>
+        <label class="sheet-field">
+          <span>Full name</span>
+          <input name="fullName" autocomplete="name" value="Sory Kaba" required />
+        </label>
+        <label class="sheet-field">
+          <span>Professional headline</span>
+          <input name="headline" placeholder="e.g. Senior Software Engineer" autocomplete="off" />
+        </label>
+        <label class="sheet-field">
+          <span>Address</span>
+          <input name="address" autocomplete="street-address" value="67 E Broadway Ave" placeholder="Street address" />
+        </label>
+        <div class="sheet-row">
+          <label class="sheet-field">
+            <span>City</span>
+            <input name="city" autocomplete="address-level2" value="Clifton Heights" />
+          </label>
+          <label class="sheet-field">
+            <span>State</span>
+            <input name="state" autocomplete="address-level1" value="PA" />
+          </label>
+        </div>
+        <label class="sheet-field">
+          <span>Short bio</span>
+          <textarea name="bio" rows="3"></textarea>
+        </label>
+        <div class="sheet-actions">
+          <button class="sheet-ghost" type="button" data-dismiss="profile">Cancel</button>
+          <button class="sheet-solid" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="settings-dialog" aria-labelledby="settings-title">
+      <div class="sheet-head">
+        <h2 id="settings-title">Settings</h2>
+        <button class="sheet-close" type="button" data-dismiss="settings">Close</button>
+      </div>
+      <div class="sheet-body">
+        <nav class="sheet-nav" aria-label="Settings">
+          <button type="button" data-section="profile" data-active="true">Profile</button>
+          <button type="button" data-section="models" data-active="false">Models</button>
+          <button type="button" data-section="maps" data-active="false">Maps</button>
+          <button type="button" data-section="jobs" data-active="false">Jobs</button>
+          <button type="button" data-section="integrations" data-active="false">Integrations</button>
+        </nav>
+        <div class="sheet-panes">
+          <section class="sheet-pane" data-pane="profile">
+            <form class="profile-form">
+              <h1>Profile</h1>
+              <label class="sheet-field">
+                <span>Photo</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+              </label>
+              <label class="sheet-field">
+                <span>Full name</span>
+                <input name="fullName" autocomplete="name" value="Sory Kaba" required />
+              </label>
+              <label class="sheet-field">
+                <span>Professional headline</span>
+                <input name="headline" placeholder="e.g. Senior Software Engineer" autocomplete="off" />
+              </label>
+              <label class="sheet-field">
+                <span>Address</span>
+                <input name="address" autocomplete="street-address" value="67 E Broadway Ave" placeholder="Street address" />
+              </label>
+              <div class="sheet-row">
+                <label class="sheet-field">
+                  <span>City</span>
+                  <input name="city" autocomplete="address-level2" value="Clifton Heights" />
+                </label>
+                <label class="sheet-field">
+                  <span>State</span>
+                  <input name="state" autocomplete="address-level1" value="PA" />
+                </label>
+              </div>
+              <label class="sheet-field">
+                <span>Short bio</span>
+                <textarea name="bio" rows="3"></textarea>
+              </label>
+              <div class="sheet-actions">
+                <button class="sheet-ghost" type="button" data-dismiss="settings">Cancel</button>
+                <button class="sheet-solid" type="submit">Save</button>
+              </div>
+            </form>
+          </section>
+          <section class="sheet-pane" data-pane="models" hidden>
+            <h1>Models</h1>
+            <p class="sheet-lead">Local or cloud. Same OpenAI-compatible URL used to extract a resume.</p>
+            <label class="sheet-field">
+              <span>Connection</span>
+              <select>
+                <option>Local</option>
+                <option>Cloud</option>
+              </select>
+            </label>
+            <div class="sheet-actions">
+              <button class="sheet-solid" type="button" data-note="models">Save</button>
+            </div>
+            <p class="sheet-note" id="models-note" hidden>Saved for this preview.</p>
+          </section>
+          <section class="sheet-pane" data-pane="maps" hidden>
+            <h1>Maps</h1>
+            <p class="sheet-lead">OpenStreetMap is the default and needs no key. A Google key draws Career History on Google Maps. The key stays in this vault and is not part of a published snapshot.</p>
+            <label class="sheet-field">
+              <span>Provider</span>
+              <select id="map-provider">
+                <option value="openstreetmap">OpenStreetMap</option>
+                <option value="google">Google Maps</option>
+              </select>
+            </label>
+            <label class="sheet-field" id="map-key" hidden>
+              <span>Google Maps API key</span>
+              <input type="password" autocomplete="off" placeholder="Maps JavaScript API key" />
+            </label>
+            <div class="sheet-actions">
+              <button class="sheet-solid" type="button" data-note="maps">Save</button>
+            </div>
+            <p class="sheet-note" id="maps-note" hidden>Saved for this preview.</p>
+          </section>
+          <section class="sheet-pane" data-pane="jobs" hidden>
+            <h1>Jobs</h1>
+            <p class="sheet-lead">Add each place you want listings from. An application id or an API key stays in this vault.</p>
+            <label class="sheet-field">
+              <span>Name</span>
+              <input placeholder="Source name" />
+            </label>
+            <div class="sheet-actions">
+              <button class="sheet-solid" type="button" data-note="jobs">Save</button>
+            </div>
+            <p class="sheet-note" id="jobs-note" hidden>Saved for this preview.</p>
+          </section>
+          <section class="sheet-pane" data-pane="integrations" hidden>
+            <h1>Integrations</h1>
+            <p class="sheet-lead">Turn a connection on when you want it used. It does not file mail on its own.</p>
+            <label class="sheet-field">
+              <span>Search</span>
+              <input placeholder="Name or what it does" />
+            </label>
+            <p class="sheet-note">No connections are ready yet.</p>
+          </section>
+        </div>
+      </div>
+    </dialog>
+
+    <script>
+      const viewport = document.querySelector("#viewport");
+      const world = document.querySelector("#world");
+      const search = document.querySelector("#search");
+      const status = document.querySelector("#status");
+      const pins = [...document.querySelectorAll(".pin")];
+      const notices = document.querySelector("#notices");
+      const account = document.querySelector("#account");
+      const noticeMenu = document.querySelector("#notice-menu");
+      const accountMenu = document.querySelector("#account-menu");
+
+      let x = (viewport.clientWidth - 1680) / 2;
+      let y = (viewport.clientHeight - 1400) / 2;
+      let scale = 1;
+      let drag = null;
+
+      function paint() {
+        world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      }
+
+      function closeMenus() {
+        noticeMenu.hidden = true;
+        accountMenu.hidden = true;
+        notices.setAttribute("aria-expanded", "false");
+        account.setAttribute("aria-expanded", "false");
+      }
+
+      viewport.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        if (event.target.closest(".float-bar, .menu")) return;
+        closeMenus();
+        closeActionMenus();
+        drag = { id: event.pointerId, sx: event.clientX, sy: event.clientY, ox: x, oy: y };
+        viewport.classList.add("is-panning");
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener("pointermove", (event) => {
+        if (!drag || event.pointerId !== drag.id) return;
+        x = drag.ox + event.clientX - drag.sx;
+        y = drag.oy + event.clientY - drag.sy;
+        paint();
+      });
+
+      function endDrag(event) {
+        if (!drag || event.pointerId !== drag.id) return;
+        drag = null;
+        viewport.classList.remove("is-panning");
+      }
+
+      viewport.addEventListener("pointerup", endDrag);
+      viewport.addEventListener("pointercancel", endDrag);
+
+      viewport.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const next = Math.min(2.4, Math.max(0.45, scale * (event.deltaY < 0 ? 1.08 : 0.92)));
+        const rect = viewport.getBoundingClientRect();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+        x = px - ((px - x) * next) / scale;
+        y = py - ((py - y) * next) / scale;
+        scale = next;
+        paint();
+      }, { passive: false });
+
+      search.addEventListener("input", () => {
+        const needle = search.value.trim().toLowerCase();
+        let shown = 0;
+        for (const pin of pins) {
+          const hit = !needle || pin.dataset.place.includes(needle);
+          pin.classList.toggle("is-dim", !hit);
+          if (hit) shown += 1;
+        }
+        status.textContent = needle && shown === 0 ? "Nothing on the canvas matches that search." : "";
+      });
+
+      function toggle(button, menu, otherButton, otherMenu) {
+        const open = menu.hidden;
+        closeMenus();
+        if (!open) return;
+        otherMenu.hidden = true;
+        otherButton.setAttribute("aria-expanded", "false");
+        menu.hidden = false;
+        button.setAttribute("aria-expanded", "true");
+      }
+
+      notices.addEventListener("click", () => toggle(notices, noticeMenu, account, accountMenu));
+      account.addEventListener("click", () => toggle(account, accountMenu, notices, noticeMenu));
+
+      const profileDialog = document.querySelector("#profile-dialog");
+      const settingsDialog = document.querySelector("#settings-dialog");
+      const mapProvider = document.querySelector("#map-provider");
+      const mapKey = document.querySelector("#map-key");
+
+      function showSettings(section) {
+        for (const button of settingsDialog.querySelectorAll("[data-section]")) {
+          button.dataset.active = String(button.dataset.section === section);
+        }
+        for (const pane of settingsDialog.querySelectorAll("[data-pane]")) {
+          pane.hidden = pane.dataset.pane !== section;
+        }
+      }
+
+      function applyProfile(form) {
+        const data = new FormData(form);
+        const name = String(data.get("fullName") ?? "").trim() || "Sory Kaba";
+        const address = String(data.get("address") ?? "").trim();
+        const city = String(data.get("city") ?? "").trim();
+        const state = String(data.get("state") ?? "").trim();
+        const place = [address, [city, state].filter(Boolean).join(", ")].filter(Boolean).join(", ");
+        document.querySelector(".who-name").textContent = name;
+        account.setAttribute("aria-label", name);
+        document.querySelector("#account-menu strong").textContent = name;
+        document.querySelector(".career-bio h2").textContent = name;
+        if (place) document.querySelector(".career-bio-place").textContent = place;
+        for (const other of document.querySelectorAll(".profile-form")) {
+          if (other === form) continue;
+          for (const field of other.elements) {
+            if (field.name && form.elements[field.name]) field.value = form.elements[field.name].value;
+          }
+        }
+      }
+
+      document.querySelector("#open-profile").addEventListener("click", () => {
+        closeMenus();
+        profileDialog.showModal();
+      });
+
+      document.querySelector("#open-settings").addEventListener("click", () => {
+        closeMenus();
+        showSettings("profile");
+        settingsDialog.showModal();
+      });
+
+      for (const button of settingsDialog.querySelectorAll("[data-section]")) {
+        button.addEventListener("click", () => showSettings(button.dataset.section));
+      }
+
+      for (const form of document.querySelectorAll(".profile-form")) {
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          applyProfile(form);
+          form.closest("dialog").close();
+        });
+      }
+
+      for (const button of document.querySelectorAll("[data-dismiss]")) {
+        button.addEventListener("click", () => {
+          document.querySelector(button.dataset.dismiss === "profile" ? "#profile-dialog" : "#settings-dialog").close();
+        });
+      }
+
+      for (const button of document.querySelectorAll("[data-note]")) {
+        button.addEventListener("click", () => {
+          document.querySelector(`#${button.dataset.note}-note`).hidden = false;
+        });
+      }
+
+      mapProvider.addEventListener("change", () => {
+        mapKey.hidden = mapProvider.value !== "google";
+      });
+
+      for (const dialog of [profileDialog, settingsDialog]) {
+        dialog.addEventListener("click", (event) => {
+          if (event.target === dialog) dialog.close();
+        });
+      }
+
+      const overview = document.querySelector("#overview");
+      const overviewToggle = document.querySelector("#overview-toggle");
+      const historySearch = document.querySelector("#history-search");
+      const historySort = document.querySelector("#history-sort");
+      const historyMiss = document.querySelector("#history-miss");
+      const historyRows = [...document.querySelectorAll(".career-history-row")];
+      const ledgerMenus = [
+        [document.querySelector("#import-tool"), document.querySelector("#import-menu")],
+        [document.querySelector("#add-tool"), document.querySelector("#add-menu")],
+      ];
+
+      overviewToggle.addEventListener("click", () => {
+        const collapsed = overview.classList.toggle("is-collapsed");
+        overviewToggle.setAttribute("aria-expanded", String(!collapsed));
+      });
+
+      function closeLedgerMenus() {
+        for (const [button, menu] of ledgerMenus) {
+          menu.hidden = true;
+          button.setAttribute("aria-expanded", "false");
+        }
+      }
+
+      function applyHistory() {
+        const needle = historySearch.value.trim().toLowerCase();
+        let shown = 0;
+        for (const row of historyRows) {
+          const hit = !needle || row.dataset.role.includes(needle);
+          row.hidden = !hit;
+          if (hit) shown += 1;
+        }
+        for (const section of document.querySelectorAll(".history-section")) {
+          const count = [...section.querySelectorAll(".career-history-row")].filter((row) => !row.hidden).length;
+          section.querySelector("em").textContent = `(${count})`;
+        }
+        historyMiss.hidden = shown > 0;
+      }
+
+      historySearch.addEventListener("input", applyHistory);
+
+      historySort.addEventListener("change", () => {
+        const oldest = historySort.value === "oldest";
+        for (const section of document.querySelectorAll(".history-section-rows")) {
+          const rows = [...section.querySelectorAll(".career-history-row")];
+          rows.sort((a, b) => (oldest ? 1 : -1) * a.dataset.start.localeCompare(b.dataset.start));
+          for (const row of rows) section.append(row);
+        }
+      });
+
+      for (const section of document.querySelectorAll(".history-section")) {
+        const button = section.querySelector(".history-cat");
+        const rows = section.querySelector(".history-section-rows");
+        button.addEventListener("click", () => {
+          const open = button.getAttribute("aria-expanded") !== "true";
+          button.setAttribute("aria-expanded", String(open));
+          rows.hidden = !open;
+          button.querySelector("span").textContent = open ? "▾" : "▸";
+        });
+      }
+
+      for (const [button, menu] of ledgerMenus) {
+        button.addEventListener("click", () => {
+          const open = menu.hidden;
+          closeLedgerMenus();
+          if (!open) return;
+          menu.hidden = false;
+          button.setAttribute("aria-expanded", "true");
+        });
+        menu.addEventListener("click", (event) => {
+          if (event.target.closest("button")) closeLedgerMenus();
+        });
+      }
+
+      document.addEventListener("pointerdown", (event) => {
+        if (!event.target.closest(".history-menu")) closeLedgerMenus();
+        if (!event.target.closest(".publication-menu-anchor")) closeActionMenus();
+      });
+
+      const actionDock = document.querySelector("#action-dock");
+      const actionHandle = document.querySelector("#action-handle");
+      const publishBtn = document.querySelector("#publish-btn");
+      const publishMenu = document.querySelector("#publish-menu");
+      const previewBtn = document.querySelector("#preview-btn");
+      const previewMenu = document.querySelector("#preview-menu");
+      const mapBtn = document.querySelector("#map-btn");
+      const timelineBtn = document.querySelector("#timeline-btn");
+
+      function closeActionMenus() {
+        publishMenu.hidden = true;
+        previewMenu.hidden = true;
+        publishBtn.setAttribute("aria-expanded", "false");
+        previewBtn.setAttribute("aria-expanded", "false");
+      }
+
+      function toggleActionMenu(button, menu, otherButton, otherMenu) {
+        const open = menu.hidden;
+        closeActionMenus();
+        if (!open) return;
+        otherMenu.hidden = true;
+        otherButton.setAttribute("aria-expanded", "false");
+        menu.hidden = false;
+        button.setAttribute("aria-expanded", "true");
+      }
+
+      publishBtn.addEventListener("click", () => toggleActionMenu(publishBtn, publishMenu, previewBtn, previewMenu));
+      previewBtn.addEventListener("click", () => toggleActionMenu(previewBtn, previewMenu, publishBtn, publishMenu));
+      publishMenu.addEventListener("click", (event) => {
+        if (event.target.closest("button")) closeActionMenus();
+      });
+      previewMenu.addEventListener("click", (event) => {
+        if (event.target.closest("button")) closeActionMenus();
+      });
+
+      mapBtn.addEventListener("click", () => {
+        mapBtn.setAttribute("aria-pressed", "true");
+        timelineBtn.setAttribute("aria-pressed", "false");
+      });
+      timelineBtn.addEventListener("click", () => {
+        timelineBtn.setAttribute("aria-pressed", "true");
+        mapBtn.setAttribute("aria-pressed", "false");
+      });
+
+      actionHandle.addEventListener("click", () => {
+        const collapsed = actionDock.classList.toggle("is-collapsed");
+        actionHandle.setAttribute("aria-expanded", String(!collapsed));
+        actionHandle.setAttribute("aria-label", collapsed ? "Show actions" : "Collapse actions");
+        if (collapsed) closeActionMenus();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeMenus();
+          closeActionMenus();
+          for (const dialog of document.querySelectorAll(".menu-pop")) {
+            if (dialog.open) dialog.close();
+          }
+        }
+      });
+
+      const historyToggle = document.querySelector("#history-toggle");
+      const historyBody = document.querySelector("#history-body");
+      const historyLedger = document.querySelector(".work-map-ledger");
+
+      historyToggle.addEventListener("click", () => {
+        const show = historyBody.hidden;
+        historyBody.hidden = !show;
+        historyToggle.setAttribute("aria-expanded", String(show));
+        historyToggle.classList.toggle("is-current", show);
+        historyLedger.classList.toggle("is-open", show);
+      });
+
+      document.querySelector(".shell-nav").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-pop]");
+        if (!button) return;
+        document.querySelector(`#${button.dataset.pop}`).showModal();
+      });
+
+      for (const button of document.querySelectorAll("[data-close]")) {
+        button.addEventListener("click", () => {
+          document.querySelector(`#${button.dataset.close}`).close();
+        });
+      }
+
+      for (const dialog of document.querySelectorAll(".menu-pop")) {
+        dialog.addEventListener("click", (event) => {
+          if (event.target === dialog) dialog.close();
+        });
+      }
+
+      paint();
+    </script>
+  </body>
+</html>

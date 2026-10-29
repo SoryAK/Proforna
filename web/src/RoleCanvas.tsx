@@ -15,7 +15,9 @@ import {
   type CareerHistorySectionKey,
 } from "@core/career-history";
 import {
+  pointsAtGroup,
   readCanvasBoards,
+  releasePointingMembers,
   type CanvasBoard,
   type CanvasGroup,
   type CanvasLink,
@@ -187,6 +189,12 @@ function sampleBoards(): CanvasBoard[] {
       ],
       groups: [],
     },
+    {
+      id: "sample-group",
+      name: "Demo",
+      nodes: [],
+      groups: [],
+    },
   ];
 }
 
@@ -205,32 +213,31 @@ function withoutRoleCard(board: CanvasBoard): CanvasBoard {
   return { ...board, nodes, groups };
 }
 
-function loadBoards(role: WorkMapRole): CanvasBoard[] {
+function loadBoards(role: WorkMapRole, studies: CanvasBoard[] = []): CanvasBoard[] {
+  const shared = withStoredStudies(sampleBoards(), studies);
+  const sharedIds = new Set(shared.map((board) => board.id));
   const seed = boardsForRole(role);
   const stored = readStoredBoards(role);
-  if (!stored) return seed;
-  const roleBoard = stored.find((board) => board.id === role.id);
-  if (!roleBoard) return seed;
-  const extras = stored.filter((board) => board.id !== role.id).map(withoutRoleCard);
-  const missing = seed.filter(
-    (board) => board.id !== role.id && !extras.some((item) => item.id === board.id),
-  );
-  return [withoutRoleCard(roleBoard), ...extras, ...missing];
+  const roleBoard = withoutRoleCard(stored?.find((board) => board.id === role.id) ?? seed[0]);
+  const extras = (stored ?? [])
+    .filter((board) => board.id !== role.id && !sharedIds.has(board.id))
+    .map(withoutRoleCard);
+  return [roleBoard, ...extras, ...shared];
 }
 
-function loadAllBoards(roles: WorkMapRole[]): CanvasBoard[] {
-  const studies = sampleBoards();
-  const studyIds = new Set(studies.map((board) => board.id));
+function loadAllBoards(roles: WorkMapRole[], studies: CanvasBoard[] = []): CanvasBoard[] {
+  const shared = withStoredStudies(sampleBoards(), studies);
+  const sharedIds = new Set(shared.map((board) => board.id));
   const collected: CanvasBoard[] = [];
   const seen = new Set<string>();
   for (const item of roles) {
-    for (const board of reflectRole(loadBoards(item), item)) {
-      if (seen.has(board.id) || studyIds.has(board.id)) continue;
+    for (const board of reflectRole(loadBoards(item, studies), item)) {
+      if (seen.has(board.id) || sharedIds.has(board.id)) continue;
       seen.add(board.id);
       collected.push(board);
     }
   }
-  return [...collected, ...studies];
+  return [...collected, ...shared];
 }
 
 function reflectRole(boards: CanvasBoard[], role: WorkMapRole): CanvasBoard[] {
@@ -327,6 +334,60 @@ async function sendLatestBoards(roleId: string) {
   forgetLegacyBoards(roleId);
 }
 
+let sharedBoardsCache: CanvasBoard[] | null = null;
+let sharedSaveTail: Promise<void> = Promise.resolve();
+let sharedPending: { boards: CanvasBoard[]; roleIds: string[] } | null = null;
+
+function scheduleSharedSave(boards: CanvasBoard[], roleIds: string[]) {
+  sharedPending = { boards, roleIds };
+  sharedSaveTail = sharedSaveTail.then(() => flushSharedSave(), () => flushSharedSave());
+  return sharedSaveTail;
+}
+
+async function flushSharedSave() {
+  const job = sharedPending;
+  if (!job) return;
+  sharedPending = null;
+  let response: Response;
+  try {
+    response = await fetch("/api/work-map/canvas", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ boards: job.boards }),
+    });
+  } catch {
+    if (!sharedPending) sharedPending = job;
+    throw new Error("save failed");
+  }
+  if (!response.ok) {
+    if (!sharedPending) sharedPending = job;
+    throw new Error("save failed");
+  }
+  const roleIds = new Set(job.roleIds);
+  sharedBoardsCache = job.boards.filter((board) => !roleIds.has(board.id));
+  const sent = new Set(job.boards.map((board) => board.id));
+  for (const roleId of roleIds) {
+    const own = job.boards.find((board) => board.id === roleId);
+    if (!own) continue;
+    const existing = vaultBoards.get(roleId) ?? [];
+    const kept = existing.filter((board) => board.id !== roleId && !sent.has(board.id));
+    const next = [own, ...kept];
+    vaultBoards.set(roleId, next);
+    savedBoardJson.set(roleId, JSON.stringify(next));
+  }
+}
+
+function storedStudies(fromServer: CanvasBoard[]) {
+  return sharedBoardsCache ?? fromServer;
+}
+
+function withStoredStudies(seeds: CanvasBoard[], stored: CanvasBoard[]) {
+  const byId = new Map(stored.map((board) => [board.id, board]));
+  const merged = seeds.map((seed) => byId.get(seed.id) ?? seed);
+  const extra = stored.filter((board) => !seeds.some((seed) => seed.id === board.id));
+  return [...merged, ...extra];
+}
+
 function nodeDraft(node: CanvasNode): {
   id: string;
   kind: CanvasNodeKind;
@@ -388,6 +449,7 @@ export function RoleCanvasEntry({
   onShowRole,
   onOpenRole,
   onClose,
+  studyBoards = [],
 }: {
   role: WorkMapRole;
   roles?: WorkMapRole[];
@@ -399,6 +461,7 @@ export function RoleCanvasEntry({
   onShowRole: () => void;
   onOpenRole?: (role: WorkMapRole) => void;
   onClose: () => void;
+  studyBoards?: CanvasBoard[];
 }) {
   const catalog = useMemo(
     () => (scope === "all" ? (roles ?? []) : [role]),
@@ -406,8 +469,9 @@ export function RoleCanvasEntry({
   );
   const openingId = scope === "all" ? (catalog[0]?.id ?? role.id) : role.id;
   const openingViewport = readViewport(scope === "all" ? openingId : role.id, openingId);
+  const loadedStudies = storedStudies(studyBoards);
   const [boards, setBoards] = useState(() =>
-    scope === "all" ? loadAllBoards(catalog) : reflectRole(loadBoards(role), role),
+    scope === "all" ? loadAllBoards(catalog, loadedStudies) : reflectRole(loadBoards(role, loadedStudies), role),
   );
   const [canvasId, setCanvasId] = useState(openingId);
   const [boardKind, setBoardKind] = useState<"all" | CareerHistorySectionKey>("all");
@@ -416,7 +480,14 @@ export function RoleCanvasEntry({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [nodeMenu, setNodeMenu] = useState<{ kind: "node" | "group"; id: string; x: number; y: number } | null>(null);
+  const [cardSize, setCardSize] = useState<Record<string, { w: number; h: number }>>({});
+  const [nodeMenu, setNodeMenu] = useState<{
+    kind: "node" | "group";
+    id: string;
+    x: number;
+    y: number;
+    groupId?: string | null;
+  } | null>(null);
   const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number } | null>(null);
   const [menuEpoch, setMenuEpoch] = useState(0);
   const [guides, setGuides] = useState<GuideLine[]>([]);
@@ -434,6 +505,7 @@ export function RoleCanvasEntry({
   const [mapOpen, setMapOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [snaps, setSnaps] = useState(readSnaps);
   const [wireMenu, setWireMenu] = useState<{ fromId: string; toId: string; x: number; y: number } | null>(null);
   const [hotWire, setHotWire] = useState<string | null>(null);
@@ -538,6 +610,25 @@ export function RoleCanvasEntry({
   }, [role, scope, catalog]);
 
   const canvas = boards.find((board) => board.id === canvasId) ?? boards[0];
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || !canvas) return;
+    const next: Record<string, { w: number; h: number }> = {};
+    for (const node of canvas.nodes) {
+      const el = stage.querySelector<HTMLElement>(`[data-id="${CSS.escape(node.id)}"]`);
+      if (!el || el.offsetWidth < 2) continue;
+      next[node.id] = { w: el.offsetWidth, h: el.offsetHeight };
+    }
+    setCardSize((current) => {
+      const keys = Object.keys(next);
+      if (keys.length !== Object.keys(current).length) return next;
+      for (const key of keys) {
+        if (current[key]?.w !== next[key].w || current[key]?.h !== next[key].h) return next;
+      }
+      return current;
+    });
+  }, [canvas]);
   const selected = canvas?.nodes.find((node) => node.id === selectedId) ?? null;
   const focusRole = scope === "all" ? (catalog.find((item) => item.id === canvas?.id) ?? null) : role;
   const roleBoard = boards.find((board) => board.id === (focusRole?.id ?? role.id));
@@ -559,20 +650,8 @@ export function RoleCanvasEntry({
   boardsRef.current = boards;
 
   useEffect(() => {
-    if (scope === "all") {
-      for (const item of catalog) {
-        const own = boards.find((board) => board.id === item.id);
-        if (!own) continue;
-        const stored = readStoredBoards(item) ?? boardsForRole(item);
-        const next = stored.some((board) => board.id === own.id)
-          ? stored.map((board) => (board.id === own.id ? own : board))
-          : [own, ...stored];
-        if (JSON.stringify(stored) !== JSON.stringify(next)) scheduleVaultSave(item.id, next);
-      }
-      return;
-    }
-    if (!boards.some((board) => board.id === role.id)) return;
-    scheduleVaultSave(role.id, boards);
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    void scheduleSharedSave(boards, roleIds).catch(() => undefined);
   }, [boards, role.id, scope, catalog]);
 
   useEffect(() => {
@@ -843,7 +922,7 @@ export function RoleCanvasEntry({
     return () => observer.disconnect();
   }, [zoom, canvas, open, minimized]);
 
-  const wires = useWires(canvas, open && !minimized, zoom, selectedId);
+  const wires = useWires(canvas, open && !minimized, zoom, selectedId, selectedGroupId);
 
   function readFrame(): Frame {
     const rect = windowRef.current?.getBoundingClientRect();
@@ -1127,6 +1206,9 @@ export function RoleCanvasEntry({
       const fixX = snapped.x - anchor.x;
       const fixY = snapped.y - anchor.y;
       setGuides(snapped.lines);
+      const live = boardsRef.current.find((item) => item.id === boardId);
+      const pointing = new Set(node.links.map((link) => link.id));
+      setHotTarget(live && !node.locked ? groupDropTarget(next.clientX, next.clientY, node.id, live.groups, pointing) : null);
       setBoards((current) =>
         current.map((item) => {
           if (item.id !== boardId) return item;
@@ -1146,8 +1228,19 @@ export function RoleCanvasEntry({
       card.removeEventListener("pointermove", move);
       card.removeEventListener("pointerup", up);
       setGuides([]);
+      setHotTarget(null);
       if (moved) {
-        if (!node.locked) commitUndo(before);
+        if (!node.locked) {
+          const live = boardsRef.current.find((item) => item.id === boardId);
+          const pointing = new Set(node.links.map((link) => link.id));
+          const target = live ? groupDropTarget(next.clientX, next.clientY, node.id, live.groups, pointing) : null;
+          if (target) {
+            setBoards((current) =>
+              current.map((item) => (item.id === boardId ? placeNodeInGroup(item, node.id, target) : item)),
+            );
+          }
+          commitUndo(before);
+        }
         return;
       }
       setSelectedGroupId(null);
@@ -1333,7 +1426,7 @@ export function RoleCanvasEntry({
           const rest = item.members.filter((id) => !taken.has(id));
           return rest.length > 1 ? [{ ...item, members: rest }] : [];
         });
-        return { ...board, groups: [...groups, group] };
+        return releasePointingMembers({ ...board, groups: [...groups, group] });
       }),
     );
     setSelection([]);
@@ -1359,12 +1452,119 @@ export function RoleCanvasEntry({
     setNodeMenu(null);
   }
 
+  function renameGroup(groupId: string) {
+    if (!canvas) return;
+    const group = canvas.groups.find((item) => item.id === groupId);
+    if (!group) return;
+    const name = window.prompt("Name this group", group.name);
+    setNodeMenu(null);
+    if (name === null) return;
+    const next = name.trim();
+    if (!next || next === group.name) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) =>
+        board.id === canvas.id
+          ? { ...board, groups: board.groups.map((item) => (item.id === groupId ? { ...item, name: next } : item)) }
+          : board,
+      ),
+    );
+  }
+
+  function addToGroup(groupId: string, nodeId: string) {
+    if (!canvas) return;
+    const group = canvas.groups.find((item) => item.id === groupId);
+    const node = canvas.nodes.find((item) => item.id === nodeId);
+    if (!group || group.members.includes(nodeId) || !node || pointsAtGroup(node, groupId)) {
+      setNodeMenu(null);
+      return;
+    }
+    remember();
+    const members = [...group.members, nodeId];
+    setBoards((current) =>
+      current.map((board) => {
+        if (board.id !== canvas.id) return board;
+        const cards = board.nodes.filter((node) => members.includes(node.id));
+        const groups = board.groups.flatMap((item) => {
+          if (item.id === groupId) {
+            return [
+              {
+                ...item,
+                members,
+                x: Math.min(...cards.map((card) => card.x)),
+                y: Math.min(...cards.map((card) => card.y)),
+              },
+            ];
+          }
+          if (!item.members.includes(nodeId)) return [item];
+          const rest = item.members.filter((id) => id !== nodeId);
+          return rest.length > 1 ? [{ ...item, members: rest }] : [];
+        });
+        return releasePointingMembers({ ...board, groups });
+      }),
+    );
+    setNodeMenu(null);
+  }
+
+  function removeFromGroup(groupId: string, nodeId: string) {
+    if (!canvas) return;
+    const group = canvas.groups.find((item) => item.id === groupId);
+    if (!group?.members.includes(nodeId)) {
+      setNodeMenu(null);
+      return;
+    }
+    remember();
+    const members = group.members.filter((id) => id !== nodeId);
+    setBoards((current) =>
+      current.map((board) => {
+        if (board.id !== canvas.id) return board;
+        if (members.length < 2) {
+          return {
+            ...board,
+            groups: board.groups.filter((item) => item.id !== groupId),
+            nodes: board.nodes.map((node) =>
+              node.links.some((link) => link.id === groupId)
+                ? { ...node, links: node.links.filter((link) => link.id !== groupId) }
+                : node,
+            ),
+          };
+        }
+        const cards = board.nodes.filter((node) => members.includes(node.id));
+        return {
+          ...board,
+          groups: board.groups.map((item) =>
+            item.id === groupId
+              ? {
+                  ...item,
+                  members,
+                  x: Math.min(...cards.map((card) => card.x)),
+                  y: Math.min(...cards.map((card) => card.y)),
+                }
+              : item,
+          ),
+        };
+      }),
+    );
+    if (members.length < 2) setSelectedGroupId(null);
+    setNodeMenu(null);
+  }
+
   function ungroup(groupId: string) {
     if (!canvas) return;
     remember();
     setBoards((current) =>
       current.map((board) =>
-        board.id === canvas.id ? { ...board, groups: board.groups.filter((item) => item.id !== groupId) } : board,
+        board.id === canvas.id
+          ? {
+              ...board,
+              groups: board.groups.filter((item) => item.id !== groupId),
+              nodes: board.nodes.map((node) =>
+                node.links.some((link) => link.id === groupId)
+                  ? { ...node, links: node.links.filter((link) => link.id !== groupId) }
+                  : node,
+              ),
+            }
+          : board,
       ),
     );
     setSelectedGroupId(null);
@@ -1470,9 +1670,15 @@ export function RoleCanvasEntry({
       groups: JSON.parse(JSON.stringify(canvas.groups)) as CanvasGroup[],
     };
     setSnaps((current) => ({ ...current, [snapKey(canvas.id)]: [snap, ...list].slice(0, 30) }));
-    setSavedFlash(true);
-    window.setTimeout(() => setSavedFlash(false), 1200);
-    setHistoryOpen(true);
+    setSaveError("");
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    void scheduleSharedSave(boards, roleIds)
+      .then(() => {
+        setSavedFlash(true);
+        window.setTimeout(() => setSavedFlash(false), 1200);
+        setHistoryOpen(true);
+      })
+      .catch(() => setSaveError("Couldn't save."));
   }
 
   function restoreSnap(snap: Snap) {
@@ -1767,11 +1973,20 @@ export function RoleCanvasEntry({
     closeMenus();
   }
 
+  function linkTarget(id: string) {
+    const node = canvas?.nodes.find((item) => item.id === id);
+    if (node) return { id: node.id, label: node.title || node.kind };
+    const group = canvas?.groups.find((item) => item.id === id);
+    if (group) return { id: group.id, label: group.name || "Group" };
+    return null;
+  }
+
   function openRelation(fromId: string, toId: string, x: number, y: number, mode: "create" | "edit") {
     const from = canvas?.nodes.find((node) => node.id === fromId);
+    const target = linkTarget(toId);
     const existing = from?.links.find((link) => link.id === toId);
     if (mode === "create" && existing) return;
-    if (!from || !canvas?.nodes.some((node) => node.id === toId) || fromId === toId) return;
+    if (!from || !target || fromId === toId) return;
     closeMenus();
     setLinkOpen(false);
     setRelationPrompt({ fromId, toId, x, y, mode, value: existing?.relation ?? "" });
@@ -1783,14 +1998,14 @@ export function RoleCanvasEntry({
     const relation = value.trim();
     if (!relation) return;
     const from = canvas.nodes.find((node) => node.id === prompt.fromId);
-    const to = canvas.nodes.find((node) => node.id === prompt.toId);
-    if (!from || !to || from.id === to.id) return;
+    const target = linkTarget(prompt.toId);
+    if (!from || !target || from.id === target.id) return;
     const links =
       prompt.mode === "create"
-        ? from.links.some((link) => link.id === to.id)
+        ? from.links.some((link) => link.id === target.id)
           ? null
-          : [...from.links, { key: to.id, id: to.id, label: to.title || to.kind, relation }]
-        : from.links.map((link) => (link.id === to.id ? { ...link, relation } : link));
+          : [...from.links, { key: target.id, id: target.id, label: target.label, relation }]
+        : from.links.map((link) => (link.id === target.id ? { ...link, relation } : link));
     if (!links) {
       setRelationPrompt(null);
       return;
@@ -1800,11 +2015,24 @@ export function RoleCanvasEntry({
     setBoards((current) =>
       current.map((board) =>
         board.id === boardId
-          ? { ...board, nodes: board.nodes.map((node) => (node.id === from.id ? { ...node, links } : node)) }
+          ? releasePointingMembers({
+              ...board,
+              nodes: board.nodes.map((node) => (node.id === from.id ? { ...node, links } : node)),
+            })
           : board,
       ),
     );
     setRelationPrompt(null);
+  }
+
+  function wireDropId(clientX: number, clientY: number, fromId: string) {
+    const hit = document.elementFromPoint(clientX, clientY);
+    if (!hit) return "";
+    const card = hit.closest(".role-canvas-node");
+    const nodeId = card?.getAttribute("data-id") ?? "";
+    if (nodeId && nodeId !== fromId) return nodeId;
+    const groupId = hit.closest("[data-group]")?.getAttribute("data-group") ?? "";
+    return groupId || "";
   }
 
   function startWire(event: ReactPointerEvent<HTMLButtonElement>, node: CanvasNode) {
@@ -1819,6 +2047,7 @@ export function RoleCanvasEntry({
       return { x1: live.x + width, y1: live.y + height / 2 };
     };
     const start = origin();
+    windowRef.current?.classList.add("is-wiring");
     setDraftWire({ ...start, x2: start.x1, y2: start.y1 });
     const grip = event.currentTarget;
     try {
@@ -1831,19 +2060,18 @@ export function RoleCanvasEntry({
       const point = canvasPoint(next.clientX, next.clientY);
       const from = origin();
       setDraftWire({ ...from, x2: point.x, y2: point.y });
-      const hit = document.elementFromPoint(next.clientX, next.clientY);
-      const id = hit?.closest(".role-canvas-node")?.getAttribute("data-id") ?? "";
-      setHotTarget(id && id !== node.id ? id : null);
+      const id = wireDropId(next.clientX, next.clientY, node.id);
+      setHotTarget(id || null);
     }
     function up(next: PointerEvent) {
       if (next.pointerId !== event.pointerId) return;
       grip.removeEventListener("pointermove", move);
       grip.removeEventListener("pointerup", up);
+      const id = wireDropId(next.clientX, next.clientY, node.id);
+      windowRef.current?.classList.remove("is-wiring");
       setDraftWire(null);
       setHotTarget(null);
-      const hit = document.elementFromPoint(next.clientX, next.clientY);
-      const id = hit?.closest(".role-canvas-node")?.getAttribute("data-id") ?? "";
-      if (!id || id === node.id) return;
+      if (!id) return;
       openRelation(node.id, id, next.clientX, next.clientY, "create");
     }
     grip.addEventListener("pointermove", move);
@@ -2052,6 +2280,7 @@ export function RoleCanvasEntry({
         railOpen ? "" : "is-rail-shut",
         maximized ? "is-maximized" : "",
         selected ? "is-focus" : "",
+        draftWire ? "is-wiring" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -2140,6 +2369,7 @@ export function RoleCanvasEntry({
           >
             Save
           </button>
+          {saveError ? <span className="role-canvas-save-error">{saveError}</span> : null}
           <button
             type="button"
             className="role-canvas-history"
@@ -2592,10 +2822,16 @@ export function RoleCanvasEntry({
             ))}
           </svg>
           <svg className="role-canvas-wires">
+            <defs>
+              <marker id="role-canvas-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+                <path d="M0.8 0.8 7 4 0.8 7.2" fill="none" stroke="#c7a47b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </marker>
+            </defs>
             {wires.map((wire) => (
               <g key={wire.id}>
                 <path
                   d={wire.d}
+                  markerEnd={wire.toGroup ? "url(#role-canvas-arrow)" : undefined}
                   className={
                     [
                       wire.live ? "is-live" : "",
@@ -2619,7 +2855,14 @@ export function RoleCanvasEntry({
                     }}
                   />
                 ) : null}
-                {wire.relation ? (
+                {wire.relation && wire.toGroup ? (
+                  <g className="role-canvas-edge-label" transform={`translate(${wire.mx} ${wire.my}) rotate(${wire.angle})`}>
+                    <rect className="role-canvas-edge-label-plate" x={-(wire.relation.length * 3.7 + 6)} y="-8" width={wire.relation.length * 7.4 + 12} height="16" rx="4" />
+                    <text className="role-canvas-wire-label" textAnchor="middle" dominantBaseline="middle">
+                      {wire.relation}
+                    </text>
+                  </g>
+                ) : wire.relation ? (
                   <text className="role-canvas-wire-label" x={wire.mx} y={wire.my - 8} textAnchor="middle">
                     {wire.relation}
                   </text>
@@ -2634,6 +2877,26 @@ export function RoleCanvasEntry({
               style={{ left: marquee.left, top: marquee.top, width: marquee.width, height: marquee.height }}
             />
           ) : null}
+          {canvas?.groups
+            .filter((group) => !group.collapsed)
+            .map((group) => {
+              const frame = openGroupFrame(group, canvas.nodes, cardSize);
+              if (!frame) return null;
+              return (
+                <div
+                  key={group.id}
+                  className={["role-canvas-group-bounds", selectedGroupId === group.id ? "is-selected" : "", hotTarget === group.id ? "is-hot" : ""]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={frame}
+                  data-group={group.id}
+                  role="group"
+                  aria-label={group.name}
+                >
+                  <span className="role-canvas-group-label">{group.name}</span>
+                </div>
+              );
+            })}
           {canvas?.nodes.filter((node) => !hiddenMemberIds(canvas.groups).has(node.id)).map((node, index) => {
             const faded =
               query.trim() &&
@@ -2659,10 +2922,11 @@ export function RoleCanvasEntry({
                   event.preventDefault();
                   event.stopPropagation();
                   if (!selection.includes(node.id)) setSelection([node.id]);
+                  const groupId = selectedGroupId;
                   setSelectedGroupId(null);
                   setCanvasMenu(null);
                   setWireMenu(null);
-                  setNodeMenu({ kind: "node", id: node.id, x: event.clientX, y: event.clientY });
+                  setNodeMenu({ kind: "node", id: node.id, x: event.clientX, y: event.clientY, groupId });
                 }}
               >
                 <button type="button" className={["role-canvas-port", "in", hotTarget === node.id ? "is-hot" : ""].filter(Boolean).join(" ")} data-label="Wire in" aria-label="Wire in" />
@@ -2850,7 +3114,10 @@ export function RoleCanvasEntry({
       {nodeMenu && canvas ? (
         <CanvasContextMenu x={nodeMenu.x} y={nodeMenu.y}>
           {nodeMenu.kind === "group" ? (
-            <MenuButton label="Ungroup" onClick={() => ungroup(nodeMenu.id)} />
+            <>
+              <MenuButton label="Rename" onClick={() => renameGroup(nodeMenu.id)} />
+              <MenuButton label="Ungroup" onClick={() => ungroup(nodeMenu.id)} />
+            </>
           ) : (
             <>
               <MenuButton label="Edit" onClick={() => editNode(nodeMenu.id)} />
@@ -2862,8 +3129,21 @@ export function RoleCanvasEntry({
                 .filter((group) => !group.collapsed && group.members.includes(nodeMenu.id))
                 .flatMap((group) => [
                   <MenuButton key={`${group.id}-collapse`} label="Collapse" onClick={() => setGroupCollapsed(group, true)} />,
+                  <MenuButton key={`${group.id}-remove`} label="Remove from group" onClick={() => removeFromGroup(group.id, nodeMenu.id)} />,
                   <MenuButton key={`${group.id}-ungroup`} label="Ungroup" onClick={() => ungroup(group.id)} />,
                 ])}
+              {nodeMenu.groupId &&
+              canvas.groups.some(
+                (group) =>
+                  group.id === nodeMenu.groupId &&
+                  !group.members.includes(nodeMenu.id) &&
+                  !pointsAtGroup(
+                    canvas.nodes.find((node) => node.id === nodeMenu.id),
+                    group.id,
+                  ),
+              ) ? (
+                <MenuButton label="Add to group" onClick={() => addToGroup(nodeMenu.groupId!, nodeMenu.id)} />
+              ) : null}
               <MenuButton label="Copy" shortcut="Ctrl C" onClick={() => copyFrom(nodeMenu.id)} />
               <MenuButton label="Duplicate" shortcut="Ctrl D" onClick={() => duplicateFrom(nodeMenu.id)} />
               <MenuButton label="Bring to front" shortcut="Ctrl ]" onClick={() => restack(nodeMenu.id, true)} />
@@ -2922,7 +3202,11 @@ export function RoleCanvasEntry({
           y={relationPrompt.y}
           mode={relationPrompt.mode}
           value={relationPrompt.value}
-          target={canvas?.nodes.find((node) => node.id === relationPrompt.toId)?.title || "this card"}
+          target={
+            canvas?.nodes.find((node) => node.id === relationPrompt.toId)?.title
+            || canvas?.groups.find((group) => group.id === relationPrompt.toId)?.name
+            || "this card"
+          }
           onChange={(value) => setRelationPrompt((current) => (current ? { ...current, value } : current))}
           onApply={applyRelation}
           onCancel={() => setRelationPrompt(null)}
@@ -2995,6 +3279,83 @@ export function RoleCanvasEntry({
 
 function clampZoom(value: number) {
   return Math.min(2.5, Math.max(0.35, value));
+}
+
+function groupDropTarget(
+  clientX: number,
+  clientY: number,
+  nodeId: string,
+  groups: CanvasGroup[],
+  pointingAt: ReadonlySet<string>,
+) {
+  const hits: { id: string; area: number }[] = [];
+  for (const group of groups) {
+    if (group.members.includes(nodeId) || pointingAt.has(group.id)) continue;
+    const el = group.collapsed
+      ? document.querySelector<HTMLElement>(`.role-canvas-node[data-group="${CSS.escape(group.id)}"]`)
+      : document.querySelector<HTMLElement>(`.role-canvas-group-bounds[data-group="${CSS.escape(group.id)}"]`);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) continue;
+    hits.push({ id: group.id, area: rect.width * rect.height });
+  }
+  hits.sort((a, b) => a.area - b.area);
+  return hits[0]?.id ?? null;
+}
+
+function placeNodeInGroup(board: CanvasBoard, nodeId: string, groupId: string): CanvasBoard {
+  const target = board.groups.find((group) => group.id === groupId);
+  const node = board.nodes.find((item) => item.id === nodeId);
+  if (!target || target.members.includes(nodeId) || !node || pointsAtGroup(node, groupId)) return board;
+  const groups = board.groups.flatMap((group) => {
+    const members = group.id === groupId ? [...group.members, nodeId] : group.members.filter((id) => id !== nodeId);
+    if (group.id !== groupId && members.length === group.members.length) return [group];
+    if (members.length < 2) return [];
+    const cards = board.nodes.filter((node) => members.includes(node.id));
+    return [{
+      ...group,
+      members,
+      x: Math.min(...cards.map((card) => card.x)),
+      y: Math.min(...cards.map((card) => card.y)),
+    }];
+  });
+  const removed = new Set(board.groups.filter((group) => !groups.some((item) => item.id === group.id)).map((group) => group.id));
+  const nodes = removed.size
+    ? board.nodes.map((node) =>
+        node.links.some((link) => removed.has(link.id))
+          ? { ...node, links: node.links.filter((link) => !removed.has(link.id)) }
+          : node,
+      )
+    : board.nodes;
+  return { ...board, nodes, groups };
+}
+
+function openGroupFrame(
+  group: CanvasGroup,
+  nodes: CanvasNode[],
+  sizes: Record<string, { w: number; h: number }>,
+) {
+  const members = nodes.filter((node) => group.members.includes(node.id));
+  if (members.length === 0) return null;
+  const pad = 18;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of members) {
+    const width = sizes[node.id]?.w || node.w || 208;
+    const height = sizes[node.id]?.h || node.h || 96;
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + width);
+    maxY = Math.max(maxY, node.y + height);
+  }
+  return {
+    left: minX - pad,
+    top: minY - pad,
+    width: maxX - minX + pad * 2,
+    height: maxY - minY + pad * 2,
+  };
 }
 
 function hiddenMemberIds(groups: CanvasGroup[]) {
@@ -3258,20 +3619,46 @@ function wirePath(x1: number, y1: number, x2: number, y2: number) {
   return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
 }
 
-function useWires(canvas: CanvasBoard | undefined, active: boolean, zoom: number, selectedId: string | null) {
+function edgeLabelAngle(x1: number, y1: number, x2: number, y2: number) {
+  let angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+  if (angle > 90 || angle < -90) angle += 180;
+  return angle;
+}
+
+function rectEdge(box: { x: number; y: number; w: number; h: number }, towardX: number, towardY: number) {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const dx = towardX - cx;
+  const dy = towardY - cy;
+  if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return { x: box.x, y: cy };
+  const sx = dx === 0 ? Infinity : box.w / 2 / Math.abs(dx);
+  const sy = dy === 0 ? Infinity : box.h / 2 / Math.abs(dy);
+  const scale = Math.min(sx, sy);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+function useWires(
+  canvas: CanvasBoard | undefined,
+  active: boolean,
+  zoom: number,
+  selectedId: string | null,
+  selectedGroupId: string | null,
+) {
   const [wires, setWires] = useState<
-    Array<{ id: string; fromId: string; toId: string; d: string; hit: string; live: boolean; explicit: boolean; relation: string; mx: number; my: number }>
+    Array<{ id: string; fromId: string; toId: string; d: string; hit: string; live: boolean; explicit: boolean; relation: string; mx: number; my: number; angle: number; toGroup: boolean }>
   >([]);
   useLayoutEffect(() => {
     if (!active || !canvas) {
       setWires([]);
       return;
     }
-    const next: Array<{ id: string; fromId: string; toId: string; d: string; hit: string; live: boolean; explicit: boolean; relation: string; mx: number; my: number }> = [];
+    const next: Array<{ id: string; fromId: string; toId: string; d: string; hit: string; live: boolean; explicit: boolean; relation: string; mx: number; my: number; angle: number; toGroup: boolean }> = [];
     const pairs: Array<[string, string]> = [];
     for (const node of canvas.nodes) {
       for (const link of node.links) {
-        if (!canvas.nodes.some((item) => item.id === link.id)) continue;
+        const known =
+          canvas.nodes.some((item) => item.id === link.id) || canvas.groups.some((item) => item.id === link.id);
+        if (!known) continue;
         if (!pairs.some(([from, to]) => from === node.id && to === link.id)) pairs.push([node.id, link.id]);
       }
     }
@@ -3279,7 +3666,7 @@ function useWires(canvas: CanvasBoard | undefined, active: boolean, zoom: number
     const end = (id: string) => {
       const group = canvas.groups.find((item) => item.collapsed && item.members.includes(id));
       if (group) {
-        const el = root?.querySelector<HTMLElement>(`[data-group="${CSS.escape(group.id)}"]`);
+        const el = root?.querySelector<HTMLElement>(`.role-canvas-node[data-group="${CSS.escape(group.id)}"]`);
         return {
           x: group.x,
           y: group.y,
@@ -3297,33 +3684,52 @@ function useWires(canvas: CanvasBoard | undefined, active: boolean, zoom: number
         h: el?.offsetHeight || node.h || 88,
       };
     };
+    const groupBox = (group: CanvasGroup) => {
+      if (group.collapsed) {
+        const el = root?.querySelector<HTMLElement>(`.role-canvas-node[data-group="${CSS.escape(group.id)}"]`);
+        return { x: group.x, y: group.y, w: el?.offsetWidth || 208, h: el?.offsetHeight || 96 };
+      }
+      const el = root?.querySelector<HTMLElement>(`.role-canvas-group-bounds[data-group="${CSS.escape(group.id)}"]`);
+      if (el && el.offsetWidth > 2) return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+      const frame = openGroupFrame(group, canvas.nodes, {});
+      if (!frame) return null;
+      return { x: frame.left, y: frame.top, w: frame.width, h: frame.height };
+    };
     for (const [fromId, toId] of pairs) {
       const from = end(fromId);
-      const to = end(toId);
+      const group = canvas.groups.find((item) => item.id === toId);
+      const to = group ? groupBox(group) : end(toId);
       if (!from || !to) continue;
-      const x1 = from.x + from.w;
-      const y1 = from.y + from.h / 2;
-      const x2 = to.x;
-      const y2 = to.y + to.h / 2;
       const explicit = canvas.nodes.some((node) => node.id === fromId && node.links.some((link) => link.id === toId));
       const relation = explicit
         ? canvas.nodes.find((node) => node.id === fromId)?.links.find((link) => link.id === toId)?.relation ?? ""
         : "";
+      const aimed = group
+        ? {
+            x1: rectEdge(from, to.x + to.w / 2, to.y + to.h / 2).x,
+            y1: rectEdge(from, to.x + to.w / 2, to.y + to.h / 2).y,
+            x2: rectEdge(to, from.x + from.w / 2, from.y + from.h / 2).x,
+            y2: rectEdge(to, from.x + from.w / 2, from.y + from.h / 2).y,
+          }
+        : { x1: from.x + from.w, y1: from.y + from.h / 2, x2: to.x, y2: to.y + to.h / 2 };
+      const line = `M ${aimed.x1} ${aimed.y1} L ${aimed.x2} ${aimed.y2}`;
       next.push({
         id: `${fromId}-${toId}`,
         fromId,
         toId,
-        d: wirePath(x1, y1, x2, y2),
-        hit: hitStroke(x1, y1, x2, y2),
-        live: selectedId === fromId || selectedId === toId,
+        d: group ? line : wirePath(aimed.x1, aimed.y1, aimed.x2, aimed.y2),
+        hit: group ? line : hitStroke(aimed.x1, aimed.y1, aimed.x2, aimed.y2),
+        live: selectedId === fromId || selectedId === toId || selectedGroupId === toId,
         explicit,
         relation,
-        mx: (x1 + x2) / 2,
-        my: (y1 + y2) / 2,
+        mx: (aimed.x1 + aimed.x2) / 2,
+        my: (aimed.y1 + aimed.y2) / 2,
+        angle: group ? edgeLabelAngle(aimed.x1, aimed.y1, aimed.x2, aimed.y2) : 0,
+        toGroup: Boolean(group),
       });
     }
     setWires(next);
-  }, [active, canvas, zoom, selectedId]);
+  }, [active, canvas, zoom, selectedId, selectedGroupId]);
   return wires;
 }
 

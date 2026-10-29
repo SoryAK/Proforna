@@ -1,0 +1,501 @@
+<!--
+  Throwaway. Three variants of the canvas window, switchable via ?variant=.
+  Question: boards live in a side panel that opens and closes, and the board
+  sits in a lighter frame on a darker window. No All menu.
+  A Inset rail: the list is part of the dark window, the board is the light inset.
+  B Overlay list: the light board fills the window, and the list covers it.
+  C Nested frame: one light frame holds both the list and the board.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Canvas board rail</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --gold: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+        --window: #100e0c;
+        --stage: #221e1a;
+        --card: #161310;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(90, 122, 74, 0.35), transparent 28rem),
+          linear-gradient(180deg, #1a2a22, #24352c 40%, #1c2b24);
+        color: var(--ink);
+        font: 16px/1.45 var(--sans);
+      }
+      button, input { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+      button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+      .window {
+        display: flex;
+        flex-direction: column;
+        width: min(68rem, calc(100vw - 2rem));
+        height: min(40rem, calc(100vh - 6.5rem));
+        border: 1px solid rgba(199, 164, 123, 0.38);
+        border-radius: 16px;
+        background: var(--window);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.75rem;
+        padding: 0.45rem 0.55rem 0.45rem 0.85rem;
+        background: #0d0b09;
+        color: var(--ink);
+      }
+      .bar h1 {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.35;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .bar-actions { display: flex; }
+      .bar-actions button, .rail-head button, .edge button {
+        display: grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.5rem;
+        padding: 0;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--gold);
+      }
+      .bar-actions button:hover, .rail-head button:hover, .edge button:hover { background: rgba(232, 213, 183, 0.12); }
+      .body { display: flex; flex: 1; min-height: 0; }
+      .rail {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        width: 15.5rem;
+        min-width: 0;
+        padding: 0.75rem 0.65rem 0.85rem;
+        background: var(--window);
+      }
+      .window.is-shut .rail { display: none; }
+      .rail-head, .stage-head {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .rail-head strong, .stage-head strong {
+        font-size: 0.95rem;
+        font-weight: 650;
+        line-height: 1.3;
+      }
+      .stage-head strong { flex: 1; }
+      .rail p.note, .stage-head span {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+      .search {
+        width: 100%;
+        min-height: 2rem;
+        margin-top: 0.35rem;
+        padding: 0.35rem 0.6rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 8px;
+        background: #161310;
+        color: var(--ink);
+        font-size: 0.8125rem;
+      }
+      .groups { display: flex; flex-direction: column; gap: 0.15rem; margin-top: 0.45rem; overflow: auto; }
+      .group-label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        width: 100%;
+        margin: 0.35rem 0 0.1rem;
+        padding: 0.2rem 0.35rem;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-align: left;
+        text-transform: uppercase;
+      }
+      .group-label svg { width: 0.7rem; height: 0.7rem; }
+      .board {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        width: 100%;
+        min-height: 2rem;
+        padding: 0.35rem 0.55rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font-size: 0.8125rem;
+        font-weight: 550;
+        line-height: 1.3;
+        text-align: left;
+      }
+      .board:hover { background: rgba(245, 242, 238, 0.05); }
+      .board.is-on { background: #2c261f; }
+      .board b { margin-left: auto; color: var(--muted); font-size: 0.75rem; font-weight: 550; }
+      .stage-wrap {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+        padding: 0.55rem 0.65rem 0.7rem 0;
+      }
+      .window.is-shut .stage-wrap { padding-left: 0.65rem; }
+      .stage {
+        position: relative;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+        border: 1px solid rgba(232, 213, 183, 0.22);
+        border-radius: 12px;
+        background-color: var(--stage);
+        background-image: radial-gradient(rgba(232, 213, 183, 0.16) 1px, transparent 1px);
+        background-size: 18px 18px;
+        overflow: hidden;
+      }
+      .stage-head { padding: 0.7rem 0.85rem 0; }
+      .plane { flex: 1; min-height: 0; overflow: auto; }
+      .sheet { position: relative; min-width: 100%; min-height: 100%; }
+      .card {
+        position: absolute;
+        width: 12.5rem;
+        padding: 0.65rem 0.7rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.4);
+        border-radius: 12px;
+        background: var(--card);
+        color: var(--ink);
+        text-align: left;
+      }
+      .card.is-on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+      .card em {
+        display: block;
+        color: var(--gold);
+        font-size: 0.75rem;
+        font-style: normal;
+        font-weight: 650;
+        letter-spacing: 0.03em;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+      .card strong { display: block; margin-top: 0.2rem; font-size: 0.875rem; line-height: 1.35; }
+      .card span { display: block; margin-top: 0.25rem; color: var(--muted); font-size: 0.75rem; line-height: 1.4; }
+      .edge {
+        position: absolute;
+        z-index: 2;
+        top: 0.7rem;
+        left: 0.55rem;
+      }
+      .window.is-a .edge, .window.is-c .edge { display: none; }
+      .window.is-a.is-shut .edge, .window.is-c.is-shut .edge, .window.is-b .edge { display: block; }
+      .window.is-shut .stage-head { padding-left: 2.6rem; }
+      .window.is-b:not(.is-shut) .edge { display: none; }
+      .overlay {
+        position: absolute;
+        z-index: 3;
+        top: 0.55rem;
+        bottom: 0.55rem;
+        left: 0.55rem;
+        display: flex;
+        flex-direction: column;
+        width: 15.5rem;
+        padding: 0.7rem 0.65rem;
+        border: 1px solid rgba(232, 213, 183, 0.22);
+        border-radius: 12px;
+        background: #161310;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      }
+      .window:not(.is-b) .overlay, .window.is-b.is-shut .overlay { display: none; }
+      .window.is-b .rail { display: none; }
+      .window.is-b .stage-wrap { padding: 0.55rem 0.65rem 0.7rem 0.65rem; }
+      .window.is-b:not(.is-shut) .overlay { top: 3.15rem; }
+      .window.is-b:not(.is-shut) .plane { padding-left: 16.6rem; }
+      .window.is-c { padding: 0.7rem; background: var(--window); }
+      .window.is-c .body {
+        border: 1px solid rgba(232, 213, 183, 0.22);
+        border-radius: 12px;
+        background: var(--stage);
+        overflow: hidden;
+      }
+      .window.is-c .rail { background: #1a1714; }
+      .window.is-c .stage-wrap { padding: 0; }
+      .window.is-c .stage { border: 0; border-left: 1px solid rgba(232, 213, 183, 0.16); border-radius: 0; }
+      .window.is-c.is-shut .stage { border-left: 0; }
+      .switcher {
+        position: fixed;
+        z-index: 20;
+        bottom: 1rem;
+        left: 50%;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem;
+        border-radius: 999px;
+        background: #f5f2ee;
+        color: #1c1814;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        transform: translateX(-50%);
+      }
+      .switcher button {
+        width: 2rem;
+        height: 2rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: #1c1814;
+        font-size: 1rem;
+      }
+      .switcher button:hover { background: rgba(28, 24, 20, 0.08); }
+      .switcher p { margin: 0; min-width: 16rem; font-size: 0.8125rem; font-weight: 650; line-height: 1.3; text-align: center; }
+      .switcher span { display: block; font-size: 0.75rem; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div class="switcher">
+      <button type="button" id="prev" aria-label="Previous layout">←</button>
+      <p id="label"></p>
+      <button type="button" id="next" aria-label="Next layout">→</button>
+    </div>
+    <script>
+      const VARIANTS = [
+        ["A", "Inset rail"],
+        ["B", "Overlay list"],
+        ["C", "Nested frame"],
+      ];
+      const BOARDS = [
+        {
+          id: "role",
+          group: "This role",
+          name: "Mechatronics and Robotics Technician",
+          nodes: [
+            ["Role", "Mechatronics and Robotics Technician", "Giants Direct. The live role board.", 36, 48],
+          ],
+        },
+        {
+          id: "foldable",
+          group: "Studies",
+          name: "Foldable",
+          nodes: [
+            ["Role", "Product Designer", "The role this study hangs from.", 24, 28],
+            ["Design", "Foldable", "The product itself. The fold and the hinge.", 236, 28],
+            ["Page", "Hinge notes", "The hinge study, kept with the foldable.", 24, 168],
+            ["Demonstration", "Product demonstration", "The review that shows the foldable moving.", 236, 168],
+          ],
+        },
+        {
+          id: "hinge",
+          group: "Studies",
+          name: "Hinge study",
+          nodes: [
+            ["Role", "Product Designer", "A second board, for the hinge on its own.", 40, 56],
+            ["Design", "Hinge", "The mechanism, kept apart from the whole foldable.", 280, 140],
+          ],
+        },
+      ];
+
+      const params = new URLSearchParams(location.search);
+      const state = {
+        variant: VARIANTS.some(([key]) => key === params.get("variant")) ? params.get("variant") : "A",
+        open: params.get("rail") !== "shut",
+        sections: { "This role": true, Studies: true },
+        boardId: "role",
+        node: 0,
+        query: "",
+      };
+
+      const app = document.querySelector("#app");
+      const label = document.querySelector("#label");
+
+      function boardsIn(group) {
+        return BOARDS.filter((board) => board.group === group);
+      }
+
+      function visibleBoards() {
+        const query = state.query.trim().toLowerCase();
+        return BOARDS.filter((board) => !query || board.name.toLowerCase().includes(query));
+      }
+
+      function boardList(collapseSections) {
+        const groups = [...new Set(visibleBoards().map((board) => board.group))];
+        return groups
+          .map((group) => {
+            const items = visibleBoards().filter((board) => board.group === group);
+            const shut = collapseSections && !state.sections[group];
+            const rows = shut
+              ? ""
+              : items
+                  .map(
+                    (board) => `<button type="button" class="board${board.id === state.boardId ? " is-on" : ""}" data-board="${board.id}">
+                      <span>${board.name}</span><b>${board.nodes.length}</b>
+                    </button>`,
+                  )
+                  .join("");
+            const labelButton = collapseSections
+              ? `<button type="button" class="group-label" data-section="${group}">${caret(state.sections[group])}${group}</button>`
+              : `<p class="group-label">${group}</p>`;
+            return labelButton + rows;
+          })
+          .join("");
+      }
+
+      function caret(open) {
+        return `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="${open ? "M2 4.2 L6 8.2 L10 4.2" : "M4.2 2 L8.2 6 L4.2 10"}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+      }
+
+      function sheetSize() {
+        const board = BOARDS.find((item) => item.id === state.boardId) ?? BOARDS[0];
+        const width = Math.max(420, ...board.nodes.map((node) => node[3] + 220));
+        const height = Math.max(320, ...board.nodes.map((node) => node[4] + 140));
+        return { width, height };
+      }
+
+      function cards() {
+        const board = BOARDS.find((item) => item.id === state.boardId) ?? BOARDS[0];
+        return board.nodes
+          .map(
+            (node, index) => `<button type="button" class="card${index === state.node ? " is-on" : ""}" data-node="${index}" style="left:${node[3]}px;top:${node[4]}px">
+              <em>${node[0]}</em><strong>${node[1]}</strong><span>${node[2]}</span>
+            </button>`,
+          )
+          .join("");
+      }
+
+      function railMarkup(collapseSections) {
+        return `<aside class="rail">
+          <div class="rail-head"><strong>Boards</strong><button type="button" data-toggle aria-label="Collapse boards">${collapseIcon()}</button></div>
+          <p class="note">Open a board from here.</p>
+          <input class="search" type="search" placeholder="Find a board" value="${escapeAttr(state.query)}" />
+          <div class="groups">${boardList(collapseSections)}</div>
+        </aside>`;
+      }
+
+      function stageMarkup() {
+        const board = BOARDS.find((item) => item.id === state.boardId) ?? BOARDS[0];
+        const edge = `<div class="edge"><button type="button" data-toggle aria-label="${state.open ? "Collapse boards" : "Expand boards"}">${state.open ? collapseIcon() : expandIcon()}</button></div>`;
+        return `<div class="stage-wrap"><section class="stage" aria-label="${escapeAttr(board.name)}">
+          ${edge}
+          <div class="overlay">
+            <div class="rail-head"><strong>Boards</strong><button type="button" data-toggle aria-label="Collapse boards">${collapseIcon()}</button></div>
+            <input class="search" type="search" placeholder="Find a board" value="${escapeAttr(state.query)}" />
+            <div class="groups">${boardList(false)}</div>
+          </div>
+          <div class="stage-head"><strong>${board.name}</strong><span>${board.nodes.length} ${board.nodes.length === 1 ? "card" : "cards"}</span></div>
+          <div class="plane"><div class="sheet" style="width:${sheetSize().width}px;height:${sheetSize().height}px">${cards()}</div></div>
+        </section></div>`;
+      }
+
+      function collapseIcon() {
+        return `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.2 L3.5 6 L7.5 9.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+      }
+      function expandIcon() {
+        return `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.2 L8.5 6 L4.5 9.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+      }
+
+      function render() {
+        const variant = VARIANTS.find(([key]) => key === state.variant) ?? VARIANTS[0];
+        const nested = state.variant === "C";
+        app.innerHTML = `<section class="window is-${state.variant.toLowerCase()}${state.open ? "" : " is-shut"}" role="dialog" aria-label="Canvas">
+          <div class="bar">
+            <h1>Mechatronics and Robotics Technician</h1>
+            <div class="bar-actions" aria-hidden="true">
+              <button type="button" tabindex="-1">${minus()}</button>
+              <button type="button" tabindex="-1">${square()}</button>
+              <button type="button" tabindex="-1">${cross()}</button>
+            </div>
+          </div>
+          <div class="body">
+            ${state.variant === "B" ? "" : railMarkup(nested)}
+            ${stageMarkup()}
+          </div>
+        </section>`;
+        const name = BOARDS.find((board) => board.id === state.boardId)?.name ?? "";
+        label.innerHTML = `${variant[0]} · ${variant[1]}<span>${state.open ? "Boards open" : "Boards collapsed"} · ${name}</span>`;
+        const next = new URLSearchParams(location.search);
+        next.set("variant", state.variant);
+        next.set("rail", state.open ? "open" : "shut");
+        history.replaceState(null, "", `${location.pathname}?${next}`);
+      }
+
+      function minus() {
+        return `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 8.5h9" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
+      }
+      function square() {
+        return `<svg viewBox="0 0 12 12" aria-hidden="true"><rect x="1.6" y="1.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
+      }
+      function cross() {
+        return `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 2.2l7.6 7.6M9.8 2.2l-7.6 7.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
+      }
+
+      function escapeAttr(value) {
+        return value.replace(/[&"]/g, (char) => (char === "&" ? "&amp;" : "&quot;"));
+      }
+
+      app.addEventListener("click", (event) => {
+        const toggle = event.target.closest("[data-toggle]");
+        const board = event.target.closest("[data-board]");
+        const section = event.target.closest("[data-section]");
+        const node = event.target.closest("[data-node]");
+        if (toggle) state.open = !state.open;
+        if (section) state.sections[section.dataset.section] = !state.sections[section.dataset.section];
+        if (board) {
+          state.boardId = board.dataset.board;
+          state.node = 0;
+        }
+        if (node) state.node = Number(node.dataset.node);
+        if (toggle || section || board || node) render();
+      });
+
+      app.addEventListener("input", (event) => {
+        if (!event.target.classList.contains("search")) return;
+        state.query = event.target.value;
+        const start = event.target.selectionStart;
+        render();
+        const field = app.querySelector(".search");
+        if (!field) return;
+        field.focus();
+        field.setSelectionRange(start, start);
+      });
+
+      function cycle(step) {
+        const index = VARIANTS.findIndex(([key]) => key === state.variant);
+        state.variant = VARIANTS[(index + step + VARIANTS.length) % VARIANTS.length][0];
+        render();
+      }
+
+      document.querySelector("#prev").addEventListener("click", () => cycle(-1));
+      document.querySelector("#next").addEventListener("click", () => cycle(1));
+      document.addEventListener("keydown", (event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && target.closest("input, textarea")) return;
+        if (event.key === "ArrowLeft") cycle(-1);
+        if (event.key === "ArrowRight") cycle(1);
+      });
+
+      render();
+    </script>
+  </body>
+</html>

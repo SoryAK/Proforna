@@ -1,0 +1,553 @@
+<!doctype html>
+<!-- PROTOTYPE. Throwaway mock. A chosen window shows the whole public page, including the recruiter view. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Career History</title>
+    <style>
+      :root {
+        --bg: #0a0a0a;
+        --panel: #0d0b09;
+        --text: #f5f2ee;
+        --gold: #a78b71;
+        --gold-light: #c9b8a0;
+        --gold-hover: #e8d5b7;
+        --line: rgba(199, 164, 123, 0.28);
+        --sans: "Geist Variable", system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in srgb, var(--gold) 45%, transparent) transparent;
+      }
+      *::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      *::-webkit-scrollbar-track,
+      *::-webkit-scrollbar-corner {
+        background: transparent;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--gold) 45%, transparent);
+        border-radius: 999px;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: color-mix(in srgb, var(--gold-light) 70%, transparent);
+      }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 1rem;
+      }
+      body[data-view="public"] .editor-only { display: none; }
+      body[data-view="editor"] .public-only { display: none; }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 3.25rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .mark {
+        display: grid;
+        place-items: center;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        padding: 0.55rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--gold-hover);
+        font-size: 0.75rem;
+      }
+      .brand { font-size: 1.35rem; font-weight: 650; }
+      .search {
+        flex: 1;
+        max-width: 28rem;
+        margin: 0 auto;
+        padding: 0.7rem 0.95rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: inherit;
+      }
+      .who { margin-left: auto; color: var(--gold-light); font-size: 0.9rem; }
+      .proto {
+        margin: 0;
+        padding: 0.7rem 1rem;
+        background: #16120e;
+        color: var(--gold-hover);
+        font-size: 0.8rem;
+      }
+      .switch {
+        display: flex;
+        gap: 0.35rem;
+        margin-left: auto;
+      }
+      .switch button {
+        padding: 0.55rem 0.85rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--gold-light);
+        font: inherit;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .switch button[aria-pressed="true"] {
+        background: var(--gold-hover);
+        color: #1a1510;
+      }
+      .stage {
+        display: grid;
+        grid-template-columns: min(26rem, 42vw) 1fr;
+        gap: 0.7rem;
+        min-height: 0;
+        flex: 1;
+        padding: 0.7rem;
+      }
+      .editor, .ledger, .private-map, .public-map {
+        min-height: 0;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--panel);
+      }
+      .editor, .ledger { padding: 0.85rem 1rem 1.4rem; overflow: auto; }
+      h1 { margin: 0; font-size: 1.7rem; font-weight: 650; letter-spacing: -0.02em; }
+      .ledger h2 { margin: 1rem 0 0.35rem; font-size: 1.3rem; font-weight: 650; }
+      .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+      }
+      .editor h1 { flex: 1; }
+      .open {
+        padding: 0.55rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .profile p, .meta, .note, .hint, .empty-map { margin: 0.3rem 0 0; color: var(--gold-light); }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.4rem;
+        margin-top: 0.9rem;
+      }
+      .stats div {
+        padding: 0.75rem 0.8rem;
+        border-radius: 10px;
+        background: rgba(199, 164, 123, 0.08);
+      }
+      .stats span { display: block; color: var(--gold-light); font-size: 0.75rem; }
+      .stats strong { font-size: 1.3rem; font-weight: 650; }
+      .roles { display: grid; gap: 0.35rem; margin: 0.4rem 0 0; padding: 0; list-style: none; }
+      .roles button, .roles li {
+        width: 100%;
+        padding: 0.75rem 0.85rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--gold-light);
+        font: inherit;
+        text-align: left;
+      }
+      .roles button { cursor: pointer; }
+      .roles [aria-current="true"] {
+        background: rgba(199, 164, 123, 0.12);
+        color: var(--text);
+      }
+      .roles small, .roles .status { display: block; color: var(--gold-light); }
+      .roles .status { color: var(--gold-hover); font-size: 0.8rem; }
+      label { display: grid; gap: 0.3rem; margin-top: 0.85rem; color: var(--gold-light); font-size: 0.8rem; }
+      input, textarea {
+        width: 100%;
+        padding: 0.75rem 0.25rem;
+        border: 0;
+        border-bottom: 1px solid var(--gold);
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 1rem;
+      }
+      textarea { min-height: 6.5rem; resize: vertical; line-height: 1.5; }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin-top: 1rem;
+        color: var(--text);
+        font-size: 1rem;
+      }
+      .check input { width: auto; accent-color: var(--gold-hover); }
+      .save {
+        margin-top: 1.1rem;
+        padding: 0.75rem 1.15rem;
+        border: 0;
+        border-radius: 999px;
+        background: var(--gold-hover);
+        color: #1a1510;
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 650;
+        cursor: pointer;
+      }
+      .reading { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--line); }
+      .reading h2 { margin: 0; font-size: 1.35rem; }
+      .reading h3 { margin: 1rem 0 0.35rem; font-size: 1.35rem; font-weight: 650; }
+      .story, .reading li { margin: 0; max-width: 62ch; line-height: 1.5; }
+      .reading ul { margin: 0; padding-left: 1.1rem; }
+      .reading li + li { margin-top: 0.35rem; }
+      .note { margin: 0.35rem 0 0; color: var(--gold-hover); }
+      .private-map, .public-map { position: relative; overflow: hidden; padding: 1rem; background: #d7e3d4; }
+      .map { position: absolute; inset: 0; background: linear-gradient(#c5d7c3, #dce8d6); }
+      .road { position: absolute; background: rgba(255, 255, 255, 0.72); }
+      .town { position: absolute; color: #3f4d3c; font-size: 0.8rem; }
+      .pin {
+        position: absolute;
+        left: 58%;
+        top: 34%;
+        width: 34px;
+        height: 34px;
+        transform: translate(-50%, -50%);
+        border: 2.5px solid #c7a47b;
+        border-radius: 50%;
+        background: #1a1510;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+      }
+      .pin.is-withheld { border-style: dashed; }
+      .pin.is-coarse {
+        width: 72px;
+        height: 72px;
+        border-style: solid;
+        background: rgba(26, 21, 16, 0.45);
+      }
+      .float-note, .empty-map {
+        position: absolute;
+        left: 0.7rem;
+        bottom: 0.7rem;
+        max-width: 18rem;
+        margin: 0;
+        padding: 0.75rem 0.9rem;
+        border-radius: 10px;
+        background: rgba(13, 11, 9, 0.92);
+        color: var(--gold-light);
+        font-size: 0.8rem;
+      }
+      @media (max-width: 760px) {
+        .stage { grid-template-columns: 1fr; overflow: auto; }
+        .private-map, .public-map { min-height: 22rem; }
+      }
+    </style>
+  </head>
+  <body data-view="editor">
+    <header class="bar">
+      <span class="mark" aria-hidden="true">P</span>
+      <span class="brand">Proforna</span>
+      <input class="search" value="Search…" readonly aria-label="Search" />
+      <span class="who editor-only">Sory Kaba</span>
+      <div class="switch public-only" role="group" aria-label="Who this window is for">
+        <button type="button" id="as-preview" aria-pressed="true">Your preview</button>
+        <button type="button" id="as-recruiter" aria-pressed="false">Recruiter</button>
+      </div>
+    </header>
+    <p class="proto" id="banner">Prototype. This window is the private editor. The public page stays closed until you open it.</p>
+    <main class="stage">
+      <form class="editor editor-only" id="editor">
+        <div class="head">
+          <h1>Career History</h1>
+          <button class="open" id="open" type="button">Preview window</button>
+        </div>
+        <ul class="roles">
+          <li aria-current="true">Sharp Packaging</li>
+          <li>Waters</li>
+          <li>Temple University</li>
+        </ul>
+        <label>
+          Organization
+          <input name="organization" value="Sharp Packaging" />
+        </label>
+        <label>
+          Title
+          <input name="title" value="Systems and Automation Technician" />
+        </label>
+        <label>
+          Address
+          <input name="address" value="400 Industrial Drive, Allentown, PA" />
+        </label>
+        <label>
+          What the role involved
+          <textarea name="story">Maintained the packaging line and the vision systems on the night shift.</textarea>
+        </label>
+        <label class="check">
+          <input name="allow" type="checkbox" />
+          Allow this location in publications
+        </label>
+        <button class="save" type="submit">Save overview</button>
+        <p class="hint" id="hint">Preview window is closed.</p>
+      </form>
+      <section class="private-map editor-only" aria-label="Private map">
+        <div class="map" aria-hidden="true">
+          <div class="road" style="left:10%;top:46%;width:80%;height:3px"></div>
+          <div class="road" style="left:48%;top:8%;width:3px;height:84%"></div>
+          <span class="town" style="left:54%;top:28%">Allentown</span>
+          <span class="town" style="left:22%;top:62%">Lancaster</span>
+        </div>
+        <div class="pin"></div>
+        <p class="float-note">Private map, for placing the pin. The street stays in this window.</p>
+      </section>
+
+      <section class="ledger public-only" aria-label="Public career history">
+        <div class="profile">
+          <h1>Sory Kaba</h1>
+          <p>Systems and automation</p>
+          <p class="meta">Pennsylvania</p>
+        </div>
+        <div class="stats">
+          <div><span>Tenure</span><strong>6y</strong></div>
+          <div><span>Roles</span><strong>3</strong></div>
+          <div><span>Cities</span><strong id="cities">1</strong></div>
+        </div>
+        <h2>Career History</h2>
+        <ul class="roles" id="role-list"></ul>
+        <article class="reading" id="reading"></article>
+      </section>
+      <section class="public-map public-only" aria-label="Public map">
+        <div class="map" aria-hidden="true">
+          <div class="road" style="left:8%;top:42%;width:84%;height:3px"></div>
+          <div class="road" style="left:46%;top:6%;width:3px;height:88%"></div>
+          <div class="road" style="left:18%;top:24%;width:50%;height:2px;transform:rotate(16deg)"></div>
+          <span class="town" style="left:52%;top:22%">Allentown</span>
+          <span class="town" style="left:18%;top:58%">Lancaster</span>
+          <span class="town" style="left:68%;top:64%">Philadelphia</span>
+        </div>
+        <div id="pins"></div>
+      </section>
+    </main>
+    <script>
+      const channel = new BroadcastChannel("proforna-preview-prototype");
+      const view = new URLSearchParams(location.search).get("view") === "public" ? "public" : "editor";
+      document.body.dataset.view = view;
+      document.title = view === "public" ? "Prototype · Public page" : "Prototype · Career History";
+
+      function cityOnly(address) {
+        const parts = String(address).split(",").map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2) return parts.slice(-2).join(", ");
+        return parts[0] || "";
+      }
+
+      if (view === "editor") {
+        const form = document.querySelector("#editor");
+        const hint = document.querySelector("#hint");
+        document.querySelector("#open").addEventListener("click", () => {
+          const previewWindow = window.open(
+            `${location.pathname}?view=public`,
+            "proforna-public-preview",
+            "popup,width=1100,height=760",
+          );
+          hint.textContent = previewWindow
+            ? "Preview window is open. Use Recruiter in that window to see the published page."
+            : "The browser blocked the preview window. Open the public page from the address bar with ?view=public.";
+        });
+        form.addEventListener("input", () => {
+          hint.textContent = "Unsaved. An open preview window still shows the last save.";
+        });
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const data = new FormData(form);
+          channel.postMessage({
+            organization: String(data.get("organization") || ""),
+            title: String(data.get("title") || ""),
+            place: cityOnly(data.get("address")),
+            story: String(data.get("story") || ""),
+            allowed: data.get("allow") === "on",
+          });
+          hint.textContent = "Saved. The preview window is showing this version.";
+        });
+      } else {
+        const banner = document.querySelector("#banner");
+        const list = document.querySelector("#role-list");
+        const reading = document.querySelector("#reading");
+        const pins = document.querySelector("#pins");
+        let mode = "preview";
+        let selectedId = "sharp";
+        const roles = [
+          {
+            id: "sharp",
+            organization: "Sharp Packaging",
+            title: "Systems and Automation Technician",
+            place: "Allentown, PA",
+            period: "Jan 2023 – Present",
+            tenure: "2y 8m",
+            current: true,
+            story: "Maintained the packaging line and the vision systems on the night shift.",
+            achievements: [
+              "Kept the night-shift packaging line running.",
+              "Trained the crew on the vision systems.",
+            ],
+            site: true,
+            allowed: false,
+            pin: { left: "58%", top: "30%" },
+          },
+          {
+            id: "waters",
+            organization: "Waters",
+            title: "Field service",
+            place: "Philadelphia, PA",
+            period: "Jun 2019 – Dec 2022",
+            tenure: "3y 6m",
+            current: false,
+            story: "Serviced instruments at customer sites across the region.",
+            achievements: ["Closed repeat service visits on the same accounts."],
+            site: true,
+            allowed: true,
+            pin: { left: "80%", top: "52%" },
+          },
+          {
+            id: "temple",
+            organization: "Temple University",
+            title: "Education",
+            place: "Philadelphia, PA",
+            period: "2014 – 2018",
+            tenure: "",
+            current: false,
+            story: "Studied engineering technology.",
+            achievements: [],
+            site: false,
+            allowed: true,
+            pin: null,
+          },
+        ];
+
+        function sent(role) {
+          return !role.site || role.allowed;
+        }
+
+        function paint() {
+          const recruiter = mode === "recruiter";
+          document.querySelector("#as-preview").setAttribute("aria-pressed", String(!recruiter));
+          document.querySelector("#as-recruiter").setAttribute("aria-pressed", String(recruiter));
+          banner.textContent = recruiter
+            ? "This is the whole page a recruiter would see after you publish."
+            : "Your preview. Each role says whether a recruiter would get it.";
+          const visible = roles.filter((role) => (recruiter ? sent(role) || true : true));
+          const cities = new Set(
+            roles.filter((role) => role.site && (!recruiter || role.allowed)).map((role) => role.place),
+          );
+          document.querySelector("#cities").textContent = String(cities.size);
+          list.replaceChildren(
+            ...visible.map((role) => {
+              const item = document.createElement("li");
+              const button = document.createElement("button");
+              button.type = "button";
+              button.addEventListener("click", () => {
+                selectedId = role.id;
+                paint();
+              });
+              if (role.id === selectedId) button.setAttribute("aria-current", "true");
+              const name = document.createElement("strong");
+              name.textContent = role.organization;
+              const title = document.createElement("small");
+              title.textContent = role.title;
+              button.append(name, title);
+              if (!recruiter) {
+                const status = document.createElement("span");
+                status.className = "status";
+                status.textContent = sent(role) ? "Included" : "Only on this preview";
+                button.append(status);
+              }
+              item.append(button);
+              return item;
+            }),
+          );
+          const role = roles.find((item) => item.id === selectedId) ?? roles[0];
+          reading.replaceChildren();
+          const heading = document.createElement("h2");
+          heading.textContent = role.organization;
+          const title = document.createElement("p");
+          title.className = "meta";
+          title.textContent = role.title;
+          const meta = document.createElement("p");
+          meta.className = "meta";
+          meta.textContent = [role.place, role.period, role.current ? "current" : "", role.tenure ? `(${role.tenure})` : ""]
+            .filter(Boolean)
+            .join(" · ");
+          reading.append(heading, title, meta);
+          if (!recruiter && role.site) {
+            const note = document.createElement("p");
+            note.className = "note";
+            note.textContent = role.allowed
+              ? "Included. A publication uses a coarser pin."
+              : "Only on this preview";
+            reading.append(note);
+          }
+          if (role.story) {
+            const storyHeading = document.createElement("h3");
+            storyHeading.textContent = "Story";
+            const story = document.createElement("p");
+            story.className = "story";
+            story.textContent = role.story;
+            reading.append(storyHeading, story);
+          }
+          if (role.achievements.length) {
+            const achievementsHeading = document.createElement("h3");
+            achievementsHeading.textContent = "Achievements";
+            const achievements = document.createElement("ul");
+            for (const item of role.achievements) {
+              const line = document.createElement("li");
+              line.textContent = item;
+              achievements.append(line);
+            }
+            reading.append(achievementsHeading, achievements);
+          }
+          pins.replaceChildren(
+            ...roles
+              .filter((item) => item.pin && (!recruiter || item.allowed))
+              .map((item) => {
+                const pin = document.createElement("div");
+                pin.className = "pin";
+                if (!recruiter && !item.allowed) pin.classList.add("is-withheld");
+                if (recruiter) pin.classList.add("is-coarse");
+                if (item.id === selectedId) pin.style.outline = "2px solid #1a1510";
+                pin.style.left = item.pin.left;
+                pin.style.top = item.pin.top;
+                return pin;
+              }),
+          );
+        }
+
+        document.querySelector("#as-preview").addEventListener("click", () => {
+          mode = "preview";
+          paint();
+        });
+        document.querySelector("#as-recruiter").addEventListener("click", () => {
+          mode = "recruiter";
+          paint();
+        });
+        channel.addEventListener("message", (event) => {
+          const sharp = roles.find((role) => role.id === "sharp");
+          sharp.organization = event.data.organization;
+          sharp.title = event.data.title;
+          sharp.place = event.data.place;
+          sharp.story = event.data.story;
+          sharp.allowed = event.data.allowed;
+          paint();
+        });
+        paint();
+      }
+    </script>
+  </body>
+</html>

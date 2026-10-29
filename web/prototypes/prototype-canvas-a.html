@@ -1,0 +1,2969 @@
+<!--
+  Throwaway. Option A: the list opens the role card, then Show on canvas
+  floats a small window over that card.
+  Not the Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Canvas window over the card</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --gold: #a78b71;
+        --gold-hover: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #0a0a0a; color: var(--ink); font: 16px/1.5 var(--sans); }
+      ::selection { background: rgba(167, 139, 113, 0.35); color: var(--ink); }
+      button:focus-visible { outline: 2px solid var(--gold-hover); outline-offset: 2px; }
+      .mark { margin: 0; padding: 0.65rem 1rem 0; color: var(--muted); font-size: 0.8125rem; line-height: 1.45; }
+      .list {
+        width: min(24rem, calc(100% - 2rem));
+        margin: 1rem;
+        padding: 0.9rem 1rem 1rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 16px;
+        background: #0d0b09;
+      }
+      .list h1 { margin: 0 0 0.75rem; font-size: 1.15rem; line-height: 1.35; }
+      .role-open {
+        display: block;
+        width: 100%;
+        padding: 0.7rem 0.15rem;
+        border: 0;
+        border-top: 1px solid rgba(199, 164, 123, 0.2);
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .role-open strong { display: block; font-size: 1rem; line-height: 1.35; }
+      .role-open span { display: block; margin-top: 0.15rem; color: var(--muted); font-size: 0.875rem; line-height: 1.4; }
+      .role-open:hover { background: rgba(199, 164, 123, 0.08); }
+      .role-card { display: none; width: min(24rem, calc(100% - 2rem)); margin: 1rem; padding: 0.9rem 1rem 1rem; border: 1px solid rgba(199, 164, 123, 0.28); border-radius: 16px; background: #0d0b09; }
+      body.is-role .list { display: none; }
+      body.is-role .role-card { display: block; }
+      .role-card h1 { margin: 0; font-size: 1.15rem; line-height: 1.35; }
+      .role-card .title, .role-card .meta, .role-card .gist { margin: 0.2rem 0 0; line-height: 1.45; }
+      .role-card .meta { color: var(--muted); font-size: 0.875rem; }
+      .role-card .gist { margin-top: 0.55rem; }
+      .linked-label { margin: 1rem 0 0.35rem; color: var(--gold); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; line-height: 1.35; text-transform: uppercase; }
+      .linked { list-style: none; margin: 0; padding: 0; }
+      .linked button { display: block; width: 100%; padding: 0.45rem 0; border: 0; border-top: 1px solid rgba(199, 164, 123, 0.2); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+      .linked button em { display: block; color: var(--muted); font-size: 0.75rem; font-style: normal; font-weight: 600; line-height: 1.35; }
+      .linked button strong { display: block; font-size: 0.9375rem; line-height: 1.4; }
+      .show-canvas, .card-back { margin-top: 0.85rem; }
+      .show-canvas, .card-back, #canvas-bar > button:not(#drawer-all), .node-controls button, .node-expand button, .viewer button {
+        min-height: 1.9rem; padding: 0.25rem 0.7rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 999px;
+        background: transparent; color: var(--gold-hover);
+        font: 600 0.75rem/1.35 var(--sans); cursor: pointer;
+      }
+      .node-controls button[aria-pressed="true"], .node-expand button[aria-pressed="true"] { border-color: var(--gold-hover); background: rgba(167, 139, 113, 0.2); color: var(--ink); }
+      .show-canvas:hover, .card-back:hover, #canvas-bar > button:not(#drawer-all):hover, .node-controls button:hover, .node-expand button:hover, .viewer button:hover { border-color: var(--gold-hover); background: rgba(167, 139, 113, 0.16); }
+      .float {
+        position: fixed;
+        z-index: 4;
+        top: 4.75rem;
+        left: max(0.75rem, min(22rem, calc(100vw - 43rem)));
+        display: none;
+        flex-direction: column;
+        width: min(52rem, calc(100vw - 1.5rem));
+        height: min(36rem, calc(100vh - 6rem));
+        border: 1px solid transparent;
+        border-radius: 16px;
+        background: #100e0c;
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.48);
+        overflow: visible;
+      }
+      .float::after {
+        content: "";
+        position: absolute;
+        z-index: 8;
+        inset: -1px;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: inherit;
+        pointer-events: none;
+      }
+      .float.is-open { display: flex; }
+      .float.is-minimized { width: auto; height: auto; border-radius: 999px; }
+      .resize { position: absolute; z-index: 6; touch-action: none; cursor: default; }
+      .float.is-minimized .resize, .float.is-maximized .resize { display: none; }
+      .resize.n, .resize.s { left: 14px; right: 14px; height: 8px; }
+      .resize.n { top: 0; }
+      .resize.s { bottom: 0; }
+      .resize.e, .resize.w { top: 14px; bottom: 14px; width: 8px; }
+      .resize.e { right: 0; }
+      .resize.w { left: 0; }
+      .resize.nw, .resize.ne, .resize.sw, .resize.se { width: 14px; height: 14px; }
+      .resize.nw { top: 0; left: 0; }
+      .resize.ne { top: 0; right: 0; }
+      .resize.sw { bottom: 0; left: 0; }
+      .resize.se { right: 0; bottom: 0; }
+      .float.is-minimized .stage-frame, .float.is-minimized .node-controls, .float.is-minimized .node-expand, .float.is-minimized .canvas-bar, .float.is-minimized .canvas-drawer { display: none; }
+      .float.is-minimized .float-bar { border-bottom: 0; border-radius: 999px; }
+      .float.is-minimized::after { border-radius: 999px; }
+      .float-bar {
+        position: relative;
+        z-index: 4;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+        border-bottom: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 15px 15px 0 0;
+        background: #0d0b09;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+      .float-bar.is-dragging { cursor: grabbing; }
+      .float-bar h2 { flex: 1; margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.35; }
+      .float-actions { position: relative; display: flex; margin-left: auto; }
+      .float-actions > button {
+        display: grid; place-items: center;
+        width: 1.75rem; height: 1.5rem; min-height: 0; padding: 0;
+        border: 0; border-radius: 0; background: transparent; color: var(--gold-hover);
+        cursor: pointer;
+      }
+      .float-actions > button:hover { background: rgba(167, 139, 113, 0.16); }
+      #save-canvas,
+      #canvas-history {
+        width: auto;
+        height: 1.5rem;
+        min-height: 1.5rem;
+        padding: 0 0.6rem;
+        border-radius: 5px;
+        background: #0e7534;
+        color: #ffffff;
+        font: 600 0.75rem/1 var(--sans);
+      }
+      #save-canvas { margin-right: 0.25rem; }
+      #canvas-history { margin-right: 0.45rem; }
+      #save-canvas:hover,
+      #canvas-history:hover { background: #127a38; color: #ffffff; }
+      #save-canvas.is-saved { background: #0d5c2b; color: #ffffff; }
+      #close-canvas:hover { background: #e6a196; color: #080706; }
+      .float-actions > button svg { width: 0.75rem; height: 0.75rem; }
+      .history-panel {
+        position: absolute;
+        z-index: 6;
+        top: calc(100% + 0.4rem);
+        right: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        width: 18rem;
+        max-width: calc(100vw - 2rem);
+        padding: 0.55rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: #1c1c1c;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        color: #f5f2ee;
+        cursor: default;
+        user-select: text;
+      }
+      .history-panel[hidden] { display: none; }
+      .float.is-minimized .history-panel { display: none; }
+      .history-kicker { margin: 0; color: #e8d5b7; font-size: 0.75rem; font-weight: 600; line-height: 1.35; }
+      .history-title { margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.35; }
+      .history-empty { margin: 0.2rem 0.15rem 0.35rem; color: var(--muted); font-size: 0.75rem; line-height: 1.4; }
+      .history-list { display: flex; flex-direction: column; gap: 0.3rem; max-height: 16rem; overflow: auto; }
+      .history-row {
+        display: flex; flex-direction: column; gap: 0.35rem;
+        padding: 0.45rem 0.5rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .history-row strong { font-size: 0.8125rem; font-weight: 600; line-height: 1.35; }
+      .history-row p { margin: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.4; }
+      .history-row input {
+        width: 100%; min-height: 1.8rem; padding: 0.2rem 0.4rem;
+        border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 6px;
+        background: #100e0c; color: #f5f2ee; font: 600 0.8125rem/1.35 var(--sans);
+      }
+      .history-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+      .history-actions button {
+        min-height: 1.7rem; padding: 0.15rem 0.5rem;
+        border: 0; border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08); color: #f5f2ee;
+        font: 600 0.75rem/1.3 var(--sans); cursor: pointer;
+      }
+      .history-actions button:hover { background: rgba(255, 255, 255, 0.16); }
+      .history-actions .is-danger { color: #ff8a80; }
+      #minimize .icon-restore, #maximize .icon-restore { display: none; }
+      .float.is-minimized #minimize .icon-min { display: none; }
+      .float.is-minimized #minimize .icon-restore { display: block; }
+      .float.is-maximized #maximize .icon-max { display: none; }
+      .float.is-maximized #maximize .icon-restore { display: block; }
+      .node-controls { box-sizing: border-box; display: none; flex-direction: column; flex-shrink: 0; gap: 0.4rem; padding: 0.5rem 0.65rem 0.6rem; border-bottom: 1px solid rgba(199, 164, 123, 0.28); background: #0d0b09; }
+      .node-controls.is-open {
+        position: absolute; z-index: 5; display: flex; overflow: auto;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 12px;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      }
+      .float.is-focus .node { opacity: 0.28; }
+      .float.is-focus .node.is-selected, .float.is-focus .expand-preview .node { opacity: 1; }
+      .float.is-focus svg.wires path { stroke: rgba(199, 164, 123, 0.16); }
+      .float.is-focus svg.wires path.is-live { stroke: rgba(232, 213, 183, 0.92); }
+      .outward { position: relative; display: flex; align-items: center; }
+      .action-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; flex: 1 1 100%; }
+      .link-menu {
+        position: absolute; z-index: 2; bottom: calc(100% + 0.3rem); left: 0;
+        display: flex; flex-direction: column; gap: 0.25rem; min-width: 9rem; padding: 0.35rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 10px;
+        background: #100e0c; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+      }
+      .link-menu[hidden] { display: none; }
+      .node-controls p { margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.4; }
+      .controls-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; cursor: grab; user-select: none; }
+      .controls-head button { cursor: pointer; }
+      .controls-head-actions { display: flex; gap: 0.35rem; align-items: center; }
+      .controls-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+      .controls-actions input, .controls-actions textarea {
+        min-height: 1.9rem; padding: 0.3rem 0.55rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 8px;
+        background: #100e0c; color: var(--ink); font: 0.8125rem/1.4 var(--sans);
+      }
+      .controls-actions textarea { flex: 1 1 100%; min-height: 4.2rem; resize: vertical; }
+      .controls-actions input { min-width: 8rem; }
+      .controls-actions input.node-title-field { flex: 1 1 100%; }
+      .node .tags { margin-top: 0.4rem; color: var(--gold-hover); font-size: 0.75rem; line-height: 1.35; }
+      .stage-frame {
+        position: relative;
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .stage {
+        position: relative;
+        isolation: isolate;
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        border-radius: 0 0 15px 15px;
+        background-color: #100e0c;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.8px, transparent 1.3px);
+        background-size: 20px 20px;
+        scrollbar-width: none;
+        overflow-anchor: none;
+      }
+      .stage::-webkit-scrollbar { display: none; }
+      .plane { position: relative; width: 64rem; height: 28rem; transform-origin: 0 0; }
+      .canvas-bar {
+        display: flex; flex-flow: row nowrap; align-items: center;
+        gap: 0.15rem; padding: 0.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        background: #1c1c1c;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+      .canvas-bar input {
+        flex: 0 0 auto; width: 8rem; min-height: 1.9rem; margin-left: 0.35rem; padding: 0.3rem 0.7rem;
+        border: 0; border-radius: 999px;
+        background: transparent; color: var(--ink); font: 0.8125rem/1.4 var(--sans);
+      }
+      .canvas-bar input:focus-visible { outline: 2px solid var(--gold-hover); outline-offset: 1px; }
+      .canvas-bar .zoom-readout { min-width: 2.6rem; color: var(--muted); font-size: 0.75rem; line-height: 1.35; text-align: center; }
+      .node.is-filtered { display: none; }
+      .search-count { flex: 0 0 auto; color: #e8d5b7; font-size: 0.75rem; font-weight: 600; line-height: 1.35; white-space: nowrap; }
+      .search-count[hidden] { display: none; }
+      .canvas-drawer {
+        position: absolute; z-index: 3; left: 50%; bottom: 0.65rem;
+        width: max-content; max-width: calc(100% - 1.5rem);
+        transform: translateX(-50%);
+        background: transparent; overflow: visible;
+      }
+      #drawer-menu {
+        position: absolute; right: 0; bottom: calc(100% + 0.35rem); z-index: 7;
+        display: flex; flex-direction: column; min-width: 8.5rem;
+        padding: 0.3rem; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+        background: #1c1c1c; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+      #drawer-menu[hidden] { display: none; }
+      #drawer-menu button {
+        display: block; width: 100%; margin: 0; padding: 0.4rem 0.85rem;
+        border: 0; border-radius: 8px; background: transparent; color: var(--ink);
+        font: 600 0.75rem/1.4 var(--sans); text-align: left; white-space: nowrap; cursor: pointer;
+      }
+      #drawer-menu button:hover, #drawer-menu button:focus-visible { background: rgba(167, 139, 113, 0.2); color: var(--gold-hover); }
+      .drawer-menu-row { display: flex; align-items: center; gap: 0.1rem; }
+      #drawer-menu .drawer-menu-row > button:first-child { flex: 1; width: auto; }
+      #drawer-menu .drawer-pin {
+        display: grid; place-items: center; flex: 0 0 auto;
+        width: 1.9rem; height: 1.9rem; padding: 0; color: var(--muted);
+      }
+      #drawer-menu .drawer-pin svg { width: 0.8rem; height: 0.8rem; }
+      #drawer-menu .drawer-pin.is-pinned,
+      #drawer-menu .drawer-pin:hover { color: var(--gold-hover); }
+      .drawer-tabs { display: flex; flex: 0 0 auto; align-items: center; gap: 0.1rem; margin-left: 0.15rem; padding-left: 0.25rem; border-left: 1px solid rgba(255, 255, 255, 0.16); }
+      .drawer-tabs:empty { display: none; }
+      .drawer-tab {
+        flex: 0 0 auto; min-height: 1.9rem; padding: 0.3rem 0.7rem;
+        border: 0; border-radius: 999px; background: transparent; color: var(--muted);
+        font: 600 0.75rem/1.35 var(--sans); cursor: pointer;
+      }
+      .drawer-tab:hover { color: var(--gold-hover); background: rgba(255, 255, 255, 0.08); }
+      .drawer-tab[aria-selected="true"] { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
+      #drawer-all {
+        display: flex; align-items: center; gap: 0.35rem;
+        min-height: 1.9rem; padding: 0.3rem 0.7rem;
+        border: 0; border-radius: 999px;
+        background: transparent; color: var(--gold-hover);
+        font: 600 0.75rem/1.35 var(--sans); cursor: pointer;
+      }
+      #drawer-all:hover { background: rgba(255, 255, 255, 0.08); }
+      #drawer-all svg { width: 0.7rem; height: 0.7rem; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+      .canvas-drawer.is-open #drawer-all svg { transform: rotate(180deg); }
+      @media (prefers-reduced-motion: reduce) {
+        #drawer-all svg { transition: none; }
+      }
+      svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+      svg.wires path { fill: none; stroke: rgba(199, 164, 123, 0.7); stroke-width: 1.5; }
+      svg.wires path.hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+      svg.wires path.draft { stroke: rgba(255, 255, 255, 0.85); pointer-events: none; }
+      svg.wires path.is-hot { stroke: #f5f2ee; stroke-width: 2.5; }
+      svg.guides { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+      svg.guides line { stroke: rgba(232, 213, 183, 0.9); stroke-width: 1; }
+      .marquee {
+        position: absolute;
+        z-index: 3;
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        background: rgba(255, 255, 255, 0.08);
+        pointer-events: none;
+      }
+      .port {
+        position: absolute;
+        z-index: 3;
+        width: 0.7rem;
+        height: 0.7rem;
+        margin-top: -0.35rem;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: #1c1c1c;
+        box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+        cursor: crosshair;
+        touch-action: none;
+      }
+      .port.in { left: -0.35rem; top: 50%; }
+      .port.out { right: -0.35rem; top: 50%; }
+      .port:hover, .port.is-hot { background: #ff9412; }
+      .port::after {
+        content: attr(data-label);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 0.3rem);
+        transform: translateX(-50%);
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        background: #1c1c1c;
+        color: #f5f2ee;
+        font: 600 0.75rem/1.2 var(--sans);
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .port:hover::after { opacity: 1; }
+      .node {
+        position: absolute;
+        width: 17.5rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        cursor: grab;
+        touch-action: none;
+      }
+      .node-card {
+        display: grid;
+        grid-template-columns: 1.75rem minmax(0, 1fr);
+        gap: 0.65rem;
+        align-items: start;
+        padding: 0.7rem 0.75rem;
+        border-radius: 16px;
+        background: #1c1c1c;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+        transition: box-shadow 160ms ease-out;
+      }
+      .node:hover .node-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28); }
+      .node.is-selected .node-card { background: #2c2824; }
+      .node.is-selected .node-badge { background: rgba(255, 148, 18, 0.42); }
+      .group-chevron {
+        position: absolute;
+        z-index: 5;
+        top: 0.4rem;
+        right: 0.4rem;
+        display: grid;
+        width: 1.5rem;
+        height: 1.5rem;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #f5f2ee;
+        cursor: pointer;
+      }
+      .group-chevron svg { width: 0.7rem; height: 0.7rem; transition: transform 160ms ease-out; }
+      .node.is-group.is-open .group-chevron svg { transform: rotate(90deg); }
+      .node.is-group:not(.is-open) .node-card { padding-right: 2.1rem; }
+      .node.is-group.is-open { width: 1.6rem; height: 1.6rem; }
+      .node.is-group.is-open .node-card { display: none; }
+      .node.is-group.is-open .group-chevron { top: 0; right: auto; left: 0; }
+      @media (prefers-reduced-motion: reduce) {
+        .group-chevron svg { transition: none; }
+      }
+      .node-badge {
+        display: grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 8px;
+        background: rgba(255, 148, 18, 0.18);
+        color: #ff9412;
+      }
+      .node:hover .node-badge { background: rgba(255, 148, 18, 0.28); }
+      .node-badge svg { width: 0.9rem; height: 0.9rem; fill: currentColor; }
+      .node-copy { display: grid; gap: 0.15rem; min-width: 0; }
+      .kind {
+        display: flex;
+        gap: 0.35rem;
+        align-items: center;
+        margin: 0;
+        color: #ff9412;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.35;
+        letter-spacing: 0;
+        text-transform: none;
+        user-select: none;
+      }
+      .node p { margin: 0; line-height: 1.4; }
+      .node h2 { margin: 0; color: #ffffff; font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
+      .node .body { color: #bdbdbd; font-size: 0.75rem; }
+      .node.is-locked { cursor: default; }
+      .stage.is-pan,
+      .stage.is-pan .node,
+      .stage.is-pan .node.is-locked { cursor: grab; }
+      .stage.is-pan.is-grabbing,
+      .stage.is-pan.is-grabbing .node,
+      .stage.is-pan.is-grabbing .node.is-locked { cursor: grabbing; }
+      .bar-tools {
+        display: flex; align-items: center; gap: 0.1rem;
+        margin-right: 0.15rem; padding-right: 0.25rem;
+        border-right: 1px solid rgba(255, 255, 255, 0.16);
+      }
+      .bar-tools button {
+        display: grid; place-items: center;
+        width: 1.9rem; height: 1.9rem; min-height: 0; padding: 0;
+        border: 0; border-radius: 999px; background: transparent; color: var(--muted);
+        cursor: pointer;
+      }
+      .bar-tools button:hover { color: var(--gold-hover); background: rgba(255, 255, 255, 0.08); }
+      .bar-tools button[aria-pressed="true"] { color: #ffffff; background: rgba(255, 255, 255, 0.12); }
+      .bar-tools svg { width: 0.95rem; height: 0.95rem; }
+      .node.is-page .node-card { grid-template-rows: auto minmax(0, 1fr); }
+      .node.is-page.is-sized .node-card { overflow: hidden; }
+      .node.is-page .body { display: none; }
+      .page-frame {
+        grid-column: 1 / -1;
+        width: 100%;
+        height: 9rem;
+        min-height: 0;
+        border: 0;
+        border-radius: 10px;
+        background: #f4f0e8;
+        pointer-events: none;
+      }
+      .node.is-page.is-sized .page-frame { height: 100%; }
+      .expand-preview .page-frame { pointer-events: auto; }
+      .node.is-sized .node-card {
+        height: 100%;
+        overflow: auto;
+        scrollbar-color: rgba(167, 139, 113, 0.55) transparent;
+      }
+      .node.is-sized .node-card::-webkit-scrollbar { width: 8px; height: 8px; }
+      .node.is-sized .node-card::-webkit-scrollbar-thumb { background: rgba(167, 139, 113, 0.55); border-radius: 999px; }
+      .node-handle { position: absolute; z-index: 2; }
+      .node-handle.n, .node-handle.s { left: 18px; right: 18px; height: 18px; cursor: ns-resize; }
+      .node-handle.n { top: -16px; }
+      .node-handle.s { bottom: -16px; }
+      .node-handle.e, .node-handle.w { top: 18px; bottom: 18px; width: 18px; cursor: ew-resize; }
+      .node-handle.e { right: -16px; }
+      .node-handle.w { left: -16px; }
+      .node-handle.nw, .node-handle.ne, .node-handle.sw, .node-handle.se {
+        z-index: 4;
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        background: transparent;
+        opacity: 0;
+      }
+      .node-handle, .node-handle:hover, .node-handle.is-dragging { background: transparent; opacity: 0; }
+      .node-handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
+      .node-handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
+      .node-handle.sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+      .node-handle.se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+      .node-expand {
+        container-name: node-expand;
+        container-type: inline-size;
+        position: absolute;
+        z-index: 6;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: #0d0b09;
+      }
+      .node-expand[hidden] { display: none; }
+      .expand-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        padding: 0.5rem 0.65rem;
+        border-bottom: 1px solid rgba(199, 164, 123, 0.28);
+      }
+      .expand-bar p { margin: 0; color: #f5f2ee; font-size: 0.8125rem; font-weight: 600; line-height: 1.4; }
+      .expand-layout { display: flex; flex: 1; min-height: 0; }
+      .expand-preview {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-width: 0;
+        padding: 1.25rem 1rem;
+        overflow: auto;
+        background-color: #100e0c;
+        background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0.8px, transparent 1.3px);
+        background-size: 20px 20px;
+        scrollbar-color: rgba(167, 139, 113, 0.55) transparent;
+      }
+      .expand-preview::-webkit-scrollbar { width: 10px; height: 10px; }
+      .expand-preview::-webkit-scrollbar-thumb { background: rgba(167, 139, 113, 0.55); border-radius: 999px; }
+      .expand-preview .node { position: relative; cursor: default; }
+      .expand-editor {
+        flex: 0 0 18rem;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        padding: 0.75rem;
+        border-left: 1px solid rgba(199, 164, 123, 0.28);
+        scrollbar-color: rgba(167, 139, 113, 0.55) transparent;
+      }
+      .expand-editor::-webkit-scrollbar { width: 8px; }
+      .expand-editor::-webkit-scrollbar-thumb { background: rgba(167, 139, 113, 0.55); border-radius: 999px; }
+      .node-expand .controls-actions { flex-direction: column; align-items: stretch; }
+      .node-expand .controls-actions input, .node-expand .controls-actions textarea { width: 100%; min-width: 0; flex: 0 0 auto; }
+      @container node-expand (max-width: 36rem) {
+        .expand-layout { flex-direction: column; }
+        .expand-editor { flex-basis: auto; border-left: 0; border-top: 1px solid rgba(199, 164, 123, 0.28); }
+      }
+      .node-lock { display: inline-flex; color: #9a9a9a; }
+      .node-lock svg { width: 0.7rem; height: 0.7rem; }
+      .context-menu {
+        position: fixed;
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+        min-width: 14.5rem;
+        margin: 0;
+        padding: 0.3rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: #1c1c1c;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        color: #f4f4f4;
+      }
+      .context-menu[hidden] { display: none; }
+      .node-menu-rule { height: 1px; margin: 0.25rem 0.35rem; background: rgba(255, 255, 255, 0.1); }
+      .context-menu button {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        width: 100%;
+        min-height: 2rem;
+        margin: 0;
+        padding: 0.35rem 0.55rem;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font: 600 0.8125rem/1.3 var(--sans);
+        text-align: left;
+        cursor: pointer;
+      }
+      .context-menu button svg { width: 0.9rem; height: 0.9rem; flex: 0 0 auto; }
+      .context-menu button kbd { margin-left: auto; color: #8e8e8e; font: 500 0.75rem/1.2 var(--sans); }
+      .context-menu button:hover, .context-menu button:focus-visible { background: rgba(255, 255, 255, 0.08); outline: none; }
+      .context-menu button:disabled { color: #6b6b70; cursor: default; }
+      .context-menu button:disabled:hover { background: transparent; }
+      .context-menu button.is-danger { color: #ff8a80; }
+      .context-menu button.is-danger:hover, .context-menu button.is-danger:focus-visible { background: rgba(255, 80, 70, 0.14); }
+      .canvas-zoom {
+        position: absolute;
+        z-index: 2;
+        left: 0.65rem;
+        bottom: 0.65rem;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: flex-start;
+        gap: 0.45rem;
+        pointer-events: none;
+      }
+      .canvas-zoom-bar, .canvas-minimap { pointer-events: auto; }
+      .canvas-zoom-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.1rem;
+        height: 2.5rem;
+        padding: 0.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        background: #1c1c1c;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+        color: #ffffff;
+      }
+      .canvas-zoom-bar button {
+        display: grid;
+        width: 2rem;
+        height: 2rem;
+        min-height: 0;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #ffffff;
+        cursor: pointer;
+      }
+      .canvas-zoom-bar button:hover:not(:disabled),
+      .canvas-zoom-bar button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); }
+      .canvas-zoom-bar button:disabled { color: #6b6b70; cursor: default; }
+      .canvas-zoom-bar svg {
+        width: 1rem; height: 1rem; fill: none; stroke: currentColor;
+        stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+      }
+      .zoom-level {
+        min-width: 3.4rem;
+        color: #ffffff;
+        font-size: 0.75rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+      }
+      .zoom-sep { width: 1px; height: 1rem; margin: 0 0.2rem; background: rgba(255, 255, 255, 0.16); }
+      .canvas-minimap {
+        width: 11.5rem;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        background: #100e0c;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+      .canvas-minimap[hidden] { display: none; }
+      .canvas-minimap svg { display: block; width: 100%; height: auto; cursor: pointer; touch-action: none; }
+      #minimap-nodes rect { fill: #e8d5b7; }
+      #minimap-nodes rect[data-selected] { fill: #ff9412; }
+      .viewer { position: fixed; z-index: 6; inset: 0; display: none; flex-direction: column; gap: 0.75rem; padding: 1rem 1.1rem 1.2rem; background: #0d0b09; }
+      .viewer.is-open { display: flex; }
+      .viewer header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+      .viewer h2 { margin: 0; font-size: 1.15rem; line-height: 1.35; }
+      .viewer header p { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.875rem; line-height: 1.4; }
+      .frame { flex: 1; min-height: 16rem; border: 0; border-radius: 12px; background: #080706; }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Option A. The list opens the role card. Show on canvas floats a small window over the card. Click a node for its controls, then link it to a video, a demo, or the other canvas.</p>
+    <section class="list" id="list" aria-label="Career History">
+      <h1>Career History</h1>
+      <button class="role-open" type="button" id="open-role">
+        <strong>Apple</strong>
+        <span>Product Designer · Cupertino, CA · Jun 2023 – Aug 2025</span>
+      </button>
+    </section>
+    <article class="role-card" id="role-card" aria-label="Role">
+      <h1>Apple</h1>
+      <p class="title">Product Designer</p>
+      <p class="meta">Cupertino, CA · Jun 2023 – Aug 2025</p>
+      <p class="gist">Helped design the foldable, from the hinge studies through the design review.</p>
+      <p class="linked-label">Linked</p>
+      <ul class="linked">
+        <li><button type="button" data-node="design"><em>Design</em><strong>Foldable</strong></button></li>
+        <li><button type="button" data-node="demo"><em>Demonstration</em><strong>Product demonstration</strong></button></li>
+        <li><button type="button" id="play-from-card" data-node="video"><em>Video</em><strong>Foldable design review</strong></button></li>
+      </ul>
+      <button class="show-canvas" type="button" id="show-canvas" aria-expanded="false">Show on canvas</button>
+      <button class="card-back" type="button" id="card-back">Roles</button>
+    </article>
+    <div class="float" id="workspace" role="dialog" aria-label="Canvas">
+      <div class="float-bar" id="float-handle">
+        <h2>Canvas</h2>
+        <div class="float-actions">
+          <button type="button" id="save-canvas" aria-label="Save this canvas">Save</button>
+          <button type="button" id="canvas-history" aria-expanded="false" aria-label="Saved versions">History</button>
+          <div id="history-panel" class="history-panel" hidden>
+            <p class="history-kicker" id="history-kicker"></p>
+            <p class="history-title">Saves</p>
+            <div id="history-list" class="history-list"></div>
+          </div>
+          <button type="button" id="minimize" aria-pressed="false" aria-label="Minimize">
+            <svg class="icon-min" viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 8.5h9" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+            <svg class="icon-restore" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.6" y="1.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+          <button type="button" id="maximize" aria-pressed="false" aria-label="Maximize">
+            <svg class="icon-max" viewBox="0 0 12 12" aria-hidden="true"><rect x="3.5" y="1.1" width="7.2" height="7.2" fill="#0d0b09" stroke="currentColor" stroke-width="1.3"/><rect x="1.2" y="3.4" width="7.2" height="7.2" fill="#0d0b09" stroke="currentColor" stroke-width="1.3"/></svg>
+            <svg class="icon-restore" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.6" y="1.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+          <button class="close-canvas" type="button" id="close-canvas" aria-label="Close">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 2.2l7.6 7.6M9.8 2.2l-7.6 7.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="node-controls" id="node-controls">
+        <div class="controls-head">
+          <p id="controls-heading"></p>
+          <span class="controls-head-actions">
+            <button type="button" id="expand-controls">Preview</button>
+            <button type="button" id="close-controls">Done</button>
+          </span>
+        </div>
+        <div class="controls-actions" id="controls-actions"></div>
+      </div>
+      <div class="stage-frame">
+      <div id="node-expand" class="node-expand" hidden>
+        <div class="expand-bar">
+          <p id="expand-heading"></p>
+          <button type="button" id="close-expand">Done</button>
+        </div>
+        <div class="expand-layout">
+          <div id="expand-preview" class="expand-preview"></div>
+          <div class="expand-editor">
+            <div class="controls-actions" id="expand-fields"></div>
+          </div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="plane" id="plane"><svg class="wires" id="wires"></svg><svg class="guides" id="guides"></svg></div>
+      </div>
+      <div class="canvas-zoom" id="canvas-zoom">
+            <div class="canvas-zoom-bar" role="toolbar" aria-label="Canvas zoom">
+              <button id="zoom-out" type="button" aria-label="Zoom out">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+              </button>
+              <span class="zoom-level" id="zoom-label">100%</span>
+              <button id="zoom-in" type="button" aria-label="Zoom in">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+              </button>
+              <span class="zoom-sep" aria-hidden="true"></span>
+              <button id="zoom-fit" type="button" aria-label="Zoom to fit">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.25 6.25V3.25h3M9.75 3.25h3v3M12.75 9.75v3h-3M6.25 12.75h-3v-3"/></svg>
+              </button>
+              <button id="minimap-toggle" type="button" aria-pressed="true" aria-label="Hide minimap">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1.25"/><rect x="4.75" y="5.5" width="4.25" height="3.25" rx="0.4"/></svg>
+              </button>
+            </div>
+            <div class="canvas-minimap" id="canvas-minimap">
+              <svg id="minimap" viewBox="0 0 1024 448" role="img" aria-label="Canvas overview">
+                <rect id="minimap-ground" width="1024" height="448" fill="#100e0c" />
+                <g id="minimap-nodes"></g>
+                <rect id="minimap-view" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.72)" stroke-width="3" rx="6" />
+              </svg>
+            </div>
+          </div>
+      </div>
+      <div class="canvas-drawer" id="canvas-drawer">
+        <div id="drawer-menu" role="menu" hidden></div>
+        <div class="canvas-bar" id="canvas-bar">
+          <div class="bar-tools" role="group" aria-label="Pointer tools">
+            <button type="button" id="tool-select" aria-pressed="true" aria-label="Select">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3.1 1.6 3.3 12.4 6.5 9.4 9.3 14.1 11.1 13.1 8.3 8.4 12.3 8 3.1 1.6Z"/></svg>
+            </button>
+            <button type="button" id="tool-pan" aria-pressed="false" aria-label="Pan">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6.3 7.5V3.6a.9.9 0 0 1 1.8 0v3.3M8.1 6.4V3a.9.9 0 0 1 1.8 0V7.2M9.9 6.8V4.1a.9.9 0 0 1 1.8 0v4.2c0 2.3-1.5 4-3.8 4h-.5c-2.1 0-3.4-1.4-3.4-3.4V7.2a.9.9 0 0 1 1.8 0"/></svg>
+            </button>
+          </div>
+          <input id="node-search" type="search" placeholder="Find a node" aria-label="Find a node">
+          <span id="search-count" class="search-count" hidden></span>
+          <div class="drawer-tabs" id="drawer-tabs" role="tablist" aria-label="Canvases"></div>
+          <button type="button" id="drawer-all" aria-expanded="false" aria-haspopup="menu" aria-controls="drawer-menu">
+            All
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 7.4 6 3.6l3.8 3.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="resize n" data-edge="n"></div>
+      <div class="resize e" data-edge="e"></div>
+      <div class="resize s" data-edge="s"></div>
+      <div class="resize w" data-edge="w"></div>
+      <div class="resize nw" data-edge="nw" title="Drag to resize"></div>
+      <div class="resize ne" data-edge="ne" title="Drag to resize"></div>
+      <div class="resize sw" data-edge="sw" title="Drag to resize"></div>
+      <div class="resize se" data-edge="se" title="Drag to resize"></div>
+      <div id="node-menu" class="context-menu" role="menu" hidden></div>
+      <div id="canvas-menu" class="context-menu" role="menu" hidden></div>
+      <div id="wire-menu" class="context-menu" role="menu" hidden></div>
+    </div>
+    <section class="viewer" id="viewer" aria-label="Video">
+      <header>
+        <div>
+          <h2>Foldable design review</h2>
+          <p>The player stays in this project. A real design film stands in for the foldable upload.</p>
+        </div>
+        <button type="button" id="close-video">Back to the canvas</button>
+      </header>
+      <iframe class="frame" id="player" title="Foldable design review" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </section>
+    <script>
+      let film = "https://www.youtube-nocookie.com/embed/xIZYqNS6so0?rel=0";
+      let filmOffered = false;
+      const canvases = [
+        {
+          id: "foldable",
+          name: "Foldable",
+          nodes: [
+            { id: "role", kind: "Role", title: "Product Designer", body: "Apple. Helped design the foldable, from the hinge studies through the design review.", x: 24, y: 28 },
+            { id: "design", kind: "Design", title: "Foldable", body: "The product itself. The fold, the hinge, and how it sits in the hand.", x: 280, y: 24 },
+            { id: "demo", kind: "Demonstration", title: "Product demonstration", body: "The review that shows the foldable moving.", x: 536, y: 168 },
+            { id: "video", kind: "Video", title: "Foldable design review", body: "Opens here, on its own page inside the project.", x: 792, y: 36, video: true },
+            { id: "page", kind: "Page", title: "Hinge notes", body: "The hinge study, the fold, and how the pieces sit together.", url: "", x: 216, y: 168, w: 320, h: 220 },
+          ],
+          edges: [["role", "design"], ["design", "demo"], ["demo", "video"], ["design", "page"]],
+          groups: [],
+        },
+        {
+          id: "hinge",
+          name: "Hinge study",
+          nodes: [
+            { id: "role", kind: "Role", title: "Product Designer", body: "Apple. A second canvas, for the hinge on its own.", x: 36, y: 48 },
+            { id: "hinge", kind: "Design", title: "Hinge", body: "The mechanism, kept apart from the whole foldable.", x: 320, y: 140 },
+          ],
+          edges: [["role", "hinge"]],
+          groups: [],
+        },
+      ];
+      let current = canvases[0];
+      let canvasTool = "select";
+      const pinnedCanvases = new Set();
+      let selected = "role";
+      let selection = ["role"];
+      let selectedGroup = "";
+      const undoStack = [];
+      const redoStack = [];
+      let historyLock = false;
+      function choose(ids, primary) {
+        selectedGroup = "";
+        selection = [...new Set(ids.filter(Boolean))];
+        selected = primary && selection.includes(primary) ? primary : (selection[0] || "");
+      }
+      function selectedNodes() {
+        return current.nodes.filter((node) => selection.includes(node.id));
+      }
+      function targetsFor(node) {
+        if (node && selection.includes(node.id)) return selectedNodes();
+        return node ? [node] : selectedNodes();
+      }
+      function paintSelection() {
+        plane.querySelectorAll(".node").forEach((card) => {
+          const on = card.dataset.group ? card.dataset.group === selectedGroup : selection.includes(card.dataset.id);
+          card.classList.toggle("is-selected", on);
+        });
+        syncMinimap();
+      }
+      function capture() {
+        return {
+          canvasId: current.id,
+          nodes: JSON.parse(JSON.stringify(current.nodes)),
+          edges: JSON.parse(JSON.stringify(current.edges)),
+          groups: JSON.parse(JSON.stringify(current.groups || [])),
+          selected,
+          selection: [...selection],
+        };
+      }
+      function remember() {
+        if (historyLock) return;
+        undoStack.push(capture());
+        if (undoStack.length > 60) undoStack.shift();
+        redoStack.length = 0;
+      }
+      function restore(snap) {
+        historyLock = true;
+        current = canvases.find((canvas) => canvas.id === snap.canvasId) || current;
+        current.nodes = snap.nodes;
+        current.edges = snap.edges;
+        current.groups = snap.groups || [];
+        selected = snap.selected;
+        selection = snap.selection?.length ? [...snap.selection] : (selected ? [selected] : []);
+        closeControls();
+        closeNodeMenu();
+        closeCanvasMenu();
+        closeWireMenu();
+        paint();
+        historyLock = false;
+      }
+      function undo() {
+        if (!undoStack.length) return;
+        redoStack.push(capture());
+        restore(undoStack.pop());
+      }
+      function redo() {
+        if (!redoStack.length) return;
+        undoStack.push(capture());
+        restore(redoStack.pop());
+      }
+      const SNAP_KEY = "proforna-canvas-saves";
+      let snapshots = {};
+      function loadSnapshots() {
+        try {
+          const raw = localStorage.getItem(SNAP_KEY);
+          const parsed = raw ? JSON.parse(raw) : {};
+          snapshots = parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          snapshots = {};
+        }
+      }
+      function persistSnapshots() {
+        try { localStorage.setItem(SNAP_KEY, JSON.stringify(snapshots)); } catch { /* storage can be unavailable */ }
+      }
+      function snapshotsFor(canvasId) {
+        return Array.isArray(snapshots[canvasId]) ? snapshots[canvasId] : [];
+      }
+      function nextSaveName(list) {
+        const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        const taken = list.some((item) => item.name === time);
+        return taken ? `${time} · ${list.filter((item) => String(item.name).startsWith(time)).length + 1}` : time;
+      }
+      function snapshotSummary(snap) {
+        const cards = snap.nodes?.length || 0;
+        const links = snap.edges?.length || 0;
+        const titles = (snap.nodes || []).map((node) => node.title).filter(Boolean).slice(0, 3);
+        const extra = (snap.nodes?.length || 0) - titles.length;
+        const names = titles.join(", ") + (extra > 0 ? ` +${extra}` : "");
+        const cardWord = cards === 1 ? "card" : "cards";
+        const linkWord = links === 1 ? "link" : "links";
+        return `${cards} ${cardWord} · ${links} ${linkWord}${names ? ` · ${names}` : ""}`;
+      }
+      function closeHistory() {
+        const panel = document.querySelector("#history-panel");
+        if (!panel || panel.hidden) return;
+        panel.hidden = true;
+        document.querySelector("#canvas-history").setAttribute("aria-expanded", "false");
+      }
+      function paintHistory() {
+        const panel = document.querySelector("#history-panel");
+        document.querySelector("#history-kicker").textContent = current.name;
+        const list = document.querySelector("#history-list");
+        list.replaceChildren();
+        const saves = snapshotsFor(current.id);
+        if (!saves.length) {
+          const empty = document.createElement("p");
+          empty.className = "history-empty";
+          empty.textContent = "Nothing saved for this canvas yet.";
+          list.append(empty);
+          return;
+        }
+        for (const snap of saves) {
+          const row = document.createElement("article");
+          row.className = "history-row";
+          const name = document.createElement("strong");
+          name.textContent = snap.name;
+          const when = document.createElement("p");
+          when.textContent = new Date(snap.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+          const summary = document.createElement("p");
+          summary.textContent = snapshotSummary(snap);
+          const actions = document.createElement("div");
+          actions.className = "history-actions";
+          const restoreButton = document.createElement("button");
+          restoreButton.type = "button";
+          restoreButton.textContent = "Restore";
+          restoreButton.addEventListener("click", () => restoreSnapshot(snap));
+          const renameButton = document.createElement("button");
+          renameButton.type = "button";
+          renameButton.textContent = "Rename";
+          renameButton.addEventListener("click", () => renameSnapshot(snap, name));
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "is-danger";
+          removeButton.textContent = "Remove";
+          removeButton.addEventListener("click", () => removeSnapshot(snap.id));
+          actions.append(restoreButton, renameButton, removeButton);
+          row.append(name, when, summary, actions);
+          list.append(row);
+        }
+        if (panel) panel.hidden = false;
+      }
+      function openHistory() {
+        paintHistory();
+        document.querySelector("#history-panel").hidden = false;
+        document.querySelector("#canvas-history").setAttribute("aria-expanded", "true");
+      }
+      function saveCanvas() {
+        const list = snapshotsFor(current.id);
+        const snap = {
+          id: `save-${Date.now()}`,
+          name: nextSaveName(list),
+          at: Date.now(),
+          nodes: JSON.parse(JSON.stringify(current.nodes)),
+          edges: JSON.parse(JSON.stringify(current.edges)),
+          groups: JSON.parse(JSON.stringify(current.groups || [])),
+        };
+        snapshots[current.id] = [snap, ...list].slice(0, 30);
+        persistSnapshots();
+        const button = document.querySelector("#save-canvas");
+        button.classList.add("is-saved");
+        button.setAttribute("aria-label", "Saved");
+        window.setTimeout(() => {
+          button.classList.remove("is-saved");
+          button.setAttribute("aria-label", "Save this canvas");
+        }, 1200);
+        openHistory();
+      }
+      function restoreSnapshot(snap) {
+        remember();
+        current.nodes = JSON.parse(JSON.stringify(snap.nodes || []));
+        current.edges = JSON.parse(JSON.stringify(snap.edges || []));
+        current.groups = JSON.parse(JSON.stringify(snap.groups || []));
+        const first = current.nodes[0]?.id || "";
+        choose(first ? [first] : [], first);
+        closeControls();
+        closeNodeMenu();
+        closeCanvasMenu();
+        closeWireMenu();
+        paint();
+        fitCanvas();
+      }
+      function renameSnapshot(snap, nameEl) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = snap.name;
+        input.setAttribute("aria-label", "Save name");
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+        let done = false;
+        function commit(keep) {
+          if (done) return;
+          done = true;
+          const next = input.value.trim();
+          if (keep && next) {
+            snap.name = next;
+            persistSnapshots();
+          }
+          paintHistory();
+          document.querySelector("#history-panel").hidden = false;
+        }
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit(true);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            commit(false);
+          }
+        });
+        input.addEventListener("blur", () => commit(true));
+      }
+      function removeSnapshot(id) {
+        snapshots[current.id] = snapshotsFor(current.id).filter((item) => item.id !== id);
+        persistSnapshots();
+        paintHistory();
+        document.querySelector("#history-panel").hidden = false;
+      }
+      loadSnapshots();
+      let zoom = 1;
+      const workspace = document.querySelector("#workspace");
+      const handle = document.querySelector("#float-handle");
+      const plane = document.querySelector("#plane");
+      const wires = document.querySelector("#wires");
+      const viewer = document.querySelector("#viewer");
+      const player = document.querySelector("#player");
+      const showCanvas = document.querySelector("#show-canvas");
+      function nodeById(id) { return current.nodes.find((node) => node.id === id); }
+      function showCanvasHome(canvas) {
+        current = canvas;
+        choose([canvas.nodes[0].id], canvas.nodes[0].id);
+        closeVideo();
+        closeControls();
+        paint();
+        if (!document.querySelector("#history-panel").hidden) paintHistory();
+      }
+      function setAllOpen(open) {
+        const menu = document.querySelector("#drawer-menu");
+        menu.hidden = !open;
+        document.querySelector("#canvas-drawer").classList.toggle("is-open", open);
+        document.querySelector("#drawer-all").setAttribute("aria-expanded", open ? "true" : "false");
+      }
+      function paintDrawer() {
+        const tabs = document.querySelector("#drawer-tabs");
+        const menu = document.querySelector("#drawer-menu");
+        tabs.replaceChildren();
+        menu.replaceChildren();
+        for (const canvas of canvases) {
+          if (pinnedCanvases.has(canvas.id)) {
+            const tab = document.createElement("button");
+            tab.type = "button";
+            tab.className = "drawer-tab";
+            tab.setAttribute("role", "tab");
+            tab.setAttribute("aria-selected", canvas === current ? "true" : "false");
+            tab.textContent = canvas.name;
+            tab.addEventListener("click", () => showCanvasHome(canvas));
+            tabs.append(tab);
+          }
+          const row = document.createElement("div");
+          row.className = "drawer-menu-row";
+          const item = document.createElement("button");
+          item.type = "button";
+          item.setAttribute("role", "menuitem");
+          item.textContent = canvas.name;
+          item.addEventListener("click", () => {
+            setAllOpen(false);
+            showCanvasHome(canvas);
+          });
+          const pin = document.createElement("button");
+          const pinned = pinnedCanvases.has(canvas.id);
+          pin.type = "button";
+          pin.className = "drawer-pin" + (pinned ? " is-pinned" : "");
+          pin.setAttribute("aria-pressed", pinned ? "true" : "false");
+          pin.setAttribute("aria-label", pinned ? `Unpin ${canvas.name}` : `Pin ${canvas.name} to the bar`);
+          pin.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.1 2.2h3.8v3.1l1.7 1.7v1.3H8.8V13.8H7.2V8.3H4.4V7l1.7-1.7V2.2Z" fill="currentColor"/></svg>`;
+          pin.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (pinnedCanvases.has(canvas.id)) pinnedCanvases.delete(canvas.id);
+            else pinnedCanvases.add(canvas.id);
+            paintDrawer();
+          });
+          row.append(item, pin);
+          menu.append(row);
+        }
+      }
+      function paintWires() {
+        wires.replaceChildren();
+        const pairs = current.edges.map(([fromId, toId]) => [fromId, toId]);
+        for (const node of current.nodes) {
+          for (const link of node.links || []) {
+            if (link.kind === "canvas" || !nodeById(link.id)) continue;
+            if (pairs.some(([fromId, toId]) => fromId === node.id && toId === link.id)) continue;
+            pairs.push([node.id, link.id]);
+          }
+        }
+        for (const [fromId, toId] of pairs) {
+          const from = endpoint(fromId);
+          const to = endpoint(toId);
+          if (!from || !to || from.key === to.key) continue;
+          const x1 = from.x + from.w;
+          const y1 = from.y + from.h / 2;
+          const x2 = to.x;
+          const y2 = to.y + to.h / 2;
+          const bend = Math.max(40, (x2 - x1) / 2);
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
+          if (workspace.classList.contains("is-focus") && (selection.includes(fromId) || selection.includes(toId))) path.classList.add("is-live");
+          const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          hit.setAttribute("d", path.getAttribute("d"));
+          hit.classList.add("hit");
+          hit.addEventListener("pointerenter", () => path.classList.add("is-hot"));
+          hit.addEventListener("pointerleave", () => path.classList.remove("is-hot"));
+          hit.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openWireMenu(fromId, toId, event.clientX, event.clientY);
+          });
+          wires.append(hit, path);
+        }
+      }
+      function disconnect(fromId, toId) {
+        remember();
+        current.edges = current.edges.filter(([start, end]) => !(start === fromId && end === toId));
+        const from = nodeById(fromId);
+        if (from?.links) from.links = from.links.filter((link) => link.id !== toId);
+        paintWires();
+      }
+      function connectNodes(fromId, toId) {
+        if (!fromId || !toId || fromId === toId) return;
+        if (current.edges.some(([start, end]) => start === fromId && end === toId)) return;
+        remember();
+        current.edges.push([fromId, toId]);
+        paintWires();
+      }
+      function startWire(event, node, card) {
+        if (canvasTool === "pan" || event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const draft = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        draft.classList.add("draft");
+        wires.append(draft);
+        const from = () => {
+          const x1 = node.x + card.offsetWidth;
+          const y1 = node.y + card.offsetHeight / 2;
+          return { x1, y1 };
+        };
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const point = canvasPoint(next.clientX, next.clientY);
+          const { x1, y1 } = from();
+          const bend = Math.max(40, (point.x - x1) / 2);
+          draft.setAttribute("d", `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${point.x - bend} ${point.y}, ${point.x} ${point.y}`);
+          plane.querySelectorAll(".port.in").forEach((port) => port.classList.remove("is-hot"));
+          const hit = document.elementFromPoint(next.clientX, next.clientY);
+          hit?.closest?.(".node")?.querySelector(".port.in")?.classList.add("is-hot");
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          card.removeEventListener("pointermove", move);
+          card.removeEventListener("pointerup", up);
+          draft.remove();
+          plane.querySelectorAll(".port.in").forEach((port) => port.classList.remove("is-hot"));
+          const hit = document.elementFromPoint(next.clientX, next.clientY);
+          const target = hit?.closest?.(".node");
+          if (target) connectNodes(node.id, target.dataset.id);
+        }
+        try { card.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        card.addEventListener("pointermove", move);
+        card.addEventListener("pointerup", up);
+      }
+      const NODE_MIN_W = 220;
+      const NODE_MAX_W = 480;
+      const NODE_MIN_H = 104;
+      const NODE_MAX_H = 360;
+      const NODE_FACE = `<div class="node-card"><span class="node-badge" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M9.2 1.2 3.4 9h4.2L6.4 14.8 13 6.6H8.6L9.2 1.2Z"/></svg></span><div class="node-copy"><p class="kind"><span></span></p><h2></h2><p class="body"></p></div></div>`;
+      let retainExpand = false;
+      function clampSize(value, min, max) {
+        return Math.round(Math.min(max, Math.max(min, value)));
+      }
+      function applyNodeBox(card, node) {
+        card.classList.toggle("is-sized", Boolean(node.h));
+        card.style.width = node.w ? `${node.w}px` : "";
+        card.style.height = node.h ? `${node.h}px` : "";
+      }
+      function fillNodeFace(card, node) {
+        const field = card.querySelector(".node-copy");
+        card.classList.toggle("is-locked", Boolean(node.locked));
+        card.querySelector(".kind span").textContent = node.kind;
+        card.querySelectorAll(".node-lock, .node-extra").forEach((el) => el.remove());
+        if (node.locked) {
+          const lock = document.createElement("span");
+          lock.className = "node-lock";
+          lock.setAttribute("aria-label", "Locked");
+          lock.innerHTML = nodeMenuIcons.lock;
+          card.querySelector(".kind").append(lock);
+        }
+        card.querySelector("h2").textContent = node.title || "";
+        card.querySelector(".body").textContent = node.body || "";
+        if (node.notes?.length) {
+          const notes = document.createElement("p");
+          notes.className = "body node-extra";
+          notes.textContent = node.notes.join(" ");
+          field.append(notes);
+        }
+        if (node.images?.length) {
+          const images = document.createElement("p");
+          images.className = "body node-extra";
+          images.textContent = node.images.join(", ");
+          field.append(images);
+        }
+        if (node.tags?.length) {
+          const tags = document.createElement("p");
+          tags.className = "tags node-extra";
+          tags.textContent = node.tags.join(" · ");
+          field.append(tags);
+        }
+        if (node.links?.length) {
+          const links = document.createElement("p");
+          links.className = "tags node-extra";
+          links.textContent = "Links out to " + node.links.map((link) => link.label).join(", ");
+          field.append(links);
+        }
+        card.classList.toggle("is-page", node.kind === "Page");
+        let frame = card.querySelector(".page-frame");
+        if (node.kind !== "Page") {
+          frame?.remove();
+          return;
+        }
+        if (!frame) {
+          frame = document.createElement("iframe");
+          frame.className = "page-frame";
+          frame.setAttribute("sandbox", "allow-scripts allow-forms allow-popups");
+          frame.referrerPolicy = "no-referrer";
+          card.querySelector(".node-card").append(frame);
+        }
+        const url = (node.url || "").trim();
+        const useUrl = /^https?:\/\//i.test(url);
+        frame.title = node.title || "Embedded page";
+        if (useUrl) {
+          if (frame.dataset.src !== url) {
+            frame.removeAttribute("srcdoc");
+            frame.src = url;
+            frame.dataset.src = url;
+            frame.dataset.doc = "";
+          }
+        } else if (frame.dataset.doc !== `${node.title}\n${node.body}`) {
+          frame.removeAttribute("src");
+          frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#f4f0e8;color:#1c1814;}body{padding:12px 14px;font:14px/1.5 system-ui,sans-serif;}h1{margin:0 0 8px;font-size:16px;line-height:1.3;}p{margin:0;}</style></head><body><h1>${pageText(node.title || "Page")}</h1><p>${pageText(node.body || "")}</p></body></html>`;
+          frame.dataset.doc = `${node.title}\n${node.body}`;
+          frame.dataset.src = "";
+        }
+      }
+      function pageText(value) {
+        return String(value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch]));
+      }
+      function syncExpandPreview(node, face) {
+        const panel = document.querySelector("#node-expand");
+        if (!panel || panel.hidden || panel.dataset.id !== node.id) return;
+        const card = panel.querySelector(".node");
+        if (!card) return;
+        if (face) fillNodeFace(card, node);
+        applyNodeBox(card, node);
+        document.querySelector("#expand-heading").textContent = `${node.kind} · ${node.title || "Untitled"}`;
+      }
+      function addResizeHandles(card, node) {
+        if (node.locked) return;
+        for (const edge of ["n", "s", "e", "w", "ne", "nw", "se", "sw"]) {
+          const handle = document.createElement("div");
+          handle.className = `node-handle ${edge}`;
+          handle.setAttribute("aria-label", "Resize");
+          handle.addEventListener("pointerdown", (event) => {
+            const live = plane.querySelector(`.node[data-id="${node.id}"]`) || card;
+            startResize(event, node, live, edge);
+          });
+          card.append(handle);
+        }
+      }
+      function startResize(event, node, card, edge) {
+        if (event.button !== 0 || node.locked) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!selection.includes(node.id)) {
+          choose([node.id], node.id);
+          paintSelection();
+        }
+        const before = capture();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originW = card.offsetWidth;
+        const originH = card.offsetHeight;
+        const originX = node.x;
+        const originY = node.y;
+        const beforeW = node.w;
+        const beforeH = node.h;
+        const grip = event.currentTarget;
+        grip.classList.add("is-dragging");
+        let changed = false;
+        try { grip.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const dx = (next.clientX - startX) / zoom;
+          const dy = (next.clientY - startY) / zoom;
+          let x = originX;
+          let y = originY;
+          if (edge.includes("e") || edge.includes("w")) {
+            const grown = edge.includes("w") ? originW - dx : originW + dx;
+            node.w = clampSize(grown, NODE_MIN_W, NODE_MAX_W);
+            if (edge.includes("w")) x = originX + originW - node.w;
+          }
+          if (edge.includes("n") || edge.includes("s")) {
+            const grown = edge.includes("n") ? originH - dy : originH + dy;
+            node.h = clampSize(grown, NODE_MIN_H, NODE_MAX_H);
+            if (edge.includes("n")) y = originY + originH - node.h;
+          }
+          if (x < 8) {
+            node.w = clampSize(node.w - (8 - x), NODE_MIN_W, NODE_MAX_W);
+            x = 8;
+          }
+          if (y < 8) {
+            node.h = clampSize(node.h - (8 - y), NODE_MIN_H, NODE_MAX_H);
+            y = 8;
+          }
+          node.x = x;
+          node.y = y;
+          card.style.left = `${node.x}px`;
+          card.style.top = `${node.y}px`;
+          applyNodeBox(card, node);
+          changed = node.w !== beforeW || node.h !== beforeH || node.x !== originX || node.y !== originY;
+          paintWires();
+          syncExpandPreview(node, false);
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          grip.classList.remove("is-dragging");
+          grip.removeEventListener("pointermove", move);
+          grip.removeEventListener("pointerup", up);
+          if (changed && !historyLock) {
+            undoStack.push(before);
+            if (undoStack.length > 60) undoStack.shift();
+            redoStack.length = 0;
+          }
+        }
+        grip.addEventListener("pointermove", move);
+        grip.addEventListener("pointerup", up);
+      }
+      function groupById(id) {
+        return (current.groups || []).find((group) => group.id === id);
+      }
+      function groupFor(nodeId) {
+        return (current.groups || []).find((group) => group.members.includes(nodeId));
+      }
+      function hiddenIds() {
+        const ids = new Set();
+        for (const group of current.groups || []) {
+          if (group.collapsed) group.members.forEach((id) => ids.add(id));
+        }
+        return ids;
+      }
+      function endpoint(id) {
+        const group = (current.groups || []).find((item) => item.collapsed && item.members.includes(id));
+        if (group) {
+          const el = plane.querySelector(`[data-group="${group.id}"]`);
+          return el ? { key: group.id, x: group.x, y: group.y, w: el.offsetWidth, h: el.offsetHeight } : null;
+        }
+        const node = nodeById(id);
+        const el = plane.querySelector(`.node[data-id="${id}"]`);
+        return node && el ? { key: id, x: node.x, y: node.y, w: el.offsetWidth, h: el.offsetHeight } : null;
+      }
+      function cardBox(card) {
+        if (card.dataset.group) {
+          const group = groupById(card.dataset.group);
+          return group ? { id: group.id, name: `${group.members.length} cards`, x: group.x, y: group.y, w: card.offsetWidth, h: card.offsetHeight } : null;
+        }
+        const node = nodeById(card.dataset.id);
+        return node ? { id: node.id, name: node.title, x: node.x, y: node.y, w: card.offsetWidth, h: card.offsetHeight } : null;
+      }
+      function clearGuides() {
+        document.querySelector("#guides").replaceChildren();
+      }
+      function alignDrag(node, card, movingIds) {
+        const width = card.offsetWidth;
+        const height = card.offsetHeight;
+        const snap = 8;
+        let x = node.x;
+        let y = node.y;
+        const lines = [];
+        const others = [...plane.querySelectorAll(".node")].flatMap((el) => {
+          if (movingIds.has(el.dataset.id) || (el.dataset.group && movingIds.has(el.dataset.group))) return [];
+          const box = cardBox(el);
+          return box ? [box] : [];
+        });
+        let bestX = null;
+        let bestY = null;
+        for (const other of others) {
+          const xEdges = [[x, 0], [x + width / 2, width / 2], [x + width, width]];
+          const yEdges = [[y, 0], [y + height / 2, height / 2], [y + height, height]];
+          for (const [edge, offset] of xEdges) {
+            for (const target of [other.x, other.x + other.w / 2, other.x + other.w]) {
+              const dist = Math.abs(edge - target);
+              if (dist <= snap && (!bestX || dist < bestX.dist)) bestX = { dist, target, offset, other };
+            }
+          }
+          for (const [edge, offset] of yEdges) {
+            for (const target of [other.y, other.y + other.h / 2, other.y + other.h]) {
+              const dist = Math.abs(edge - target);
+              if (dist <= snap && (!bestY || dist < bestY.dist)) bestY = { dist, target, offset, other };
+            }
+          }
+        }
+        if (bestX) {
+          x = bestX.target - bestX.offset;
+          lines.push({ x1: bestX.target, y1: Math.min(y, bestX.other.y), x2: bestX.target, y2: Math.max(y + height, bestX.other.y + bestX.other.h) });
+        }
+        if (bestY) {
+          y = bestY.target - bestY.offset;
+          lines.push({ x1: Math.min(x, bestY.other.x), y1: bestY.target, x2: Math.max(x + width, bestY.other.x + bestY.other.w), y2: bestY.target });
+        }
+        const guides = document.querySelector("#guides");
+        guides.replaceChildren();
+        for (const line of lines) {
+          const mark = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          mark.setAttribute("x1", line.x1);
+          mark.setAttribute("y1", line.y1);
+          mark.setAttribute("x2", line.x2);
+          mark.setAttribute("y2", line.y2);
+          guides.append(mark);
+        }
+        return { x: Math.max(8, x), y: Math.max(8, y) };
+      }
+      function makeGroup(node) {
+        const members = targetsFor(node).map((item) => item.id);
+        if (members.length < 2) return;
+        const name = window.prompt("Name this group", "Group");
+        if (name === null) return;
+        remember();
+        const taken = new Set(members);
+        current.groups = (current.groups || []).flatMap((group) => {
+          const rest = group.members.filter((id) => !taken.has(id));
+          return rest.length > 1 ? [{ ...group, members: rest }] : [];
+        });
+        const cards = members.map((id) => nodeById(id)).filter(Boolean);
+        current.groups.push({
+          id: `group-${Date.now()}`,
+          name: name.trim() || "Group",
+          members,
+          collapsed: true,
+          x: Math.min(...cards.map((item) => item.x)),
+          y: Math.min(...cards.map((item) => item.y)),
+        });
+        choose([], "");
+        selectedGroup = current.groups[current.groups.length - 1].id;
+        closeControls();
+        paint();
+      }
+      function setGroupCollapsed(group, collapsed) {
+        remember();
+        group.collapsed = collapsed;
+        selectedGroup = group.id;
+        closeControls();
+        paint();
+      }
+      function ungroup(group) {
+        remember();
+        current.groups = current.groups.filter((item) => item !== group);
+        closeControls();
+        paint();
+      }
+      function paintFolder(group) {
+        const card = document.createElement("article");
+        card.className = "node is-group" + (group.collapsed ? "" : " is-open") + (selectedGroup === group.id ? " is-selected" : "");
+        card.dataset.group = group.id;
+        card.style.left = `${group.collapsed ? group.x : Math.max(8, group.x - 28)}px`;
+        card.style.top = `${group.y}px`;
+        card.innerHTML = NODE_FACE;
+        card.querySelector(".kind span").textContent = group.name;
+        card.querySelector("h2").textContent = `${group.members.length} cards`;
+        const body = card.querySelector(".body");
+        if (group.collapsed) {
+          const names = group.members.map((id) => nodeById(id)?.title).filter(Boolean);
+          body.textContent = names.join(", ");
+        } else body.remove();
+        const chevron = document.createElement("button");
+        chevron.type = "button";
+        chevron.className = "group-chevron";
+        chevron.setAttribute("aria-label", group.collapsed ? "Open group" : "Close group");
+        chevron.innerHTML = `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.2 8 6 4 9.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        chevron.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setGroupCollapsed(group, !group.collapsed);
+        });
+        card.append(chevron);
+        card.addEventListener("pointerdown", (event) => onFolderDown(event, group, card));
+        card.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openFolderMenu(group, event.clientX, event.clientY);
+        });
+        plane.append(card);
+      }
+      function onFolderDown(event, group, card) {
+        if (canvasTool === "pan" || event.button !== 0 || event.target.closest("button")) return;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const origin = { x: group.x, y: group.y };
+        const members = group.members.map((id) => nodeById(id)).filter(Boolean);
+        const origins = new Map(members.map((item) => [item.id, { x: item.x, y: item.y }]));
+        const before = capture();
+        let moved = false;
+        try { card.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const dx = (next.clientX - startX) / zoom;
+          const dy = (next.clientY - startY) / zoom;
+          if (!moved && dx * dx + dy * dy < 16 / (zoom * zoom)) return;
+          moved = true;
+          group.x = Math.max(8, origin.x + dx);
+          group.y = Math.max(8, origin.y + dy);
+          for (const item of members) {
+            const from = origins.get(item.id);
+            item.x = Math.max(8, from.x + (group.x - origin.x));
+            item.y = Math.max(8, from.y + (group.y - origin.y));
+          }
+          const snapped = alignDrag({ x: group.x, y: group.y }, card, new Set([group.id]));
+          const fixX = snapped.x - group.x;
+          const fixY = snapped.y - group.y;
+          group.x = snapped.x;
+          group.y = snapped.y;
+          for (const item of members) {
+            item.x += fixX;
+            item.y += fixY;
+          }
+          card.style.left = `${group.x}px`;
+          card.style.top = `${group.y}px`;
+          paintWires();
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          card.removeEventListener("pointermove", move);
+          card.removeEventListener("pointerup", up);
+          clearGuides();
+          if (moved) {
+            if (!historyLock) {
+              undoStack.push(before);
+              if (undoStack.length > 60) undoStack.shift();
+              redoStack.length = 0;
+            }
+            return;
+          }
+          choose([], "");
+          selectedGroup = group.id;
+          paintSelection();
+        }
+        card.addEventListener("pointermove", move);
+        card.addEventListener("pointerup", up);
+      }
+      function openFolderMenu(group, x, y) {
+        closeCanvasMenu();
+        closeWireMenu();
+        const menu = document.querySelector("#node-menu");
+        fillMenu(menu, [
+          { id: "ungroup", label: "Ungroup", icon: nodeMenuIcons.folder, run: () => ungroup(group) },
+        ], closeNodeMenu);
+        placeMenu(menu, x, y);
+      }
+      function paint() {
+        paintDrawer();
+        plane.querySelectorAll(".node").forEach((node) => node.remove());
+        clearGuides();
+        const hidden = hiddenIds();
+        for (const node of current.nodes) {
+          if (hidden.has(node.id)) continue;
+          const card = document.createElement("article");
+          card.className = "node" + (selection.includes(node.id) ? " is-selected" : "") + (node.locked ? " is-locked" : "");
+          card.dataset.id = node.id;
+          card.style.left = `${node.x}px`;
+          card.style.top = `${node.y}px`;
+          card.innerHTML = `<button type="button" class="port in" data-label="Wire in" aria-label="Wire in"></button><button type="button" class="port out" data-label="Wire out" aria-label="Wire out"></button>${NODE_FACE}`;
+          fillNodeFace(card, node);
+          applyNodeBox(card, node);
+          addResizeHandles(card, node);
+          card.addEventListener("pointerdown", (event) => onDown(event, node, card));
+          card.querySelector(".port.out").addEventListener("pointerdown", (event) => startWire(event, node, card));
+          card.addEventListener("contextmenu", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openNodeMenu(node, event.clientX, event.clientY);
+          });
+          plane.append(card);
+        }
+        for (const group of current.groups || []) paintFolder(group);
+        paintWires();
+        applySearch();
+        syncMinimap();
+      }
+      function onDown(event, node, card) {
+        if (canvasTool === "pan" || event.button !== 0 || event.target.closest("button, input, textarea, .port, .node-handle")) return;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const group = selection.includes(node.id) ? selectedNodes() : [node];
+        const origins = new Map(group.map((item) => [item.id, { x: item.x, y: item.y }]));
+        const before = capture();
+        let moved = false;
+        try { card.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const dx = next.clientX - startX;
+          const dy = next.clientY - startY;
+          if (!moved && dx * dx + dy * dy < 16) return;
+          moved = true;
+          if (!selection.includes(node.id)) {
+            choose([node.id], node.id);
+            paintSelection();
+          }
+          if (node.locked) return;
+          for (const item of group) {
+            if (item.locked) continue;
+            const origin = origins.get(item.id);
+            item.x = Math.max(8, origin.x + dx / zoom);
+            item.y = Math.max(8, origin.y + dy / zoom);
+          }
+          const snapped = alignDrag(node, card, new Set(group.map((item) => item.id)));
+          const fixX = snapped.x - node.x;
+          const fixY = snapped.y - node.y;
+          for (const item of group) {
+            if (item.locked) continue;
+            item.x += fixX;
+            item.y += fixY;
+            const el = plane.querySelector(`[data-id="${item.id}"]`);
+            if (!el) continue;
+            el.style.left = `${item.x}px`;
+            el.style.top = `${item.y}px`;
+          }
+          paintWires();
+          if (workspace.classList.contains("is-focus") && selection.includes(selected)) {
+            const editing = nodeById(selected);
+            if (editing) placeControls(editing);
+          }
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          card.removeEventListener("pointermove", move);
+          card.removeEventListener("pointerup", up);
+          clearGuides();
+          if (moved) {
+            if (!historyLock) {
+              undoStack.push(before);
+              redoStack.length = 0;
+            }
+            return;
+          }
+          if (event.shiftKey) {
+            const nextIds = selection.includes(node.id)
+              ? selection.filter((id) => id !== node.id)
+              : [...selection, node.id];
+            choose(nextIds, node.id);
+            if (!selection.includes(selected)) closeControls();
+            paintSelection();
+            return;
+          }
+          showExpand(node);
+        }
+        card.addEventListener("pointermove", move);
+        card.addEventListener("pointerup", up);
+      }
+      function closeExpand() {
+        const panel = document.querySelector("#node-expand");
+        if (!panel) return;
+        panel.hidden = true;
+        panel.dataset.id = "";
+        panel.querySelector("#expand-preview").replaceChildren();
+        panel.querySelector("#expand-fields").replaceChildren();
+        if (!document.querySelector("#node-controls").classList.contains("is-open")) {
+          workspace.classList.remove("is-focus");
+        }
+        paintWires();
+      }
+      function closeControls() {
+        const panel = document.querySelector("#node-controls");
+        panel.classList.remove("is-open");
+        workspace.classList.remove("is-focus");
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.width = "";
+        panel.querySelectorAll(".outward").forEach((row) => row.remove());
+        panel.querySelector("#controls-actions").replaceChildren();
+        if (!retainExpand) closeExpand();
+        else paintWires();
+      }
+      function actionButton(label, onClick) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", onClick);
+        return button;
+      }
+      function textField(label) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = label;
+        input.setAttribute("aria-label", label);
+        return input;
+      }
+      function refresh(node) {
+        choose([node.id], node.id);
+        paint();
+        const expand = document.querySelector("#node-expand");
+        if (!expand.hidden && expand.dataset.id === node.id) showExpand(node);
+        else showControls(node);
+      }
+      function appendOutward(node, actions) {
+        const other = canvases.find((item) => item !== current);
+        const choices = [];
+        if (node.kind !== "Video") choices.push({ kind: "video", id: "video", label: "video" });
+        if (node.kind !== "Demonstration") choices.push({ kind: "demo", id: "demo", label: "demo" });
+        choices.push({ kind: "canvas", id: other.id, label: other.name });
+        const row = document.createElement("div");
+        row.className = "outward";
+        const menu = document.createElement("div");
+        menu.className = "link-menu";
+        menu.hidden = true;
+        menu.setAttribute("role", "menu");
+        const link = actionButton("Link", () => {
+          menu.hidden = !menu.hidden;
+          link.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+        });
+        link.setAttribute("aria-expanded", "false");
+        link.setAttribute("aria-haspopup", "menu");
+        for (const choice of choices) {
+          const key = `${choice.kind}:${choice.id}`;
+          const linked = (node.links || []).some((link) => link.key === key);
+          const item = actionButton(linked ? `Open ${choice.label}` : choice.label, () => {
+            if (!linked) {
+              node.links = [...(node.links || []), { key, kind: choice.kind, id: choice.id, label: choice.label }];
+              refresh(node);
+              return;
+            }
+            followLink(choice);
+          });
+          item.setAttribute("role", "menuitem");
+          item.setAttribute("aria-pressed", linked ? "true" : "false");
+          menu.append(item);
+        }
+        row.append(link, menu);
+        const host = actions.querySelector(".action-row");
+        if (host) host.append(row);
+        else {
+          const bottom = document.createElement("div");
+          bottom.className = "action-row";
+          bottom.append(row);
+          actions.append(bottom);
+        }
+      }
+      function followLink(choice) {
+        if (choice.kind === "canvas") {
+          current = canvases.find((item) => item.id === choice.id);
+          choose([current.nodes[0].id], current.nodes[0].id);
+          closeVideo();
+          closeControls();
+          paint();
+          return;
+        }
+        const home = canvases.find((item) => item.id === "foldable");
+        if (current !== home) {
+          current = home;
+          paint();
+        }
+        const target = nodeById(choice.id);
+        if (choice.kind === "video") openVideo();
+        showControls(target);
+      }
+      function linkTarget() {
+        if (film.includes("xIZYqNS6so0")) return "https://www.youtube.com/watch?v=xIZYqNS6so0";
+        return film;
+      }
+      function writeNodeText(node) {
+        const card = [...plane.querySelectorAll(".node")].find((item) => item.dataset.id === node.id && current.nodes.includes(node));
+        if (card) fillNodeFace(card, node);
+        syncExpandPreview(node, true);
+        if (selected === node.id) {
+          document.querySelector("#controls-heading").textContent = `${node.kind} · ${node.title}`;
+        }
+        const foldable = canvases.find((item) => item.id === "foldable");
+        if (foldable.nodes.includes(node)) {
+          const strong = document.querySelector(`.linked [data-node="${node.id}"] strong`);
+          if (strong) strong.textContent = node.title;
+        }
+        if (node.video) {
+          document.querySelector("#viewer h2").textContent = node.title;
+          player.title = node.title;
+        }
+        if (workspace.classList.contains("is-focus") && selected === node.id) placeControls(node);
+      }
+      function appendNaming(node, actions) {
+        const title = textField("Title");
+        title.className = "node-title-field";
+        title.value = node.title;
+        const description = document.createElement("textarea");
+        description.value = node.body;
+        description.placeholder = "Description";
+        description.setAttribute("aria-label", "Description");
+        let pending = false;
+        const apply = () => {
+          if (pending) {
+            remember();
+            pending = false;
+          }
+          node.title = title.value;
+          node.body = description.value;
+          writeNodeText(node);
+        };
+        const arm = () => { pending = true; };
+        title.addEventListener("focus", arm);
+        description.addEventListener("focus", arm);
+        title.addEventListener("input", apply);
+        description.addEventListener("input", apply);
+        actions.append(title, description);
+      }
+      function applySearch() {
+        const query = (document.querySelector("#node-search").value || "").trim().toLowerCase();
+        const cards = [...plane.querySelectorAll(".node")];
+        let matches = 0;
+        for (const card of cards) {
+          let hay = "";
+          if (card.dataset.group) {
+            const group = groupById(card.dataset.group);
+            const members = (group?.members || []).map((id) => nodeById(id)).filter(Boolean);
+            hay = [group?.name, "group", ...members.flatMap((node) => [node.title, node.kind, `${group.members.length} cards`])].join(" ");
+          } else {
+            const node = nodeById(card.dataset.id);
+            hay = `${node?.title || ""} ${node?.kind || ""}`;
+          }
+          const miss = query.length > 0 && !hay.toLowerCase().includes(query);
+          card.classList.toggle("is-filtered", miss);
+          if (!miss) matches += 1;
+        }
+        const count = document.querySelector("#search-count");
+        if (!query) {
+          count.hidden = true;
+          count.textContent = "";
+        } else {
+          count.hidden = false;
+          count.textContent = `${matches} of ${cards.length}`;
+        }
+      }
+      function applyZoom(options) {
+        const minZoom = options && options.min != null ? options.min : 0.35;
+        zoom = Math.min(2.5, Math.max(minZoom, zoom));
+        plane.style.transform = `scale(${zoom})`;
+        plane.style.marginTop = `${chromeInset.top}px`;
+        plane.style.marginLeft = `${chromeInset.left}px`;
+        plane.style.marginRight = `${plane.offsetWidth * (zoom - 1) + (chromeInset.extraRight || 0)}px`;
+        plane.style.marginBottom = `${plane.offsetHeight * (zoom - 1) + chromeInset.bottom}px`;
+        document.querySelector("#zoom-label").textContent = `${Math.round(zoom * 100)}%`;
+        document.querySelector("#zoom-out").disabled = zoom <= 0.351;
+        document.querySelector("#zoom-in").disabled = zoom >= 2.499;
+        syncMinimap();
+      }
+      const MINIMAP = { width: 184, height: 112, margin: 8 };
+      let mapFrame = { left: 0, top: 0, scale: 1, ox: 0, oy: 0 };
+      function syncMinimap() {
+        const stage = document.querySelector(".stage");
+        const boxes = [...plane.querySelectorAll(".node")].flatMap((card) => {
+          const box = cardBox(card);
+          return box ? [box] : [];
+        });
+        const view = {
+          x: stage.scrollLeft / zoom,
+          y: stage.scrollTop / zoom,
+          w: stage.clientWidth / zoom,
+          h: stage.clientHeight / zoom,
+        };
+        const all = boxes.length ? [...boxes, view] : [view];
+        const left = Math.min(...all.map((box) => box.x)) - 24;
+        const top = Math.min(...all.map((box) => box.y)) - 24;
+        const right = Math.max(...all.map((box) => box.x + box.w)) + 24;
+        const bottom = Math.max(...all.map((box) => box.y + box.h)) + 24;
+        const roomW = MINIMAP.width - MINIMAP.margin * 2;
+        const roomH = MINIMAP.height - MINIMAP.margin * 2;
+        const scale = Math.min(roomW / Math.max(1, right - left), roomH / Math.max(1, bottom - top));
+        mapFrame = {
+          left,
+          top,
+          scale,
+          ox: MINIMAP.margin + (roomW - (right - left) * scale) / 2,
+          oy: MINIMAP.margin + (roomH - (bottom - top) * scale) / 2,
+        };
+        const place = (box) => ({
+          x: mapFrame.ox + (box.x - left) * scale,
+          y: mapFrame.oy + (box.y - top) * scale,
+          w: Math.max(box.w * scale, 3),
+          h: Math.max(box.h * scale, 3),
+        });
+        const svg = document.querySelector("#minimap");
+        svg.setAttribute("viewBox", `0 0 ${MINIMAP.width} ${MINIMAP.height}`);
+        const ground = document.querySelector("#minimap-ground");
+        ground.setAttribute("width", MINIMAP.width);
+        ground.setAttribute("height", MINIMAP.height);
+        const marks = document.querySelector("#minimap-nodes");
+        marks.replaceChildren();
+        for (const box of boxes) {
+          const at = place(box);
+          const mark = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          mark.setAttribute("x", at.x);
+          mark.setAttribute("y", at.y);
+          mark.setAttribute("width", at.w);
+          mark.setAttribute("height", at.h);
+          mark.setAttribute("rx", "2");
+          if (selection.includes(box.id) || box.id === selectedGroup) mark.setAttribute("data-selected", "");
+          const tip = document.createElementNS("http://www.w3.org/2000/svg", "title");
+          tip.textContent = box.name || "Card";
+          mark.append(tip);
+          marks.append(mark);
+        }
+        const seen = place(view);
+        const frame = document.querySelector("#minimap-view");
+        frame.setAttribute("x", seen.x);
+        frame.setAttribute("y", seen.y);
+        frame.setAttribute("width", seen.w);
+        frame.setAttribute("height", seen.h);
+        frame.setAttribute("stroke-width", "1.5");
+      }
+      let chromeInset = { left: 0, top: 0, bottom: 0 };
+      function bottomChrome(stage) {
+        const stageBox = stage.getBoundingClientRect();
+        let reserve = 16;
+        for (const el of [document.querySelector("#canvas-zoom"), document.querySelector("#canvas-bar")]) {
+          if (!el || el.hidden) continue;
+          const box = el.getBoundingClientRect();
+          if (box.bottom <= stageBox.top || box.top >= stageBox.bottom) continue;
+          reserve = Math.max(reserve, stageBox.bottom - box.top + 12);
+        }
+        return reserve;
+      }
+      function fitCanvas() {
+        const boxes = [];
+        for (const card of plane.querySelectorAll(".node")) {
+          if (card.offsetWidth < 1 || card.offsetHeight < 1) continue;
+          if (card.dataset.group) {
+            const group = groupById(card.dataset.group);
+            if (!group) continue;
+            boxes.push({ x: group.x, y: group.y, w: card.offsetWidth, h: card.offsetHeight });
+          } else {
+            const node = nodeById(card.dataset.id);
+            if (!node) continue;
+            boxes.push({ x: node.x, y: node.y, w: card.offsetWidth, h: card.offsetHeight });
+          }
+        }
+        if (!boxes.length) return;
+        const edge = 10;
+        const minX = Math.min(...boxes.map((box) => box.x)) - edge;
+        const minY = Math.min(...boxes.map((box) => box.y)) - edge;
+        const maxX = Math.max(...boxes.map((box) => box.x + box.w)) + edge;
+        const maxY = Math.max(...boxes.map((box) => box.y + box.h)) + edge;
+        const spanW = Math.max(1, maxX - minX);
+        const spanH = Math.max(1, maxY - minY);
+        const stage = document.querySelector(".stage");
+        const pad = 28;
+        const reserve = bottomChrome(stage);
+        const roomW = Math.max(160, stage.clientWidth - pad * 2);
+        const roomH = Math.max(120, stage.clientHeight - reserve - pad);
+        zoom = Math.min(roomW / spanW, roomH / spanH);
+        const placed = Math.min(2.5, Math.max(0.05, zoom));
+        const contentW = spanW * placed;
+        const contentH = spanH * placed;
+        const leftGap = Math.max(pad, (stage.clientWidth - contentW) / 2);
+        const topRoom = Math.max(pad, stage.clientHeight - reserve);
+        const topGap = Math.max(pad, (topRoom - contentH) / 2);
+        const shiftX = minX * placed;
+        chromeInset = {
+          left: Math.max(0, leftGap - shiftX),
+          top: Math.max(0, topGap - minY * placed),
+          bottom: reserve,
+          extraRight: Math.max(0, shiftX - leftGap),
+        };
+        applyZoom({ min: 0.05 });
+        stage.scrollLeft = chromeInset.extraRight;
+        stage.scrollTop = Math.max(0, minY * zoom - topGap);
+      }
+      function duplicateNode(source = nodeById(selected)) {
+        const group = targetsFor(source);
+        if (!group.length) return;
+        remember();
+        const copies = group.map((item, index) => {
+          const copy = snapshotNode(item);
+          copy.id = `copy-${Date.now()}-${index}`;
+          copy.x = item.x + 36;
+          copy.y = item.y + 36;
+          return copy;
+        });
+        current.nodes.push(...copies);
+        choose(copies.map((copy) => copy.id), copies[0].id);
+        const editing = workspace.classList.contains("is-focus") && copies.length === 1;
+        paint();
+        if (editing) showControls(copies[0]);
+      }
+      let copiedNode = null;
+      let copiedNodes = [];
+      function snapshotNode(node) {
+        const copy = {
+          kind: node.kind,
+          title: node.title,
+          body: node.body,
+          x: node.x,
+          y: node.y,
+          links: (node.links || []).map((link) => ({ ...link })),
+        };
+        if (node.w) copy.w = node.w;
+        if (node.h) copy.h = node.h;
+        if (node.notes) copy.notes = [...node.notes];
+        if (node.images) copy.images = [...node.images];
+        if (node.tags) copy.tags = [...node.tags];
+        if (node.video) copy.video = true;
+        if (node.url) copy.url = node.url;
+        return copy;
+      }
+      function copyNode(node) {
+        const group = targetsFor(node);
+        copiedNodes = group.map(snapshotNode);
+        copiedNode = copiedNodes[0] || null;
+        const text = group.map((item) => [item.kind, item.title, item.body].filter(Boolean).join("\n")).join("\n\n");
+        navigator.clipboard?.writeText(text).catch(() => {});
+      }
+      function pasteNode(at) {
+        const items = copiedNodes.length ? copiedNodes : (copiedNode ? [copiedNode] : []);
+        if (!items.length) return;
+        remember();
+        const originX = items[0].x || 0;
+        const originY = items[0].y || 0;
+        const copies = items.map((item, index) => {
+          const copy = snapshotNode(item);
+          copy.id = `copy-${Date.now()}-${index}`;
+          copy.x = Math.max(8, at.x + ((item.x || 0) - originX));
+          copy.y = Math.max(8, at.y + ((item.y || 0) - originY));
+          return copy;
+        });
+        current.nodes.push(...copies);
+        choose(copies.map((copy) => copy.id), copies[0].id);
+        const editing = workspace.classList.contains("is-focus") && copies.length === 1;
+        paint();
+        if (editing) showControls(copies[0]);
+      }
+      function canvasPoint(clientX, clientY) {
+        const stage = document.querySelector(".stage");
+        const rect = stage.getBoundingClientRect();
+        return {
+          x: (clientX - rect.left + stage.scrollLeft) / zoom,
+          y: (clientY - rect.top + stage.scrollTop) / zoom,
+        };
+      }
+      function zoomActual() {
+        zoom = 1;
+        applyZoom();
+      }
+      function unlockAll() {
+        if (!current.nodes.some((node) => node.locked)) return;
+        remember();
+        for (const node of current.nodes) node.locked = false;
+        const editing = workspace.classList.contains("is-focus");
+        const node = nodeById(selected);
+        paint();
+        if (editing && node) placeControls(node);
+      }
+      function restackNode(node, toFront) {
+        const group = targetsFor(node);
+        if (!group.length) return;
+        remember();
+        const ids = new Set(group.map((item) => item.id));
+        const picked = current.nodes.filter((item) => ids.has(item.id));
+        const rest = current.nodes.filter((item) => !ids.has(item.id));
+        current.nodes = toFront ? [...rest, ...picked] : [...picked, ...rest];
+        selected = node?.id || selected;
+        const editing = workspace.classList.contains("is-focus");
+        paint();
+        if (editing && nodeById(selected)) placeControls(nodeById(selected));
+      }
+      function toggleLock(node) {
+        const group = targetsFor(node);
+        if (!group.length) return;
+        remember();
+        const lock = group.some((item) => !item.locked);
+        group.forEach((item) => { item.locked = lock; });
+        selected = node?.id || selected;
+        const editing = workspace.classList.contains("is-focus");
+        paint();
+        if (editing && nodeById(selected)) placeControls(nodeById(selected));
+      }
+      function deleteNode(node) {
+        const group = targetsFor(node);
+        if (!group.length) return;
+        remember();
+        const ids = new Set(group.map((item) => item.id));
+        current.nodes = current.nodes.filter((item) => !ids.has(item.id));
+        current.edges = current.edges.filter(([fromId, toId]) => !ids.has(fromId) && !ids.has(toId));
+        current.groups = (current.groups || []).flatMap((group) => {
+          const members = group.members.filter((id) => !ids.has(id));
+          return members.length > 1 ? [{ ...group, members }] : [];
+        });
+        for (const item of current.nodes) {
+          if (!item.links) continue;
+          item.links = item.links.filter((link) => !ids.has(link.id));
+        }
+        const removedOpen = ids.has(selected);
+        choose(selection.filter((id) => !ids.has(id)), selection.find((id) => !ids.has(id)) || "");
+        if (removedOpen || !nodeById(selected)) closeControls();
+        paint();
+      }
+      const nodeMenuIcons = {
+        play: `<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6 4.2v7.6L12.2 8 6 4.2Z"/></svg>`,
+        expand: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.2 3.2H3.2v3M9.8 3.2h3v3M12.8 9.8v3h-3M6.2 12.8h-3v-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        copy: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.2 10.2H3.6A1.1 1.1 0 0 1 2.5 9.1V3.6A1.1 1.1 0 0 1 3.6 2.5h5.5a1.1 1.1 0 0 1 1.1 1.1v.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`,
+        duplicate: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6.5" y="6.5" width="7" height="7" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`,
+        front: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10.5 8 13.2 13 10.5M3 8 8 10.7 13 8M3 5.5 8 8.2 13 5.5 8 2.8 3 5.5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
+        back: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6.2 8 8.8 13 6.2M3 8.8 8 11.4 13 8.8M3 4.2 8 6.8 13 4.2 8 1.6 3 4.2Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
+        lock: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.2" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`,
+        trash: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 4.5h9M6.2 4.4V3.2h3.6v1.2M4.6 4.5l.6 8.2h5.6l.6-8.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        paste: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4.5" y="3.2" width="8" height="10" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.2 3.1V2.4h3.6v.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+        fit: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.25 6.25V3.25h3M9.75 3.25h3v3M12.75 9.75v3h-3M6.25 12.75h-3v-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+        actual: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.2" y="3.2" width="9.6" height="9.6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`,
+        folder: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.4 4.4h3.8l1.2 1.5h6.2v6.4H2.4V4.4Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+      };
+      function nodeMenuActions(node) {
+        const mine = groupFor(node.id);
+        const actions = [
+          { id: "preview", label: "Preview", icon: nodeMenuIcons.expand, run: () => showExpand(node) },
+          { id: "edit", label: "Edit", icon: nodeMenuIcons.play, run: () => showControls(node) },
+          { divider: true },
+        ];
+        if (targetsFor(node).length > 1) {
+          actions.push({ id: "group", label: "Group", icon: nodeMenuIcons.folder, run: () => makeGroup(node) });
+        }
+        if (mine && !mine.collapsed) {
+          actions.push({ id: "collapse", label: "Collapse", icon: nodeMenuIcons.folder, run: () => setGroupCollapsed(mine, true) });
+          actions.push({ id: "ungroup", label: "Ungroup", icon: nodeMenuIcons.folder, run: () => ungroup(mine) });
+        }
+        actions.push(
+          { id: "copy", label: "Copy", shortcut: "Ctrl C", icon: nodeMenuIcons.copy, run: () => copyNode(node) },
+          { id: "duplicate", label: "Duplicate", shortcut: "Ctrl D", icon: nodeMenuIcons.duplicate, run: () => duplicateNode(node) },
+          { id: "front", label: "Bring to front", shortcut: "Ctrl ]", icon: nodeMenuIcons.front, run: () => restackNode(node, true) },
+          { id: "back", label: "Send to back", shortcut: "Ctrl [", icon: nodeMenuIcons.back, run: () => restackNode(node, false) },
+          { id: "lock", label: targetsFor(node).some((item) => !item.locked) ? "Lock" : "Unlock", shortcut: "Ctrl L", icon: nodeMenuIcons.lock, run: () => toggleLock(node) },
+          { divider: true },
+          { id: "delete", label: "Delete", icon: nodeMenuIcons.trash, danger: true, run: () => deleteNode(node) },
+        );
+        return actions;
+      }
+      function canvasMenuActions(point) {
+        const locked = current.nodes.some((node) => node.locked);
+        return [
+          { id: "paste", label: "Paste", shortcut: "Ctrl V", icon: nodeMenuIcons.paste, disabled: !copiedNode, run: () => pasteNode(point) },
+          { id: "undo", label: "Undo", shortcut: "Ctrl Z", icon: nodeMenuIcons.back, disabled: !undoStack.length, run: () => undo() },
+          { id: "redo", label: "Redo", shortcut: "Ctrl Y", icon: nodeMenuIcons.front, disabled: !redoStack.length, run: () => redo() },
+          { divider: true },
+          { id: "fit", label: "Zoom to fit", icon: nodeMenuIcons.fit, run: () => fitCanvas() },
+          { id: "actual", label: "Zoom to 100%", icon: nodeMenuIcons.actual, run: () => zoomActual() },
+          { id: "unlock-all", label: "Unlock all", icon: nodeMenuIcons.lock, disabled: !locked, run: () => unlockAll() },
+        ];
+      }
+      function closeMenu(selector) {
+        const menu = document.querySelector(selector);
+        menu.hidden = true;
+        menu.replaceChildren();
+      }
+      function closeNodeMenu() { closeMenu("#node-menu"); }
+      function closeCanvasMenu() { closeMenu("#canvas-menu"); }
+      function closeWireMenu() { closeMenu("#wire-menu"); }
+      function fillMenu(menu, actions, close) {
+        menu.replaceChildren();
+        for (const action of actions) {
+          if (action.divider) {
+            const rule = document.createElement("div");
+            rule.className = "node-menu-rule";
+            menu.append(rule);
+            continue;
+          }
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "node-menu-item" + (action.danger ? " is-danger" : "");
+          item.dataset.action = action.id;
+          item.setAttribute("role", "menuitem");
+          if (action.disabled) item.disabled = true;
+          item.insertAdjacentHTML("afterbegin", action.icon);
+          const label = document.createElement("span");
+          label.textContent = action.label;
+          item.append(label);
+          if (action.shortcut) {
+            const key = document.createElement("kbd");
+            key.textContent = action.shortcut;
+            item.append(key);
+          }
+          item.addEventListener("click", (event) => {
+            event.stopPropagation();
+            close();
+            action.run();
+          });
+          menu.append(item);
+        }
+      }
+      function placeMenu(menu, x, y) {
+        menu.hidden = false;
+        const pad = 8;
+        const rect = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(pad, Math.min(x, window.innerWidth - rect.width - pad))}px`;
+        menu.style.top = `${Math.max(pad, Math.min(y, window.innerHeight - rect.height - pad))}px`;
+      }
+      function openWireMenu(fromId, toId, x, y) {
+        closeNodeMenu();
+        closeCanvasMenu();
+        const menu = document.querySelector("#wire-menu");
+        fillMenu(menu, [
+          { id: "delete", label: "Delete", icon: nodeMenuIcons.trash, danger: true, run: () => disconnect(fromId, toId) },
+        ], closeWireMenu);
+        placeMenu(menu, x, y);
+      }
+      function openNodeMenu(node, x, y) {
+        closeCanvasMenu();
+        closeWireMenu();
+        const previous = selected;
+        if (selection.includes(node.id)) selected = node.id;
+        else choose([node.id], node.id);
+        plane.querySelectorAll(".node").forEach((other) => other.classList.toggle("is-selected", selection.includes(other.dataset.id)));
+        if (workspace.classList.contains("is-focus") && previous !== node.id) closeControls();
+        const menu = document.querySelector("#node-menu");
+        fillMenu(menu, nodeMenuActions(node), closeNodeMenu);
+        placeMenu(menu, x, y);
+        syncMinimap();
+      }
+      function openCanvasMenu(x, y) {
+        closeNodeMenu();
+        closeWireMenu();
+        const menu = document.querySelector("#canvas-menu");
+        fillMenu(menu, canvasMenuActions(canvasPoint(x, y)), closeCanvasMenu);
+        placeMenu(menu, x, y);
+      }
+      function panelFrame() {
+        const bar = document.querySelector("#float-handle").offsetHeight;
+        return {
+          left: 10,
+          top: bar + 8,
+          right: workspace.clientWidth - 10,
+          bottom: document.querySelector("#canvas-bar").getBoundingClientRect().top - workspace.getBoundingClientRect().top - 8,
+        };
+      }
+      function clampPanel(left, top) {
+        const panel = document.querySelector("#node-controls");
+        const frame = panelFrame();
+        const width = Math.min(panel.offsetWidth || 280, frame.right - frame.left);
+        panel.style.width = `${width}px`;
+        panel.style.maxHeight = `${Math.max(80, frame.bottom - frame.top)}px`;
+        const height = Math.min(panel.offsetHeight, frame.bottom - frame.top);
+        panel.style.left = `${Math.max(frame.left, Math.min(left, frame.right - width))}px`;
+        panel.style.top = `${Math.max(frame.top, Math.min(top, frame.bottom - height))}px`;
+      }
+      function placeControls(node) {
+        const panel = document.querySelector("#node-controls");
+        if (!panel.classList.contains("is-open")) return;
+        if (panel.dataset.placed === "user") {
+          clampPanel(panel.offsetLeft, panel.offsetTop);
+          return;
+        }
+        const card = [...plane.querySelectorAll(".node")].find((item) => item.dataset.id === node.id);
+        if (!card) return;
+        const frame = panelFrame();
+        const origin = workspace.getBoundingClientRect();
+        const borderLeft = (workspace.offsetWidth - workspace.clientWidth) / 2;
+        const borderTop = (workspace.offsetHeight - workspace.clientHeight) / 2;
+        const local = (rect) => ({
+          left: rect.left - origin.left - borderLeft,
+          top: rect.top - origin.top - borderTop,
+          right: rect.right - origin.left - borderLeft,
+          bottom: rect.bottom - origin.top - borderTop,
+        });
+        const cardBox = local(card.getBoundingClientRect());
+        const others = [...plane.querySelectorAll(".node")].filter((item) => item !== card).map((item) => local(item.getBoundingClientRect()));
+        const gap = 12;
+        const clearOf = (rect) => others.every((other) => rect.right <= other.left + 1 || rect.left >= other.right - 1 || rect.bottom <= other.top + 1 || rect.top >= other.bottom - 1);
+        const coversSelected = (rect) => rect.left < cardBox.right - 1 && rect.right > cardBox.left + 1 && rect.top < cardBox.bottom - 1 && rect.bottom > cardBox.top + 1;
+        const fits = (rect) => rect.left >= frame.left - 1 && rect.top >= frame.top - 1 && rect.right <= frame.right + 1 && rect.bottom <= frame.bottom + 1;
+        let pick = null;
+        for (const width of [280, 220, 180]) {
+          if (width > frame.right - frame.left) continue;
+          panel.style.width = `${width}px`;
+          panel.style.maxHeight = `${frame.bottom - frame.top}px`;
+          const height = panel.offsetHeight;
+          const spots = [
+            { left: cardBox.right + gap, top: cardBox.top },
+            { left: cardBox.left - gap - width, top: cardBox.top },
+            { left: cardBox.left, top: cardBox.bottom + gap },
+            { left: cardBox.right - width, top: cardBox.bottom + gap },
+          ];
+          for (const spot of spots) {
+            const rect = { left: spot.left, top: spot.top, right: spot.left + width, bottom: spot.top + height };
+            if (!fits(rect) || coversSelected(rect) || !clearOf(rect)) continue;
+            pick = spot;
+            break;
+          }
+          if (pick) break;
+        }
+        if (!pick) {
+          panel.style.width = `${Math.min(280, frame.right - frame.left)}px`;
+          panel.style.maxHeight = `${frame.bottom - frame.top}px`;
+          pick = { left: frame.left, top: frame.top };
+        }
+        clampPanel(pick.left, pick.top);
+      }
+      function fillEditor(node, actions) {
+        appendNaming(node, actions);
+        if (node.kind === "Role") {
+          const note = textField("Note");
+          const bottom = document.createElement("div");
+          bottom.className = "action-row";
+          bottom.append(actionButton("Add note", () => {
+            const value = note.value.trim();
+            if (!value) return;
+            node.notes = [...(node.notes || []), value];
+            refresh(node);
+          }));
+          actions.append(note, bottom);
+        } else if (node.kind === "Design") {
+          const tag = textField("Tag");
+          tag.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            addTag();
+          });
+          function addTag() {
+            const value = tag.value.trim();
+            if (!value) return;
+            node.tags = [...new Set([...(node.tags || []), value])];
+            refresh(node);
+          }
+          actions.append(
+            actionButton("Upload images", () => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "image/*";
+              input.multiple = true;
+              input.addEventListener("change", () => {
+                const names = [...input.files].map((file) => file.name);
+                if (!names.length) return;
+                node.images = [...(node.images || []), ...names];
+                refresh(node);
+              });
+              input.click();
+            }),
+            tag,
+            actionButton("Add tag", addTag),
+          );
+        } else if (node.kind === "Demonstration") {
+          if (filmOffered) actions.append(actionButton("Play video", openVideo));
+          actions.append(actionButton("Link out", () => window.open(linkTarget(), "_blank", "noopener")));
+        } else if (node.kind === "Video") {
+          const address = textField("Film address");
+          address.value = filmOffered ? film : "";
+          const controls = [];
+          if (filmOffered) controls.push(actionButton("Play here", openVideo));
+          controls.push(
+            address,
+            actionButton("Replace film", () => {
+              const value = address.value.trim();
+              if (!value) return;
+              film = value;
+              filmOffered = true;
+              player.removeAttribute("src");
+              refresh(node);
+            }),
+          );
+          actions.append(...controls);
+        } else if (node.kind === "Page") {
+          const address = textField("Page address");
+          address.value = node.url || "";
+          let pending = false;
+          address.addEventListener("focus", () => { pending = true; });
+          address.addEventListener("input", () => {
+            if (pending) {
+              remember();
+              pending = false;
+            }
+            node.url = address.value.trim();
+            writeNodeText(node);
+          });
+          actions.append(address);
+        }
+        appendOutward(node, actions);
+      }
+      function showControls(node) {
+        closeExpand();
+        choose([node.id], node.id);
+        plane.querySelectorAll(".node").forEach((other) => other.classList.toggle("is-selected", other.dataset.id === node.id));
+        const panel = document.querySelector("#node-controls");
+        workspace.classList.add("is-focus");
+        panel.classList.add("is-open");
+        panel.dataset.placed = "";
+        panel.querySelector("#controls-heading").textContent = `${node.kind} · ${node.title}`;
+        const actions = panel.querySelector("#controls-actions");
+        actions.replaceChildren();
+        fillEditor(node, actions);
+        paintWires();
+        placeControls(node);
+      }
+      function showExpand(node) {
+        if (!node) return;
+        choose([node.id], node.id);
+        plane.querySelectorAll(".node").forEach((other) => other.classList.toggle("is-selected", selection.includes(other.dataset.id)));
+        retainExpand = true;
+        closeControls();
+        retainExpand = false;
+        const panel = document.querySelector("#node-expand");
+        panel.hidden = false;
+        panel.dataset.id = node.id;
+        document.querySelector("#expand-heading").textContent = `${node.kind} · ${node.title || "Untitled"}`;
+        const preview = panel.querySelector("#expand-preview");
+        preview.replaceChildren();
+        const card = document.createElement("article");
+        card.className = "node is-preview";
+        card.innerHTML = NODE_FACE;
+        fillNodeFace(card, node);
+        applyNodeBox(card, node);
+        addResizeHandles(card, node);
+        preview.append(card);
+        const fields = panel.querySelector("#expand-fields");
+        fields.replaceChildren();
+        fillEditor(node, fields);
+        workspace.classList.add("is-focus");
+        paintWires();
+      }
+      const minimize = document.querySelector("#minimize");
+      const maximize = document.querySelector("#maximize");
+      let frameBeforeMax = null;
+      function frameNow() {
+        const rect = workspace.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+      }
+      function applyFrame(frame) {
+        workspace.style.left = `${frame.left}px`;
+        workspace.style.top = `${frame.top}px`;
+        workspace.style.width = `${frame.width}px`;
+        workspace.style.height = `${frame.height}px`;
+      }
+      function setMinimized(on) {
+        const was = workspace.classList.contains("is-minimized");
+        if (on === was) return;
+        if (on) {
+          workspace.dataset.w = workspace.style.width;
+          workspace.dataset.h = workspace.style.height;
+          workspace.style.width = "";
+          workspace.style.height = "";
+        } else {
+          workspace.style.width = workspace.dataset.w || "";
+          workspace.style.height = workspace.dataset.h || "";
+        }
+        workspace.classList.toggle("is-minimized", on);
+        if (on) {
+          closeNodeMenu();
+          closeCanvasMenu();
+          closeWireMenu();
+          closeHistory();
+        }
+        if (!on && workspace.classList.contains("is-focus")) {
+          const editing = current.nodes.find((item) => item.id === selected);
+          if (editing) placeControls(editing);
+        }
+        minimize.setAttribute("aria-label", on ? "Restore" : "Minimize");
+        minimize.setAttribute("aria-pressed", on ? "true" : "false");
+      }
+      function setMaximized(on) {
+        const was = workspace.classList.contains("is-maximized");
+        if (on === was) return;
+        if (workspace.classList.contains("is-minimized")) setMinimized(false);
+        if (on) {
+          frameBeforeMax = frameNow();
+          workspace.classList.add("is-maximized");
+          applyFrame({
+            left: 8,
+            top: 8,
+            width: Math.max(280, window.innerWidth - 16),
+            height: Math.max(180, window.innerHeight - 16),
+          });
+        } else {
+          workspace.classList.remove("is-maximized");
+          if (frameBeforeMax) applyFrame(frameBeforeMax);
+        }
+        const maximized = workspace.classList.contains("is-maximized");
+        maximize.setAttribute("aria-label", maximized ? "Restore size" : "Maximize");
+        maximize.setAttribute("aria-pressed", maximized ? "true" : "false");
+      }
+      function openWindow() {
+        setMinimized(false);
+        workspace.classList.add("is-open");
+        showCanvas.setAttribute("aria-expanded", "true");
+        paint();
+        fitCanvas();
+      }
+      function closeWindow() {
+        closeNodeMenu();
+        closeCanvasMenu();
+        closeWireMenu();
+        closeHistory();
+        closeVideo();
+        closeControls();
+        setMinimized(false);
+        workspace.classList.remove("is-open");
+        showCanvas.setAttribute("aria-expanded", "false");
+      }
+      function openVideo() {
+        if (!filmOffered || !film) return;
+        if (player.getAttribute("src") !== film) player.src = film;
+        viewer.classList.add("is-open");
+      }
+      function closeVideo() {
+        viewer.classList.remove("is-open");
+        player.removeAttribute("src");
+      }
+      handle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button, input, #history-panel")) return;
+        const rect = workspace.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originX = rect.left;
+        const originY = rect.top;
+        let moved = false;
+        try { handle.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const dx = next.clientX - startX;
+          const dy = next.clientY - startY;
+          if (!moved && dx * dx + dy * dy < 16) return;
+          moved = true;
+          handle.classList.add("is-dragging");
+          const maxX = Math.max(8, window.innerWidth - 72);
+          const maxY = Math.max(8, window.innerHeight - 48);
+          const x = Math.min(maxX, Math.max(8, originX + dx));
+          const y = Math.min(maxY, Math.max(8, originY + dy));
+          workspace.style.left = `${x}px`;
+          workspace.style.top = `${y}px`;
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          handle.classList.remove("is-dragging");
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", up);
+          if (!moved && workspace.classList.contains("is-minimized")) setMinimized(false);
+        }
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", up);
+      });
+      document.querySelectorAll(".resize").forEach((grip) => {
+        grip.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0 || workspace.classList.contains("is-minimized")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const edge = grip.dataset.edge;
+          const rect = workspace.getBoundingClientRect();
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const origin = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+          try { grip.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+          function move(next) {
+            if (next.pointerId !== event.pointerId) return;
+            const dx = next.clientX - startX;
+            const dy = next.clientY - startY;
+            let width = origin.width;
+            let height = origin.height;
+            if (edge.includes("e")) width = origin.width + dx;
+            if (edge.includes("s")) height = origin.height + dy;
+            if (edge.includes("w")) width = origin.width - dx;
+            if (edge.includes("n")) height = origin.height - dy;
+            width = Math.min(window.innerWidth - 16, Math.max(280, width));
+            height = Math.min(window.innerHeight - 16, Math.max(180, height));
+            let left = edge.includes("w") ? origin.left + origin.width - width : origin.left;
+            let top = edge.includes("n") ? origin.top + origin.height - height : origin.top;
+            left = Math.min(Math.max(8, left), window.innerWidth - 48);
+            top = Math.min(Math.max(8, top), window.innerHeight - 36);
+            workspace.style.left = `${left}px`;
+            workspace.style.top = `${top}px`;
+            workspace.style.width = `${width}px`;
+            workspace.style.height = `${height}px`;
+            if (workspace.classList.contains("is-focus")) {
+              const editing = current.nodes.find((item) => item.id === selected);
+              if (editing) placeControls(editing);
+            }
+          }
+          function up(next) {
+            if (next.pointerId !== event.pointerId) return;
+            grip.removeEventListener("pointermove", move);
+            grip.removeEventListener("pointerup", up);
+          }
+          grip.addEventListener("pointermove", move);
+          grip.addEventListener("pointerup", up);
+        });
+      });
+      document.querySelector("#open-role").addEventListener("click", () => {
+        document.body.classList.add("is-role");
+      });
+      document.querySelector("#card-back").addEventListener("click", () => {
+        closeWindow();
+        document.body.classList.remove("is-role");
+      });
+      function focusLinked(id) {
+        const home = canvases.find((item) => item.id === "foldable");
+        if (current !== home) current = home;
+        if (!workspace.classList.contains("is-open")) openWindow();
+        else paint();
+        const node = nodeById(id);
+        if (!node) return;
+        choose([id], id);
+        paintSelection();
+        const stage = document.querySelector(".stage");
+        stage.scrollLeft = Math.max(0, node.x * zoom - 48);
+        stage.scrollTop = Math.max(0, node.y * zoom - 36);
+      }
+      showCanvas.addEventListener("click", openWindow);
+      document.querySelectorAll(".linked [data-node]").forEach((button) => {
+        button.addEventListener("click", () => focusLinked(button.dataset.node));
+      });
+      const nodeSearch = document.querySelector("#node-search");
+      nodeSearch.addEventListener("input", applySearch);
+      nodeSearch.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const query = nodeSearch.value.trim().toLowerCase();
+        const match = current.nodes.find((node) => !query || node.title.toLowerCase().includes(query));
+        if (!match) return;
+        const stage = document.querySelector(".stage");
+        stage.scrollLeft = Math.max(0, match.x * zoom - 24);
+        stage.scrollTop = Math.max(0, match.y * zoom - 24);
+        showControls(match);
+      });
+      document.querySelector("#zoom-in").addEventListener("click", () => { zoom *= 1.2; applyZoom(); });
+      document.querySelector("#zoom-out").addEventListener("click", () => { zoom /= 1.2; applyZoom(); });
+      document.querySelector("#zoom-fit").addEventListener("click", fitCanvas);
+      const minimapToggle = document.querySelector("#minimap-toggle");
+      const minimapPanel = document.querySelector("#canvas-minimap");
+      const minimap = document.querySelector("#minimap");
+      minimapToggle.addEventListener("click", () => {
+        const open = minimapPanel.hidden;
+        minimapPanel.hidden = !open;
+        minimapToggle.setAttribute("aria-pressed", String(open));
+        minimapToggle.setAttribute("aria-label", open ? "Hide minimap" : "Show minimap");
+        if (open) syncMinimap();
+      });
+      function minimapPoint(event) {
+        const rect = minimap.getBoundingClientRect();
+        const px = ((event.clientX - rect.left) / rect.width) * MINIMAP.width;
+        const py = ((event.clientY - rect.top) / rect.height) * MINIMAP.height;
+        return {
+          wx: mapFrame.left + (px - mapFrame.ox) / mapFrame.scale,
+          wy: mapFrame.top + (py - mapFrame.oy) / mapFrame.scale,
+        };
+      }
+      let mapDrag = null;
+      minimap.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        mapDrag = event.pointerId;
+        minimap.setPointerCapture(event.pointerId);
+        const stage = document.querySelector(".stage");
+        const point = minimapPoint(event);
+        stage.scrollLeft = point.wx * zoom - stage.clientWidth / 2;
+        stage.scrollTop = point.wy * zoom - stage.clientHeight / 2;
+      });
+      minimap.addEventListener("pointermove", (event) => {
+        if (mapDrag !== event.pointerId) return;
+        const stage = document.querySelector(".stage");
+        const point = minimapPoint(event);
+        stage.scrollLeft = point.wx * zoom - stage.clientWidth / 2;
+        stage.scrollTop = point.wy * zoom - stage.clientHeight / 2;
+      });
+      function endMapDrag(event) {
+        if (mapDrag !== event.pointerId) return;
+        mapDrag = null;
+      }
+      minimap.addEventListener("pointerup", endMapDrag);
+      minimap.addEventListener("pointercancel", endMapDrag);
+      applyZoom();
+      document.querySelector("#drawer-all").addEventListener("click", () => {
+        const menu = document.querySelector("#drawer-menu");
+        setAllOpen(menu.hidden);
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (!event.target.closest("#node-menu")) closeNodeMenu();
+        if (!event.target.closest("#canvas-menu")) closeCanvasMenu();
+        if (!event.target.closest("#wire-menu")) closeWireMenu();
+        if (event.target.closest("#drawer-all") || event.target.closest("#drawer-menu")) return;
+        setAllOpen(false);
+        if (!event.target.closest("#history-panel, #canvas-history, #save-canvas")) closeHistory();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          if (!document.querySelector("#history-panel").hidden) {
+            closeHistory();
+            return;
+          }
+          closeNodeMenu();
+          closeCanvasMenu();
+          closeWireMenu();
+          if (!document.querySelector("#node-expand").hidden) closeExpand();
+          return;
+        }
+        if (!workspace.classList.contains("is-open") || workspace.classList.contains("is-minimized")) return;
+        if (event.target.closest("input, textarea, [contenteditable='true']")) return;
+        const mod = event.ctrlKey || event.metaKey;
+        const key = event.key.toLowerCase();
+        if (mod && key === "z") {
+          event.preventDefault();
+          closeNodeMenu();
+          closeCanvasMenu();
+          closeWireMenu();
+          if (event.shiftKey) redo();
+          else undo();
+          return;
+        }
+        if (mod && key === "y") {
+          event.preventDefault();
+          closeNodeMenu();
+          closeCanvasMenu();
+          closeWireMenu();
+          redo();
+          return;
+        }
+        if (mod && key === "a") {
+          event.preventDefault();
+          choose(current.nodes.map((item) => item.id), current.nodes[0]?.id || "");
+          paintSelection();
+          return;
+        }
+        if (mod && key === "v") {
+          event.preventDefault();
+          closeNodeMenu();
+          closeCanvasMenu();
+          closeWireMenu();
+          const stage = document.querySelector(".stage");
+          pasteNode({
+            x: (stage.scrollLeft + stage.clientWidth / 2) / zoom - 80,
+            y: (stage.scrollTop + stage.clientHeight / 2) / zoom - 36,
+          });
+          return;
+        }
+        const node = nodeById(selected);
+        if (!node) return;
+        if (mod && key === "c") {
+          event.preventDefault();
+          copyNode(node);
+        } else if (mod && key === "d") {
+          event.preventDefault();
+          closeNodeMenu();
+          duplicateNode(node);
+        } else if (mod && event.key === "[") {
+          event.preventDefault();
+          closeNodeMenu();
+          restackNode(node, false);
+        } else if (mod && event.key === "]") {
+          event.preventDefault();
+          closeNodeMenu();
+          restackNode(node, true);
+        } else if (mod && key === "l") {
+          event.preventDefault();
+          closeNodeMenu();
+          toggleLock(node);
+        } else if (event.key === "Delete" || event.key === "Backspace") {
+          event.preventDefault();
+          closeNodeMenu();
+          deleteNode(node);
+        } else if (event.key === "Enter" && selection.length === 1) {
+          event.preventDefault();
+          closeNodeMenu();
+          showExpand(node);
+        }
+      });
+      document.querySelector("#save-canvas").addEventListener("click", saveCanvas);
+      document.querySelector("#canvas-history").addEventListener("click", () => {
+        const panel = document.querySelector("#history-panel");
+        if (panel.hidden) openHistory();
+        else closeHistory();
+      });
+      minimize.addEventListener("click", () => setMinimized(!workspace.classList.contains("is-minimized")));
+      maximize.addEventListener("click", () => setMaximized(!workspace.classList.contains("is-maximized")));
+      document.querySelector("#close-canvas").addEventListener("click", closeWindow);
+      document.querySelector("#close-controls").addEventListener("click", closeControls);
+      document.querySelector("#expand-controls").addEventListener("click", () => {
+        const node = nodeById(selected);
+        if (node) showExpand(node);
+      });
+      document.querySelector("#close-expand").addEventListener("click", closeExpand);
+      document.querySelector(".controls-head").addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button")) return;
+        const panel = document.querySelector("#node-controls");
+        if (!panel.classList.contains("is-open")) return;
+        event.preventDefault();
+        const head = event.currentTarget;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originLeft = panel.offsetLeft;
+        const originTop = panel.offsetTop;
+        panel.dataset.placed = "user";
+        try { head.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          clampPanel(originLeft + next.clientX - startX, originTop + next.clientY - startY);
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          head.removeEventListener("pointermove", move);
+          head.removeEventListener("pointerup", up);
+        }
+        head.addEventListener("pointermove", move);
+        head.addEventListener("pointerup", up);
+      });
+      function setCanvasTool(tool) {
+        canvasTool = tool === "pan" ? "pan" : "select";
+        document.querySelector("#tool-select").setAttribute("aria-pressed", canvasTool === "select" ? "true" : "false");
+        document.querySelector("#tool-pan").setAttribute("aria-pressed", canvasTool === "pan" ? "true" : "false");
+        document.querySelector(".stage").classList.toggle("is-pan", canvasTool === "pan");
+      }
+      document.querySelector("#tool-select").addEventListener("click", () => setCanvasTool("select"));
+      document.querySelector("#tool-pan").addEventListener("click", () => setCanvasTool("pan"));
+      document.querySelector(".stage").addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button, input, textarea, .node-handle")) return;
+        const stage = event.currentTarget;
+        if (canvasTool === "pan") {
+          event.preventDefault();
+          stage.classList.add("is-grabbing");
+          const originLeft = stage.scrollLeft;
+          const originTop = stage.scrollTop;
+          const startX = event.clientX;
+          const startY = event.clientY;
+          try { stage.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+          function move(next) {
+            if (next.pointerId !== event.pointerId) return;
+            stage.scrollLeft = originLeft - (next.clientX - startX);
+            stage.scrollTop = originTop - (next.clientY - startY);
+          }
+          function up(next) {
+            if (next.pointerId !== event.pointerId) return;
+            stage.classList.remove("is-grabbing");
+            stage.removeEventListener("pointermove", move);
+            stage.removeEventListener("pointerup", up);
+          }
+          stage.addEventListener("pointermove", move);
+          stage.addEventListener("pointerup", up);
+          return;
+        }
+        if (event.target.closest(".node, .port, svg.wires path")) return;
+        closeControls();
+        const start = canvasPoint(event.clientX, event.clientY);
+        const keep = event.shiftKey ? [...selection] : [];
+        const box = document.createElement("div");
+        box.className = "marquee";
+        plane.append(box);
+        let dragged = false;
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const point = canvasPoint(next.clientX, next.clientY);
+          if (!dragged && (next.clientX - event.clientX) ** 2 + (next.clientY - event.clientY) ** 2 < 16) return;
+          dragged = true;
+          const left = Math.min(start.x, point.x);
+          const top = Math.min(start.y, point.y);
+          box.style.left = `${left}px`;
+          box.style.top = `${top}px`;
+          box.style.width = `${Math.abs(point.x - start.x)}px`;
+          box.style.height = `${Math.abs(point.y - start.y)}px`;
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          stage.removeEventListener("pointermove", move);
+          stage.removeEventListener("pointerup", up);
+          box.remove();
+          if (!dragged) {
+            choose([], "");
+            paintSelection();
+            return;
+          }
+          const point = canvasPoint(next.clientX, next.clientY);
+          const left = Math.min(start.x, point.x);
+          const top = Math.min(start.y, point.y);
+          const right = Math.max(start.x, point.x);
+          const bottom = Math.max(start.y, point.y);
+          const hits = current.nodes.filter((node) => {
+            const card = plane.querySelector(`[data-id="${node.id}"]`);
+            if (!card) return false;
+            return node.x < right && node.x + card.offsetWidth > left && node.y < bottom && node.y + card.offsetHeight > top;
+          }).map((node) => node.id);
+          choose([...keep, ...hits], hits[0] || keep[0] || "");
+          paintSelection();
+        }
+        stage.addEventListener("pointermove", move);
+        stage.addEventListener("pointerup", up);
+      });
+      document.querySelector(".stage").addEventListener("contextmenu", (event) => {
+        if (event.target.closest(".node, svg.wires")) return;
+        event.preventDefault();
+        openCanvasMenu(event.clientX, event.clientY);
+      });
+      document.querySelector(".stage").addEventListener("scroll", () => {
+        closeNodeMenu();
+        closeCanvasMenu();
+        closeWireMenu();
+        syncMinimap();
+        if (!workspace.classList.contains("is-focus")) return;
+        const editing = current.nodes.find((item) => item.id === selected);
+        if (editing) placeControls(editing);
+      });
+      document.querySelector("#close-video").addEventListener("click", closeVideo);
+    </script>
+  </body>
+</html>

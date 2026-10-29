@@ -1,0 +1,640 @@
+<!--
+  Preview only. Note for the real Review duplicates dialog:
+  Checkboxes stay hidden until a bulk action is on.
+  Toolbar actions such as Select identical, Delete, and Merge show a checkbox on each group.
+  Snooze, Merge, and Delete on a group show checkboxes on that group's matches.
+  Review does not reveal checkboxes.
+  The dialog shows one total under the title, such as "8 potential duplicates".
+  Group cards do not repeat that count.
+  A group card is the tab stop. Review, Snooze, Merge, and Delete for that group appear only after it is picked, and only then join the tab order.
+  Match rows have no Snooze button.
+  Each revealed name includes the group, such as "Review Delaware County Community College".
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview · Compact scan in Review duplicates</title>
+    <style>
+      :root {
+        --gold: #c4a574;
+        --gold-light: #f3eadf;
+        --gold-hover: #e8d5b7;
+        --text: #f5f2ee;
+        --muted: #efe6da;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background: #0a0908;
+        font-family: var(--sans);
+        font-weight: 400;
+      }
+
+      .list {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(199, 164, 123, 0.42) transparent;
+      }
+
+      .list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .list::-webkit-scrollbar-track,
+      .list::-webkit-scrollbar-corner {
+        background: transparent;
+        margin-block: 0.5rem;
+      }
+
+      .list::-webkit-scrollbar-thumb {
+        border: 2px solid transparent;
+        border-radius: 999px;
+        background: rgba(199, 164, 123, 0.42);
+        background-clip: padding-box;
+      }
+
+      .list::-webkit-scrollbar-thumb:hover {
+        background: rgba(232, 213, 183, 0.65);
+        background-clip: padding-box;
+      }
+
+      .preview-note {
+        position: fixed;
+        top: 0.75rem;
+        left: 50%;
+        z-index: 2;
+        transform: translateX(-50%);
+        margin: 0;
+        color: var(--gold-light);
+        font-size: 0.75rem;
+        letter-spacing: 0.04em;
+      }
+
+      .stage {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 3rem 1.25rem 1.25rem;
+      }
+
+      dialog.mock {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: min(40rem, calc(100vw - 2.5rem));
+        max-height: min(85vh, 44rem);
+        margin: 0;
+        padding: 1.35rem 1.4rem 1.25rem;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        background: #14110e;
+        color: #fff;
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+      }
+
+      .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .kicker {
+        margin: 0;
+        color: var(--gold);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0.35rem 0 0;
+        color: #fff;
+        font-size: clamp(1.25rem, 3vw, 1.5rem);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      .duplicate-total {
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+
+      .lead {
+        margin: 0.75rem 0 0;
+        color: var(--muted);
+        font-size: 0.875rem;
+        line-height: 1.45;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: end;
+        margin-top: 0.75rem;
+      }
+
+      .toolbar label {
+        display: grid;
+        gap: 0.2rem;
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      select,
+      button {
+        min-height: 2rem;
+        padding: 0.35rem 0.7rem;
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 0.25rem;
+        background: transparent;
+        color: var(--gold-light);
+        font: inherit;
+        font-size: 0.8rem;
+      }
+
+      button.close {
+        padding: 0.7rem 1.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 999px;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+
+      button:disabled {
+        color: var(--muted);
+        opacity: 1;
+      }
+
+      button.is-danger {
+        border-color: rgba(230, 161, 150, 0.7);
+        color: #f6d2cb;
+      }
+
+      button:focus,
+      select:focus,
+      input[type="checkbox"]:focus,
+      button.is-key,
+      select.is-key,
+      input[type="checkbox"].is-key {
+        outline: 2px solid var(--gold-hover);
+        outline-offset: 3px;
+        border-color: var(--gold-hover);
+      }
+
+      .list {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 0.55rem;
+        min-height: 0;
+        margin: 0.85rem 0 0;
+        padding: 0;
+        overflow: auto;
+        scrollbar-gutter: auto;
+        list-style: none;
+      }
+
+      .card {
+        margin: 0;
+        padding: 0.65rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 0.5rem;
+        cursor: pointer;
+      }
+
+      .card:hover,
+      .card.is-picked {
+        border-color: rgba(232, 213, 183, 0.72);
+      }
+
+      .pick-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .list.is-groups .pick-row {
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 0.45rem;
+      }
+
+      button.card-pick {
+        display: block;
+        width: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .name-line {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.45rem;
+        align-items: center;
+      }
+
+      .member {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.45rem;
+        align-items: center;
+      }
+
+      .check-group,
+      .check-member { display: none; }
+
+      .card.is-matches .member {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .list.is-groups .check-group,
+      .card.is-matches .check-member { display: block; }
+
+      button[aria-pressed="true"] {
+        border-color: var(--gold-hover);
+        color: var(--gold-hover);
+      }
+
+      .name-line strong {
+        overflow: hidden;
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 650;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .confidence {
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 450;
+      }
+
+      .role-line,
+      .actions {
+        margin: 0.35rem 0 0;
+      }
+
+      .list.is-groups .actions {
+        padding-left: 1.4rem;
+      }
+
+      .select-status {
+        margin: 0.65rem 0 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .role-line {
+        display: block;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .actions {
+        display: none;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+
+      .card.is-picked .actions {
+        display: flex;
+      }
+
+      .members {
+        margin: 0.45rem 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .member {
+        padding: 0.4rem 0;
+        border-top: 1px solid rgba(199, 164, 123, 0.22);
+      }
+
+      .member strong {
+        display: block;
+        overflow: hidden;
+        color: #fff;
+        font-size: 0.84rem;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .member span {
+        display: block;
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 0.75rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      input[type="checkbox"] {
+        width: 0.95rem;
+        height: 0.95rem;
+        margin: 0;
+        accent-color: var(--gold-hover);
+      }
+    </style>
+  </head>
+  <body>
+    <p class="preview-note">Preview only. Compact scan inside the current Review duplicates dialog. Not the live screen.</p>
+    <div class="stage">
+      <dialog class="mock" open aria-labelledby="title">
+        <div class="head">
+          <p class="kicker">Career History</p>
+          <button class="close" type="button" aria-label="Close review duplicates">Close</button>
+        </div>
+        <h2 id="title">Review duplicates</h2>
+        <p class="duplicate-total">8 potential duplicates</p>
+        <p class="lead">
+          These groups may be the same role. Open a group or a match to compare it with the role already in Career History. Delete, merge, and snooze still apply to a whole group from this list.
+        </p>
+        <div class="toolbar">
+          <label>
+            Sort
+            <select aria-label="Sort duplicates">
+              <option>Most sure first</option>
+              <option>Least sure first</option>
+            </select>
+          </label>
+          <button type="button" class="bulk" data-scope="groups" id="select-identical" aria-pressed="false" aria-label="Select identical groups">Select identical</button>
+          <button class="bulk is-danger" type="button" data-scope="groups" aria-pressed="false" aria-label="Delete groups">Delete</button>
+          <button class="bulk" type="button" data-scope="groups" aria-pressed="false" aria-label="Merge groups">Merge</button>
+        </div>
+        <p class="select-status" hidden></p>
+        <ul class="list">
+          <li class="card">
+            <div class="pick-row">
+              <input class="check-group" type="checkbox" aria-label="Select Delaware County Community College" />
+              <button type="button" class="card-pick" aria-expanded="false" aria-label="Delaware County Community College. Associate Degree, 1 match">
+                <span class="name-line">
+                  <strong>Delaware County Community College</strong>
+                  <span class="confidence">Likely the same</span>
+                </span>
+                <span class="role-line">Associate Degree · 1 match · 2018-08 – 2020-12</span>
+              </button>
+            </div>
+            <div class="actions">
+              <button type="button" aria-label="Review Delaware County Community College">Review</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Snooze Delaware County Community College">Snooze</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Merge Delaware County Community College">Merge</button>
+              <button class="bulk is-danger" type="button" data-scope="matches" aria-pressed="false" aria-label="Delete Delaware County Community College">Delete</button>
+            </div>
+            <ul class="members">
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Delaware County Community College match" />
+                <span>
+                  <strong>Delaware County Community College</strong>
+                  <span>Partial. Matches Delaware County Community College.</span>
+                </span>
+              </li>
+            </ul>
+          </li>
+          <li class="card">
+            <div class="pick-row">
+              <input class="check-group" type="checkbox" aria-label="Select Giants Direct" />
+              <button type="button" class="card-pick" aria-expanded="false" aria-label="Giants Direct. Mechatronics and Robotics Technician, 1 match">
+                <span class="name-line">
+                  <strong>Giants Direct</strong>
+                  <span class="confidence">Likely the same</span>
+                </span>
+                <span class="role-line">Mechatronics and Robotics Technician · 1 match · 2024-06 – Present</span>
+              </button>
+            </div>
+            <div class="actions">
+              <button type="button" aria-label="Review Giants Direct">Review</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Snooze Giants Direct">Snooze</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Merge Giants Direct">Merge</button>
+              <button class="bulk is-danger" type="button" data-scope="matches" aria-pressed="false" aria-label="Delete Giants Direct">Delete</button>
+            </div>
+            <ul class="members">
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Giants Direct match" />
+                <span>
+                  <strong>Giants Direct</strong>
+                  <span>Partial. Matches Giants Direct.</span>
+                </span>
+              </li>
+            </ul>
+          </li>
+          <li class="card">
+            <div class="pick-row">
+              <input class="check-group" type="checkbox" aria-label="Select Amazon" />
+              <button type="button" class="card-pick" aria-expanded="false" aria-label="Amazon. Package Handler, 1 match">
+                <span class="name-line">
+                  <strong>Amazon</strong>
+                  <span class="confidence">Likely the same</span>
+                </span>
+                <span class="role-line">Package Handler · 1 match · 2017-10 – 2018-02</span>
+              </button>
+            </div>
+            <div class="actions">
+              <button type="button" aria-label="Review Amazon">Review</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Snooze Amazon">Snooze</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Merge Amazon">Merge</button>
+              <button class="bulk is-danger" type="button" data-scope="matches" aria-pressed="false" aria-label="Delete Amazon">Delete</button>
+            </div>
+            <ul class="members">
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Amazon match" />
+                <span>
+                  <strong>Amazon</strong>
+                  <span>Partial. Matches Amazon.</span>
+                </span>
+              </li>
+            </ul>
+          </li>
+          <li class="card">
+            <div class="pick-row">
+              <input class="check-group" type="checkbox" aria-label="Select Rowa Group Inc" />
+              <button type="button" class="card-pick" aria-expanded="false" aria-label="Rowa Group Inc. Technical Support Engineer, 3 matches">
+                <span class="name-line">
+                  <strong>Rowa Group Inc</strong>
+                  <span class="confidence">Likely the same</span>
+                </span>
+                <span class="role-line">Technical Support Engineer · 3 matches · 2020-08 – 2021-12</span>
+              </button>
+            </div>
+            <div class="actions">
+              <button type="button" aria-label="Review Rowa Group Inc">Review</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Snooze Rowa Group Inc">Snooze</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Merge Rowa Group Inc">Merge</button>
+              <button class="bulk is-danger" type="button" data-scope="matches" aria-pressed="false" aria-label="Delete Rowa Group Inc">Delete</button>
+            </div>
+            <ul class="members">
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Rowa Group Inc match" />
+                <span>
+                  <strong>Rowa Group Inc</strong>
+                  <span>Partial. Matches Rowa Group Inc.</span>
+                </span>
+              </li>
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Rowa Group LLC" />
+                <span>
+                  <strong>Rowa Group LLC</strong>
+                  <span>Partial. Matches Rowa Group Inc.</span>
+                </span>
+              </li>
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Rowa Group LLC intern" />
+                <span>
+                  <strong>Rowa Group LLC, intern</strong>
+                  <span>Partial. Matches Rowa Group Inc.</span>
+                </span>
+              </li>
+            </ul>
+          </li>
+          <li class="card">
+            <div class="pick-row">
+              <input class="check-group" type="checkbox" aria-label="Select Waters Corp. TA Instruments" />
+              <button type="button" class="card-pick" aria-expanded="false" aria-label="Waters Corp. TA Instruments. Manufacturing Engineering Technician, 1 match">
+                <span class="name-line">
+                  <strong>Waters Corp. TA Instruments</strong>
+                  <span class="confidence">Likely the same</span>
+                </span>
+                <span class="role-line">Manufacturing Engineering Technician · 1 match · 2022-03 – 2022-09</span>
+              </button>
+            </div>
+            <div class="actions">
+              <button type="button" aria-label="Review Waters Corp. TA Instruments">Review</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Snooze Waters Corp. TA Instruments">Snooze</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Merge Waters Corp. TA Instruments">Merge</button>
+              <button class="bulk is-danger" type="button" data-scope="matches" aria-pressed="false" aria-label="Delete Waters Corp. TA Instruments">Delete</button>
+            </div>
+            <ul class="members">
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Waters Corp. TA Instruments match" />
+                <span>
+                  <strong>Waters Corp. TA Instruments</strong>
+                  <span>Partial. Matches Waters Corp. TA Instruments.</span>
+                </span>
+              </li>
+            </ul>
+          </li>
+          <li class="card">
+            <div class="pick-row">
+              <input class="check-group" type="checkbox" aria-label="Select Sharp Packaging" />
+              <button type="button" class="card-pick" aria-expanded="false" aria-label="Sharp Packaging. Systems and Automation Technician, 1 match">
+                <span class="name-line">
+                  <strong>Sharp Packaging</strong>
+                  <span class="confidence">Likely the same</span>
+                </span>
+                <span class="role-line">Systems and Automation Technician · 1 match · 2023-01 – Present</span>
+              </button>
+            </div>
+            <div class="actions">
+              <button type="button" aria-label="Review Sharp Packaging">Review</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Snooze Sharp Packaging">Snooze</button>
+              <button type="button" class="bulk" data-scope="matches" aria-pressed="false" aria-label="Merge Sharp Packaging">Merge</button>
+              <button class="bulk is-danger" type="button" data-scope="matches" aria-pressed="false" aria-label="Delete Sharp Packaging">Delete</button>
+            </div>
+            <ul class="members">
+              <li class="member">
+                <input class="check-member" type="checkbox" aria-label="Select Sharp Packaging match" />
+                <span>
+                  <strong>Sharp Packaging</strong>
+                  <span>Partial. Matches Sharp Packaging.</span>
+                </span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </dialog>
+    </div>
+    <script>
+      document.addEventListener("focusin", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.matches("button, select, input")) return;
+        target.classList.add("is-key");
+      });
+      document.addEventListener("focusout", (event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement) target.classList.remove("is-key");
+      });
+
+      function clearPick() {
+        document.querySelectorAll(".card.is-picked").forEach((card) => {
+          card.classList.remove("is-picked");
+          const pick = card.querySelector(".card-pick");
+          if (pick) pick.setAttribute("aria-expanded", "false");
+        });
+      }
+
+      document.querySelectorAll(".card").forEach((card) => {
+        card.addEventListener("click", (event) => {
+          if (event.target.closest(".actions, input")) return;
+          const on = card.classList.contains("is-picked");
+          clearPick();
+          if (on) return;
+          card.classList.add("is-picked");
+          card.querySelector(".card-pick").setAttribute("aria-expanded", "true");
+        });
+      });
+
+      const list = document.querySelector(".list");
+      const status = document.querySelector(".select-status");
+
+      function clearModes() {
+        list.classList.remove("is-groups");
+        list.querySelectorAll(".card.is-matches").forEach((card) => card.classList.remove("is-matches"));
+        document.querySelectorAll(".bulk").forEach((button) => button.setAttribute("aria-pressed", "false"));
+        list.querySelectorAll(".check-group, .check-member").forEach((box) => {
+          box.checked = false;
+        });
+        status.hidden = true;
+        status.textContent = "";
+      }
+
+      document.querySelectorAll(".bulk").forEach((button) => {
+        button.addEventListener("click", () => {
+          const wasOn = button.getAttribute("aria-pressed") === "true";
+          const scope = button.dataset.scope;
+          const card = button.closest(".card");
+          const label = button.textContent.trim();
+          clearModes();
+          if (wasOn) return;
+          button.setAttribute("aria-pressed", "true");
+          status.hidden = false;
+          if (scope === "groups") {
+            list.classList.add("is-groups");
+            status.textContent = `${label} is on. Choose the groups.`;
+          } else if (card) {
+            card.classList.add("is-matches");
+            status.textContent = `${label} is on for this group. Choose the matches.`;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -214,6 +214,7 @@ import {
   removeWorkMapMedia,
   setWorkMapMediaPublic,
   saveWorkMapCanvasBoards,
+  saveSharedCanvas,
   saveWorkMapDetails,
   saveWorkMapSettings,
   updateWorkMapLocation,
@@ -1075,6 +1076,23 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         (await c.req.json()) as Record<string, unknown>,
       );
       return c.json({ role });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/work-map/canvas", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const boards = saveSharedCanvas(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ boards });
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);

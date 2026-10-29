@@ -1,0 +1,1042 @@
+<!--
+  Throwaway. Option B: the role card stays, and Open canvas floats a small
+  window over it.
+  Not the Career History page.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Canvas window over the card</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+    <style>
+      :root {
+        --ink: #f5f2ee;
+        --muted: #c9b8a0;
+        --gold: #a78b71;
+        --gold-hover: #e8d5b7;
+        --sans: "Geist Variable", "Geist", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; background: #0a0a0a; color: var(--ink); font: 16px/1.5 var(--sans); }
+      ::selection { background: rgba(167, 139, 113, 0.35); color: var(--ink); }
+      button:focus-visible { outline: 2px solid var(--gold-hover); outline-offset: 2px; }
+      .mark { margin: 0; padding: 0.65rem 1rem 0; color: var(--muted); font-size: 0.8125rem; line-height: 1.45; }
+      .card {
+        width: min(24rem, calc(100% - 2rem));
+        margin: 1rem;
+        padding: 0.9rem 1rem 1rem;
+        border: 1px solid rgba(199, 164, 123, 0.28);
+        border-radius: 16px;
+        background: #0d0b09;
+      }
+      .card h1 { margin: 0; font-size: 1.15rem; line-height: 1.35; }
+      .card .title, .card .meta, .card .gist { margin: 0.2rem 0 0; line-height: 1.45; }
+      .card .meta { color: var(--muted); font-size: 0.875rem; }
+      .card .gist { margin-top: 0.55rem; }
+      .linked-label { margin: 1rem 0 0.35rem; color: var(--gold); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; line-height: 1.35; text-transform: uppercase; }
+      .linked { list-style: none; margin: 0; padding: 0; }
+      .linked button { display: block; width: 100%; padding: 0.45rem 0; border: 0; border-top: 1px solid rgba(199, 164, 123, 0.2); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+      .linked button em { display: block; color: var(--muted); font-size: 0.75rem; font-style: normal; font-weight: 600; line-height: 1.35; }
+      .linked button strong { display: block; font-size: 0.9375rem; line-height: 1.4; }
+      .open-canvas, #canvas-bar > button:not(#drawer-all), .node-controls button, .viewer button {
+        min-height: 1.9rem; padding: 0.25rem 0.7rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 999px;
+        background: transparent; color: var(--gold-hover);
+        font: 600 0.75rem/1.35 var(--sans); cursor: pointer;
+      }
+      .open-canvas { margin-top: 0.85rem; }
+      .node-controls button[aria-pressed="true"] { border-color: var(--gold-hover); background: rgba(167, 139, 113, 0.2); color: var(--ink); }
+      .open-canvas:hover, #canvas-bar > button:not(#drawer-all):hover, .node-controls button:hover, .viewer button:hover { border-color: var(--gold-hover); background: rgba(167, 139, 113, 0.16); }
+      .float {
+        position: fixed;
+        z-index: 4;
+        top: 4.75rem;
+        left: max(0.75rem, min(22rem, calc(100vw - 43rem)));
+        display: none;
+        flex-direction: column;
+        width: min(42rem, calc(100vw - 1.5rem));
+        height: min(30rem, calc(100vh - 6rem));
+        border: 1px solid rgba(199, 164, 123, 0.45);
+        border-radius: 16px;
+        background: #100e0c;
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.48);
+        overflow: visible;
+      }
+      .float.is-open { display: flex; }
+      .float.is-minimized { width: auto; height: auto; border-radius: 999px; }
+      .resize { position: absolute; z-index: 6; touch-action: none; cursor: default; }
+      .float.is-minimized .resize, .float.is-maximized .resize { display: none; }
+      .resize.n, .resize.s { left: 14px; right: 14px; height: 8px; }
+      .resize.n { top: 0; }
+      .resize.s { bottom: 0; }
+      .resize.e, .resize.w { top: 14px; bottom: 14px; width: 8px; }
+      .resize.e { right: 0; }
+      .resize.w { left: 0; }
+      .resize.nw, .resize.ne, .resize.sw, .resize.se { width: 14px; height: 14px; }
+      .resize.nw { top: 0; left: 0; }
+      .resize.ne { top: 0; right: 0; }
+      .resize.sw { bottom: 0; left: 0; }
+      .resize.se { right: 0; bottom: 0; }
+      .float.is-minimized .stage, .float.is-minimized .node-controls, .float.is-minimized .canvas-bar, .float.is-minimized .canvas-drawer { display: none; }
+      .float.is-minimized .float-bar { border-bottom: 0; }
+      .float-bar {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+        border-bottom: 1px solid rgba(199, 164, 123, 0.28);
+        background: #0d0b09;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+      }
+      .float-bar.is-dragging { cursor: grabbing; }
+      .float-bar h2 { flex: 1; margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.35; }
+      .float-actions { display: flex; margin-left: auto; }
+      .float-actions button {
+        display: grid; place-items: center;
+        width: 1.75rem; height: 1.5rem; min-height: 0; padding: 0;
+        border: 0; border-radius: 0; background: transparent; color: var(--gold-hover);
+        cursor: pointer;
+      }
+      .float-actions button:hover { background: rgba(167, 139, 113, 0.16); }
+      #close-canvas:hover { background: #e6a196; color: #080706; }
+      .float-actions svg { width: 0.75rem; height: 0.75rem; }
+      #minimize .icon-restore, #maximize .icon-restore { display: none; }
+      .float.is-minimized #minimize .icon-min { display: none; }
+      .float.is-minimized #minimize .icon-restore { display: block; }
+      .float.is-maximized #maximize .icon-max { display: none; }
+      .float.is-maximized #maximize .icon-restore { display: block; }
+      .node-controls { box-sizing: border-box; display: none; flex-direction: column; flex-shrink: 0; gap: 0.4rem; padding: 0.5rem 0.65rem 0.6rem; border-bottom: 1px solid rgba(199, 164, 123, 0.28); background: #0d0b09; }
+      .node-controls.is-open {
+        position: absolute; z-index: 5; display: flex; overflow: auto;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 12px;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      }
+      .float.is-focus .node { opacity: 0.28; }
+      .float.is-focus .node.is-selected {
+        opacity: 1;
+        border-color: var(--gold-hover);
+        box-shadow: 0 0 0 1px var(--gold-hover), 0 14px 32px rgba(0, 0, 0, 0.4);
+      }
+      .float.is-focus svg.wires path { stroke: rgba(199, 164, 123, 0.16); }
+      .float.is-focus svg.wires path.is-live { stroke: rgba(232, 213, 183, 0.92); }
+      .outward { position: relative; display: flex; align-items: center; }
+      .action-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; flex: 1 1 100%; }
+      .link-menu {
+        position: absolute; z-index: 2; bottom: calc(100% + 0.3rem); left: 0;
+        display: flex; flex-direction: column; gap: 0.25rem; min-width: 9rem; padding: 0.35rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 10px;
+        background: #100e0c; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+      }
+      .link-menu[hidden] { display: none; }
+      .node-controls p { margin: 0; font-size: 0.8125rem; font-weight: 600; line-height: 1.4; }
+      .controls-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; cursor: grab; user-select: none; }
+      .controls-head button { cursor: pointer; }
+      .controls-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+      .controls-actions input, .controls-actions textarea {
+        min-height: 1.9rem; padding: 0.3rem 0.55rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 8px;
+        background: #100e0c; color: var(--ink); font: 0.8125rem/1.4 var(--sans);
+      }
+      .controls-actions textarea { flex: 1 1 100%; min-height: 4.2rem; resize: vertical; }
+      .controls-actions input { min-width: 8rem; }
+      .controls-actions input.node-title-field { flex: 1 1 100%; }
+      .node .tags { margin-top: 0.4rem; color: var(--gold-hover); font-size: 0.75rem; line-height: 1.35; }
+      .stage {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        background:
+          linear-gradient(rgba(199, 164, 123, 0.07) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(199, 164, 123, 0.07) 1px, transparent 1px),
+          #100e0c;
+        background-size: 48px 48px;
+        scrollbar-color: rgba(167, 139, 113, 0.55) transparent;
+      }
+      .stage::-webkit-scrollbar { width: 10px; height: 10px; }
+      .stage::-webkit-scrollbar-thumb { background: rgba(167, 139, 113, 0.55); border-radius: 999px; }
+      .plane { position: relative; width: 64rem; height: 28rem; transform-origin: 0 0; }
+      .canvas-bar {
+        display: flex; flex-flow: row nowrap; align-items: center; justify-content: flex-start; flex-shrink: 0;
+        gap: 0.35rem; padding: 0.35rem 0.65rem;
+        border-top: 1px solid rgba(199, 164, 123, 0.28); background: #0d0b09;
+        overflow-x: auto; scrollbar-color: rgba(167, 139, 113, 0.55) transparent;
+      }
+      .canvas-bar::-webkit-scrollbar { height: 8px; }
+      .canvas-bar::-webkit-scrollbar-thumb { background: rgba(167, 139, 113, 0.55); border-radius: 999px; }
+      .canvas-bar input {
+        flex: 0 0 auto; width: 8rem; min-height: 1.9rem; padding: 0.3rem 0.7rem;
+        border: 1px solid rgba(199, 164, 123, 0.45); border-radius: 999px;
+        background: #100e0c; color: var(--ink); font: 0.8125rem/1.4 var(--sans);
+      }
+      .canvas-bar .zoom-readout { min-width: 2.6rem; color: var(--muted); font-size: 0.75rem; line-height: 1.35; text-align: center; }
+      .node.is-filtered { opacity: 0.16; }
+      .float.is-focus .node.is-filtered { opacity: 0.12; }
+      .canvas-drawer { position: relative; flex-shrink: 0; background: #0d0b09; overflow: visible; }
+      #drawer-menu {
+        position: absolute; right: 0.65rem; bottom: 100%; z-index: 7;
+        display: flex; flex-direction: column; min-width: 8.5rem;
+        padding: 0.15rem 0; background: #0d0b09;
+      }
+      #drawer-menu[hidden] { display: none; }
+      #drawer-menu button {
+        display: block; width: 100%; margin: 0; padding: 0.4rem 0.85rem;
+        border: 0; border-radius: 0; background: transparent; color: var(--ink);
+        font: 600 0.75rem/1.4 var(--sans); text-align: left; white-space: nowrap; cursor: pointer;
+      }
+      #drawer-menu button:hover, #drawer-menu button:focus-visible { background: rgba(167, 139, 113, 0.2); color: var(--gold-hover); }
+      .drawer-tabs { display: flex; flex: 0 0 auto; align-items: stretch; margin-left: auto; border-left: 1px solid rgba(199, 164, 123, 0.28); }
+      .drawer-tab {
+        flex: 0 0 auto; min-height: 1.9rem; padding: 0.3rem 0.7rem;
+        border: 0; border-radius: 0; background: transparent; color: var(--muted);
+        font: 600 0.75rem/1.35 var(--sans); cursor: pointer;
+        box-shadow: inset 0 2px 0 transparent;
+      }
+      .drawer-tab:hover { color: var(--gold-hover); background: rgba(167, 139, 113, 0.1); }
+      .drawer-tab[aria-selected="true"] { color: var(--ink); background: rgba(167, 139, 113, 0.14); box-shadow: inset 0 2px 0 var(--gold); }
+      #drawer-all {
+        display: flex; align-items: center; gap: 0.35rem;
+        padding: 0.4rem 0.8rem;
+        border: 0; border-radius: 0;
+        background: transparent; color: var(--gold-hover);
+        font: 600 0.75rem/1.35 var(--sans); cursor: pointer;
+      }
+      #drawer-all:hover { background: rgba(167, 139, 113, 0.12); }
+      #drawer-all svg { width: 0.7rem; height: 0.7rem; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+      .canvas-drawer.is-open #drawer-all svg { transform: rotate(180deg); }
+      @media (prefers-reduced-motion: reduce) {
+        #drawer-all svg { transition: none; }
+      }
+      svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+      svg.wires path { fill: none; stroke: rgba(199, 164, 123, 0.7); stroke-width: 1.5; }
+      .node {
+        position: absolute; width: 13.5rem; padding: 0.7rem 0.8rem 0.75rem;
+        border: 1px solid rgba(199, 164, 123, 0.38); border-radius: 14px;
+        background: #13100d; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28); cursor: grab; touch-action: none;
+      }
+      .node.is-selected { border-color: var(--gold-hover); }
+      .node p { margin: 0; line-height: 1.4; }
+      .kind { color: var(--gold); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; line-height: 1.35; text-transform: uppercase; }
+      .node h2 { margin: 0.2rem 0 0; font-size: 1rem; font-weight: 600; line-height: 1.35; }
+      .node .body { margin-top: 0.35rem; color: var(--muted); font-size: 0.8125rem; }
+      .viewer { position: fixed; z-index: 6; inset: 0; display: none; flex-direction: column; gap: 0.75rem; padding: 1rem 1.1rem 1.2rem; background: #0d0b09; }
+      .viewer.is-open { display: flex; }
+      .viewer header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+      .viewer h2 { margin: 0; font-size: 1.15rem; line-height: 1.35; }
+      .viewer header p { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.875rem; line-height: 1.4; }
+      .frame { flex: 1; min-height: 16rem; border: 0; border-radius: 12px; background: #080706; }
+    </style>
+  </head>
+  <body>
+    <p class="mark">Option B. The card stays. Open canvas floats a small window over it. Click a node for its controls, then link it to a video, a demo, or the other canvas.</p>
+    <article class="card" aria-label="Role">
+      <h1>Apple</h1>
+      <p class="title">Product Designer</p>
+      <p class="meta">Cupertino, CA · Jun 2023 – Aug 2025</p>
+      <p class="gist">Helped design the foldable, from the hinge studies through the design review.</p>
+      <p class="linked-label">Linked</p>
+      <ul class="linked">
+        <li><button type="button" data-node="design"><em>Design</em><strong>Foldable</strong></button></li>
+        <li><button type="button" data-node="demo"><em>Demonstration</em><strong>Product demonstration</strong></button></li>
+        <li><button type="button" id="play-from-card" data-node="video"><em>Video</em><strong>Foldable design review</strong></button></li>
+      </ul>
+      <button class="open-canvas" type="button" id="toggle" aria-expanded="false">Open canvas</button>
+    </article>
+    <div class="float" id="workspace" role="dialog" aria-label="Canvas">
+      <div class="float-bar" id="float-handle">
+        <h2>Canvas</h2>
+        <div class="float-actions">
+          <button type="button" id="minimize" aria-pressed="false" aria-label="Minimize">
+            <svg class="icon-min" viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 8.5h9" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+            <svg class="icon-restore" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.6" y="1.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+          <button type="button" id="maximize" aria-pressed="false" aria-label="Maximize">
+            <svg class="icon-max" viewBox="0 0 12 12" aria-hidden="true"><rect x="3.5" y="1.1" width="7.2" height="7.2" fill="#0d0b09" stroke="currentColor" stroke-width="1.3"/><rect x="1.2" y="3.4" width="7.2" height="7.2" fill="#0d0b09" stroke="currentColor" stroke-width="1.3"/></svg>
+            <svg class="icon-restore" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.6" y="1.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+          <button class="close-canvas" type="button" id="close-canvas" aria-label="Close">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 2.2l7.6 7.6M9.8 2.2l-7.6 7.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="node-controls" id="node-controls">
+        <div class="controls-head">
+          <p id="controls-heading"></p>
+          <button type="button" id="close-controls">Done</button>
+        </div>
+        <div class="controls-actions" id="controls-actions"></div>
+      </div>
+      <div class="stage">
+        <div class="plane" id="plane"><svg class="wires" id="wires"></svg></div>
+      </div>
+      <div class="canvas-drawer" id="canvas-drawer">
+        <div id="drawer-menu" role="menu" hidden></div>
+        <div class="canvas-bar" id="canvas-bar">
+          <input id="node-search" type="search" placeholder="Find a node" aria-label="Find a node">
+          <button type="button" id="zoom-out">Out</button>
+          <span class="zoom-readout" id="zoom-label">100%</span>
+          <button type="button" id="zoom-in">In</button>
+          <button type="button" id="zoom-fit">Fit</button>
+          <button type="button" id="duplicate-node">Duplicate</button>
+          <div class="drawer-tabs" id="drawer-tabs" role="tablist" aria-label="Canvases"></div>
+          <button type="button" id="drawer-all" aria-expanded="false" aria-haspopup="menu" aria-controls="drawer-menu">
+            All
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 7.4 6 3.6l3.8 3.8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="resize n" data-edge="n"></div>
+      <div class="resize e" data-edge="e"></div>
+      <div class="resize s" data-edge="s"></div>
+      <div class="resize w" data-edge="w"></div>
+      <div class="resize nw" data-edge="nw" title="Drag to resize"></div>
+      <div class="resize ne" data-edge="ne" title="Drag to resize"></div>
+      <div class="resize sw" data-edge="sw" title="Drag to resize"></div>
+      <div class="resize se" data-edge="se" title="Drag to resize"></div>
+    </div>
+    <section class="viewer" id="viewer" aria-label="Video">
+      <header>
+        <div>
+          <h2>Foldable design review</h2>
+          <p>The player stays in this project. A real design film stands in for the foldable upload.</p>
+        </div>
+        <button type="button" id="close-video">Back to the canvas</button>
+      </header>
+      <iframe class="frame" id="player" title="Foldable design review" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </section>
+    <script>
+      let film = "https://www.youtube-nocookie.com/embed/xIZYqNS6so0?rel=0";
+      const canvases = [
+        {
+          id: "foldable",
+          name: "Foldable",
+          nodes: [
+            { id: "role", kind: "Role", title: "Product Designer", body: "Apple. Helped design the foldable, from the hinge studies through the design review.", x: 24, y: 28 },
+            { id: "design", kind: "Design", title: "Foldable", body: "The product itself. The fold, the hinge, and how it sits in the hand.", x: 280, y: 24 },
+            { id: "demo", kind: "Demonstration", title: "Product demonstration", body: "The review that shows the foldable moving.", x: 536, y: 168 },
+            { id: "video", kind: "Video", title: "Foldable design review", body: "Opens here, in this window.", x: 792, y: 36, video: true },
+          ],
+          edges: [["role", "design"], ["design", "demo"], ["demo", "video"]],
+        },
+        {
+          id: "hinge",
+          name: "Hinge study",
+          nodes: [
+            { id: "role", kind: "Role", title: "Product Designer", body: "Apple. A second canvas, for the hinge on its own.", x: 36, y: 48 },
+            { id: "hinge", kind: "Design", title: "Hinge", body: "The mechanism, kept apart from the whole foldable.", x: 320, y: 140 },
+          ],
+          edges: [["role", "hinge"]],
+        },
+      ];
+      let current = canvases[0];
+      let selected = "role";
+      let zoom = 1;
+      let painted = false;
+      const workspace = document.querySelector("#workspace");
+      const handle = document.querySelector("#float-handle");
+      const plane = document.querySelector("#plane");
+      const wires = document.querySelector("#wires");
+      const viewer = document.querySelector("#viewer");
+      const player = document.querySelector("#player");
+      const toggle = document.querySelector("#toggle");
+      function nodeById(id) { return current.nodes.find((node) => node.id === id); }
+      function showCanvasHome(canvas) {
+        current = canvas;
+        selected = canvas.nodes[0].id;
+        closeVideo();
+        closeControls();
+        paint();
+      }
+      function setAllOpen(open) {
+        const menu = document.querySelector("#drawer-menu");
+        menu.hidden = !open;
+        document.querySelector("#canvas-drawer").classList.toggle("is-open", open);
+        document.querySelector("#drawer-all").setAttribute("aria-expanded", open ? "true" : "false");
+      }
+      function paintDrawer() {
+        const tabs = document.querySelector("#drawer-tabs");
+        const menu = document.querySelector("#drawer-menu");
+        tabs.replaceChildren();
+        menu.replaceChildren();
+        for (const canvas of canvases) {
+          const tab = document.createElement("button");
+          tab.type = "button";
+          tab.className = "drawer-tab";
+          tab.setAttribute("role", "tab");
+          tab.setAttribute("aria-selected", canvas === current ? "true" : "false");
+          tab.textContent = canvas.name;
+          tab.addEventListener("click", () => showCanvasHome(canvas));
+          tabs.append(tab);
+          const item = document.createElement("button");
+          item.type = "button";
+          item.setAttribute("role", "menuitem");
+          item.textContent = canvas.name;
+          item.addEventListener("click", () => {
+            setAllOpen(false);
+            showCanvasHome(canvas);
+          });
+          menu.append(item);
+        }
+      }
+      function paintWires() {
+        wires.replaceChildren();
+        const pairs = current.edges.map(([fromId, toId]) => [fromId, toId]);
+        for (const node of current.nodes) {
+          for (const link of node.links || []) {
+            if (link.kind === "canvas" || !nodeById(link.id)) continue;
+            if (pairs.some(([fromId, toId]) => fromId === node.id && toId === link.id)) continue;
+            pairs.push([node.id, link.id]);
+          }
+        }
+        for (const [fromId, toId] of pairs) {
+          const from = nodeById(fromId);
+          const to = nodeById(toId);
+          const fromEl = plane.querySelector(`[data-id="${fromId}"]`);
+          const toEl = plane.querySelector(`[data-id="${toId}"]`);
+          if (!from || !to || !fromEl || !toEl) continue;
+          const x1 = from.x + fromEl.offsetWidth;
+          const y1 = from.y + fromEl.offsetHeight / 2;
+          const x2 = to.x;
+          const y2 = to.y + toEl.offsetHeight / 2;
+          const bend = Math.max(40, (x2 - x1) / 2);
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("d", `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`);
+          if (workspace.classList.contains("is-focus") && (fromId === selected || toId === selected)) path.classList.add("is-live");
+          wires.append(path);
+        }
+      }
+      function paint() {
+        paintDrawer();
+        plane.querySelectorAll(".node").forEach((node) => node.remove());
+        for (const node of current.nodes) {
+          const card = document.createElement("article");
+          card.className = "node" + (node.id === selected ? " is-selected" : "");
+          card.dataset.id = node.id;
+          card.style.left = `${node.x}px`;
+          card.style.top = `${node.y}px`;
+          card.innerHTML = `<p class="kind"></p><h2></h2><p class="body"></p>`;
+          card.querySelector(".kind").textContent = node.kind;
+          card.querySelector("h2").textContent = node.title;
+          card.querySelector(".body").textContent = node.body;
+          if (node.notes?.length) {
+            const notes = document.createElement("p");
+            notes.className = "body";
+            notes.textContent = node.notes.join(" ");
+            card.append(notes);
+          }
+          if (node.images?.length) {
+            const images = document.createElement("p");
+            images.className = "body";
+            images.textContent = node.images.join(", ");
+            card.append(images);
+          }
+          if (node.tags?.length) {
+            const tags = document.createElement("p");
+            tags.className = "tags";
+            tags.textContent = node.tags.join(" · ");
+            card.append(tags);
+          }
+          if (node.links?.length) {
+            const links = document.createElement("p");
+            links.className = "tags";
+            links.textContent = "Links out to " + node.links.map((link) => link.label).join(", ");
+            card.append(links);
+          }
+          card.addEventListener("pointerdown", (event) => onDown(event, node, card));
+          plane.append(card);
+        }
+        paintWires();
+        painted = true;
+      }
+      function onDown(event, node, card) {
+        if (event.button !== 0 || event.target.closest("button, input, textarea")) return;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originX = node.x;
+        const originY = node.y;
+        let moved = false;
+        try { card.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const dx = next.clientX - startX;
+          const dy = next.clientY - startY;
+          if (!moved && dx * dx + dy * dy < 16) return;
+          moved = true;
+          node.x = Math.max(8, originX + dx / zoom);
+          node.y = Math.max(8, originY + dy / zoom);
+          card.style.left = `${node.x}px`;
+          card.style.top = `${node.y}px`;
+          paintWires();
+          if (workspace.classList.contains("is-focus") && node.id === selected) placeControls(node);
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          card.removeEventListener("pointermove", move);
+          card.removeEventListener("pointerup", up);
+          if (!moved) showControls(node);
+        }
+        card.addEventListener("pointermove", move);
+        card.addEventListener("pointerup", up);
+      }
+      function closeControls() {
+        const panel = document.querySelector("#node-controls");
+        panel.classList.remove("is-open");
+        workspace.classList.remove("is-focus");
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.width = "";
+        panel.querySelectorAll(".outward").forEach((row) => row.remove());
+        panel.querySelector("#controls-actions").replaceChildren();
+        paintWires();
+        applySearch();
+      }
+      function actionButton(label, onClick) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", onClick);
+        return button;
+      }
+      function textField(label) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = label;
+        input.setAttribute("aria-label", label);
+        return input;
+      }
+      function refresh(node) {
+        selected = node.id;
+        paint();
+        showControls(node);
+      }
+      function appendOutward(node, actions) {
+        const other = canvases.find((item) => item !== current);
+        const choices = [];
+        if (node.kind !== "Video") choices.push({ kind: "video", id: "video", label: "video" });
+        if (node.kind !== "Demonstration") choices.push({ kind: "demo", id: "demo", label: "demo" });
+        choices.push({ kind: "canvas", id: other.id, label: other.name });
+        const row = document.createElement("div");
+        row.className = "outward";
+        const menu = document.createElement("div");
+        menu.className = "link-menu";
+        menu.hidden = true;
+        menu.setAttribute("role", "menu");
+        const link = actionButton("Link", () => {
+          menu.hidden = !menu.hidden;
+          link.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+        });
+        link.setAttribute("aria-expanded", "false");
+        link.setAttribute("aria-haspopup", "menu");
+        for (const choice of choices) {
+          const key = `${choice.kind}:${choice.id}`;
+          const linked = (node.links || []).some((link) => link.key === key);
+          const item = actionButton(linked ? `Open ${choice.label}` : choice.label, () => {
+            if (!linked) {
+              node.links = [...(node.links || []), { key, kind: choice.kind, id: choice.id, label: choice.label }];
+              refresh(node);
+              return;
+            }
+            followLink(choice);
+          });
+          item.setAttribute("role", "menuitem");
+          item.setAttribute("aria-pressed", linked ? "true" : "false");
+          menu.append(item);
+        }
+        row.append(link, menu);
+        const host = actions.querySelector(".action-row");
+        if (host) host.append(row);
+        else {
+          const bottom = document.createElement("div");
+          bottom.className = "action-row";
+          bottom.append(row);
+          actions.append(bottom);
+        }
+      }
+      function followLink(choice) {
+        if (choice.kind === "canvas") {
+          current = canvases.find((item) => item.id === choice.id);
+          selected = current.nodes[0].id;
+          closeVideo();
+          closeControls();
+          paint();
+          return;
+        }
+        const home = canvases.find((item) => item.id === "foldable");
+        if (current !== home) {
+          current = home;
+          paint();
+        }
+        const target = nodeById(choice.id);
+        if (choice.kind === "video") openVideo();
+        showControls(target);
+      }
+      function linkTarget() {
+        if (film.includes("xIZYqNS6so0")) return "https://www.youtube.com/watch?v=xIZYqNS6so0";
+        return film;
+      }
+      function writeNodeText(node) {
+        const card = [...plane.querySelectorAll(".node")].find((item) => item.dataset.id === node.id && current.nodes.includes(node));
+        if (card) {
+          card.querySelector("h2").textContent = node.title;
+          const body = card.querySelector(".body");
+          if (body) body.textContent = node.body;
+        }
+        if (selected === node.id) {
+          document.querySelector("#controls-heading").textContent = `${node.kind} · ${node.title}`;
+        }
+        const foldable = canvases.find((item) => item.id === "foldable");
+        if (foldable.nodes.includes(node)) {
+          const strong = document.querySelector(`.linked [data-node="${node.id}"] strong`);
+          if (strong) strong.textContent = node.title;
+        }
+        if (node.video) {
+          document.querySelector("#viewer h2").textContent = node.title;
+          player.title = node.title;
+        }
+        if (workspace.classList.contains("is-focus") && selected === node.id) placeControls(node);
+      }
+      function appendNaming(node, actions) {
+        const title = textField("Title");
+        title.className = "node-title-field";
+        title.value = node.title;
+        const description = document.createElement("textarea");
+        description.value = node.body;
+        description.placeholder = "Description";
+        description.setAttribute("aria-label", "Description");
+        const apply = () => {
+          node.title = title.value;
+          node.body = description.value;
+          writeNodeText(node);
+        };
+        title.addEventListener("input", apply);
+        description.addEventListener("input", apply);
+        actions.append(title, description);
+      }
+      function applySearch() {
+        const query = (document.querySelector("#node-search").value || "").trim().toLowerCase();
+        for (const card of plane.querySelectorAll(".node")) {
+          const title = card.querySelector("h2").textContent.toLowerCase();
+          card.classList.toggle("is-filtered", query.length > 0 && !title.includes(query));
+        }
+      }
+      function applyZoom() {
+        zoom = Math.min(2.5, Math.max(0.35, zoom));
+        plane.style.transform = `scale(${zoom})`;
+        plane.style.marginRight = `${plane.offsetWidth * (zoom - 1)}px`;
+        plane.style.marginBottom = `${plane.offsetHeight * (zoom - 1)}px`;
+        document.querySelector("#zoom-label").textContent = `${Math.round(zoom * 100)}%`;
+      }
+      function fitCanvas() {
+        const cards = [...plane.querySelectorAll(".node")];
+        if (!cards.length) return;
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = 0;
+        let maxY = 0;
+        for (const card of cards) {
+          const node = nodeById(card.dataset.id);
+          if (!node) continue;
+          minX = Math.min(minX, node.x);
+          minY = Math.min(minY, node.y);
+          maxX = Math.max(maxX, node.x + card.offsetWidth);
+          maxY = Math.max(maxY, node.y + card.offsetHeight);
+        }
+        const stage = document.querySelector(".stage");
+        const pad = 28;
+        zoom = Math.min(stage.clientWidth / Math.max(1, maxX - minX + pad * 2), stage.clientHeight / Math.max(1, maxY - minY + pad * 2));
+        applyZoom();
+        stage.scrollLeft = Math.max(0, minX * zoom - pad);
+        stage.scrollTop = Math.max(0, minY * zoom - pad);
+      }
+      function duplicateNode() {
+        const source = nodeById(selected) || current.nodes[0];
+        if (!source) return;
+        const copy = {
+          id: `copy-${Date.now()}`,
+          kind: source.kind,
+          title: source.title,
+          body: source.body,
+          x: source.x + 36,
+          y: source.y + 36,
+          links: (source.links || []).map((link) => ({ ...link })),
+        };
+        if (source.video) copy.video = true;
+        current.nodes.push(copy);
+        selected = copy.id;
+        const editing = workspace.classList.contains("is-focus");
+        paint();
+        if (editing) showControls(copy);
+      }
+      function panelFrame() {
+        const bar = document.querySelector("#float-handle").offsetHeight;
+        return {
+          left: 10,
+          top: bar + 8,
+          right: workspace.clientWidth - 10,
+          bottom: document.querySelector("#canvas-bar").offsetTop - 8,
+        };
+      }
+      function clampPanel(left, top) {
+        const panel = document.querySelector("#node-controls");
+        const frame = panelFrame();
+        const width = Math.min(panel.offsetWidth || 280, frame.right - frame.left);
+        panel.style.width = `${width}px`;
+        panel.style.maxHeight = `${Math.max(80, frame.bottom - frame.top)}px`;
+        const height = Math.min(panel.offsetHeight, frame.bottom - frame.top);
+        panel.style.left = `${Math.max(frame.left, Math.min(left, frame.right - width))}px`;
+        panel.style.top = `${Math.max(frame.top, Math.min(top, frame.bottom - height))}px`;
+      }
+      function placeControls(node) {
+        const panel = document.querySelector("#node-controls");
+        if (!panel.classList.contains("is-open")) return;
+        if (panel.dataset.placed === "user") {
+          clampPanel(panel.offsetLeft, panel.offsetTop);
+          return;
+        }
+        const card = [...plane.querySelectorAll(".node")].find((item) => item.dataset.id === node.id);
+        if (!card) return;
+        const frame = panelFrame();
+        const origin = workspace.getBoundingClientRect();
+        const borderLeft = (workspace.offsetWidth - workspace.clientWidth) / 2;
+        const borderTop = (workspace.offsetHeight - workspace.clientHeight) / 2;
+        const local = (rect) => ({
+          left: rect.left - origin.left - borderLeft,
+          top: rect.top - origin.top - borderTop,
+          right: rect.right - origin.left - borderLeft,
+          bottom: rect.bottom - origin.top - borderTop,
+        });
+        const cardBox = local(card.getBoundingClientRect());
+        const others = [...plane.querySelectorAll(".node")].filter((item) => item !== card).map((item) => local(item.getBoundingClientRect()));
+        const gap = 12;
+        const clearOf = (rect) => others.every((other) => rect.right <= other.left + 1 || rect.left >= other.right - 1 || rect.bottom <= other.top + 1 || rect.top >= other.bottom - 1);
+        const coversSelected = (rect) => rect.left < cardBox.right - 1 && rect.right > cardBox.left + 1 && rect.top < cardBox.bottom - 1 && rect.bottom > cardBox.top + 1;
+        const fits = (rect) => rect.left >= frame.left - 1 && rect.top >= frame.top - 1 && rect.right <= frame.right + 1 && rect.bottom <= frame.bottom + 1;
+        let pick = null;
+        for (const width of [280, 220, 180]) {
+          if (width > frame.right - frame.left) continue;
+          panel.style.width = `${width}px`;
+          panel.style.maxHeight = `${frame.bottom - frame.top}px`;
+          const height = panel.offsetHeight;
+          const spots = [
+            { left: cardBox.right + gap, top: cardBox.top },
+            { left: cardBox.left - gap - width, top: cardBox.top },
+            { left: cardBox.left, top: cardBox.bottom + gap },
+            { left: cardBox.right - width, top: cardBox.bottom + gap },
+          ];
+          for (const spot of spots) {
+            const rect = { left: spot.left, top: spot.top, right: spot.left + width, bottom: spot.top + height };
+            if (!fits(rect) || coversSelected(rect) || !clearOf(rect)) continue;
+            pick = spot;
+            break;
+          }
+          if (pick) break;
+        }
+        if (!pick) {
+          panel.style.width = `${Math.min(280, frame.right - frame.left)}px`;
+          panel.style.maxHeight = `${frame.bottom - frame.top}px`;
+          pick = { left: frame.left, top: frame.top };
+        }
+        clampPanel(pick.left, pick.top);
+      }
+      function showControls(node) {
+        selected = node.id;
+        plane.querySelectorAll(".node").forEach((other) => other.classList.toggle("is-selected", other.dataset.id === node.id));
+        const panel = document.querySelector("#node-controls");
+        workspace.classList.add("is-focus");
+        panel.classList.add("is-open");
+        panel.dataset.placed = "";
+        panel.querySelector("#controls-heading").textContent = `${node.kind} · ${node.title}`;
+        const actions = panel.querySelector("#controls-actions");
+        panel.querySelectorAll(".outward").forEach((row) => row.remove());
+        actions.replaceChildren();
+        appendNaming(node, actions);
+        if (node.kind === "Role") {
+          const note = textField("Note");
+          const bottom = document.createElement("div");
+          bottom.className = "action-row";
+          bottom.append(actionButton("Add note", () => {
+            const value = note.value.trim();
+            if (!value) return;
+            node.notes = [...(node.notes || []), value];
+            refresh(node);
+          }));
+          actions.append(note, bottom);
+        } else if (node.kind === "Design") {
+          const tag = textField("Tag");
+          tag.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            addTag();
+          });
+          function addTag() {
+            const value = tag.value.trim();
+            if (!value) return;
+            node.tags = [...new Set([...(node.tags || []), value])];
+            refresh(node);
+          }
+          actions.append(
+            actionButton("Upload images", () => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "image/*";
+              input.multiple = true;
+              input.addEventListener("change", () => {
+                const names = [...input.files].map((file) => file.name);
+                if (!names.length) return;
+                node.images = [...(node.images || []), ...names];
+                refresh(node);
+              });
+              input.click();
+            }),
+            tag,
+            actionButton("Add tag", addTag),
+          );
+        } else if (node.kind === "Demonstration") {
+          actions.append(
+            actionButton("Play video", openVideo),
+            actionButton("Link out", () => window.open(linkTarget(), "_blank", "noopener")),
+          );
+        } else if (node.kind === "Video") {
+          const address = textField("Film address");
+          address.value = film;
+          actions.append(
+            actionButton("Play here", openVideo),
+            address,
+            actionButton("Replace film", () => {
+              const value = address.value.trim();
+              if (!value) return;
+              film = value;
+              player.removeAttribute("src");
+              refresh(node);
+            }),
+          );
+        }
+        appendOutward(node, actions);
+        paintWires();
+        placeControls(node);
+      }
+      function openVideo() {
+        if (player.getAttribute("src") !== film) player.src = film;
+        viewer.classList.add("is-open");
+      }
+      function closeVideo() {
+        viewer.classList.remove("is-open");
+        player.removeAttribute("src");
+      }
+      const minimize = document.querySelector("#minimize");
+      const maximize = document.querySelector("#maximize");
+      let frameBeforeMax = null;
+      function frameNow() {
+        const rect = workspace.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+      }
+      function applyFrame(frame) {
+        workspace.style.left = `${frame.left}px`;
+        workspace.style.top = `${frame.top}px`;
+        workspace.style.width = `${frame.width}px`;
+        workspace.style.height = `${frame.height}px`;
+      }
+      function setMinimized(on) {
+        const was = workspace.classList.contains("is-minimized");
+        if (on === was) return;
+        if (on) {
+          workspace.dataset.w = workspace.style.width;
+          workspace.dataset.h = workspace.style.height;
+          workspace.style.width = "";
+          workspace.style.height = "";
+        } else {
+          workspace.style.width = workspace.dataset.w || "";
+          workspace.style.height = workspace.dataset.h || "";
+        }
+        workspace.classList.toggle("is-minimized", on);
+        if (!on && workspace.classList.contains("is-focus")) {
+          const editing = current.nodes.find((item) => item.id === selected);
+          if (editing) placeControls(editing);
+        }
+        minimize.setAttribute("aria-label", on ? "Restore" : "Minimize");
+        minimize.setAttribute("aria-pressed", on ? "true" : "false");
+      }
+      function setMaximized(on) {
+        const was = workspace.classList.contains("is-maximized");
+        if (on === was) return;
+        if (workspace.classList.contains("is-minimized")) setMinimized(false);
+        if (on) {
+          frameBeforeMax = frameNow();
+          workspace.classList.add("is-maximized");
+          applyFrame({
+            left: 8,
+            top: 8,
+            width: Math.max(280, window.innerWidth - 16),
+            height: Math.max(180, window.innerHeight - 16),
+          });
+        } else {
+          workspace.classList.remove("is-maximized");
+          if (frameBeforeMax) applyFrame(frameBeforeMax);
+        }
+        const maximized = workspace.classList.contains("is-maximized");
+        maximize.setAttribute("aria-label", maximized ? "Restore size" : "Maximize");
+        maximize.setAttribute("aria-pressed", maximized ? "true" : "false");
+      }
+      function setOpen(open) {
+        workspace.classList.toggle("is-open", open);
+        toggle.textContent = open ? "Close canvas" : "Open canvas";
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open && !painted) paint();
+        if (!open) {
+          closeVideo();
+          closeControls();
+          setMinimized(false);
+        }
+      }
+      handle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button")) return;
+        const rect = workspace.getBoundingClientRect();
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originX = rect.left;
+        const originY = rect.top;
+        let moved = false;
+        try { handle.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          const dx = next.clientX - startX;
+          const dy = next.clientY - startY;
+          if (!moved && dx * dx + dy * dy < 16) return;
+          moved = true;
+          handle.classList.add("is-dragging");
+          const maxX = Math.max(8, window.innerWidth - 72);
+          const maxY = Math.max(8, window.innerHeight - 48);
+          const x = Math.min(maxX, Math.max(8, originX + dx));
+          const y = Math.min(maxY, Math.max(8, originY + dy));
+          workspace.style.left = `${x}px`;
+          workspace.style.top = `${y}px`;
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          handle.classList.remove("is-dragging");
+          handle.removeEventListener("pointermove", move);
+          handle.removeEventListener("pointerup", up);
+          if (!moved && workspace.classList.contains("is-minimized")) setMinimized(false);
+        }
+        handle.addEventListener("pointermove", move);
+        handle.addEventListener("pointerup", up);
+      });
+      document.querySelectorAll(".resize").forEach((grip) => {
+        grip.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0 || workspace.classList.contains("is-minimized")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const edge = grip.dataset.edge;
+          const rect = workspace.getBoundingClientRect();
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const origin = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+          try { grip.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+          function move(next) {
+            if (next.pointerId !== event.pointerId) return;
+            const dx = next.clientX - startX;
+            const dy = next.clientY - startY;
+            let width = origin.width;
+            let height = origin.height;
+            if (edge.includes("e")) width = origin.width + dx;
+            if (edge.includes("s")) height = origin.height + dy;
+            if (edge.includes("w")) width = origin.width - dx;
+            if (edge.includes("n")) height = origin.height - dy;
+            width = Math.min(window.innerWidth - 16, Math.max(280, width));
+            height = Math.min(window.innerHeight - 16, Math.max(180, height));
+            let left = edge.includes("w") ? origin.left + origin.width - width : origin.left;
+            let top = edge.includes("n") ? origin.top + origin.height - height : origin.top;
+            left = Math.min(Math.max(8, left), window.innerWidth - 48);
+            top = Math.min(Math.max(8, top), window.innerHeight - 36);
+            workspace.style.left = `${left}px`;
+            workspace.style.top = `${top}px`;
+            workspace.style.width = `${width}px`;
+            workspace.style.height = `${height}px`;
+            if (workspace.classList.contains("is-focus")) {
+              const editing = current.nodes.find((item) => item.id === selected);
+              if (editing) placeControls(editing);
+            }
+          }
+          function up(next) {
+            if (next.pointerId !== event.pointerId) return;
+            grip.removeEventListener("pointermove", move);
+            grip.removeEventListener("pointerup", up);
+          }
+          grip.addEventListener("pointermove", move);
+          grip.addEventListener("pointerup", up);
+        });
+      });
+      toggle.addEventListener("click", () => setOpen(!workspace.classList.contains("is-open")));
+      const nodeSearch = document.querySelector("#node-search");
+      nodeSearch.addEventListener("input", applySearch);
+      nodeSearch.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const query = nodeSearch.value.trim().toLowerCase();
+        const match = current.nodes.find((node) => !query || node.title.toLowerCase().includes(query));
+        if (!match) return;
+        const stage = document.querySelector(".stage");
+        stage.scrollLeft = Math.max(0, match.x * zoom - 24);
+        stage.scrollTop = Math.max(0, match.y * zoom - 24);
+        showControls(match);
+      });
+      document.querySelector("#zoom-in").addEventListener("click", () => { zoom *= 1.2; applyZoom(); });
+      document.querySelector("#zoom-out").addEventListener("click", () => { zoom /= 1.2; applyZoom(); });
+      document.querySelector("#zoom-fit").addEventListener("click", fitCanvas);
+      document.querySelector("#duplicate-node").addEventListener("click", duplicateNode);
+      applyZoom();
+      document.querySelector("#drawer-all").addEventListener("click", () => {
+        const menu = document.querySelector("#drawer-menu");
+        setAllOpen(menu.hidden);
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (event.target.closest("#drawer-all") || event.target.closest("#drawer-menu")) return;
+        setAllOpen(false);
+      });
+      minimize.addEventListener("click", () => setMinimized(!workspace.classList.contains("is-minimized")));
+      maximize.addEventListener("click", () => setMaximized(!workspace.classList.contains("is-maximized")));
+      document.querySelector("#close-canvas").addEventListener("click", () => setOpen(false));
+      document.querySelector("#close-controls").addEventListener("click", closeControls);
+      document.querySelector(".controls-head").addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button")) return;
+        const panel = document.querySelector("#node-controls");
+        if (!panel.classList.contains("is-open")) return;
+        event.preventDefault();
+        const head = event.currentTarget;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const originLeft = panel.offsetLeft;
+        const originTop = panel.offsetTop;
+        panel.dataset.placed = "user";
+        try { head.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+        function move(next) {
+          if (next.pointerId !== event.pointerId) return;
+          clampPanel(originLeft + next.clientX - startX, originTop + next.clientY - startY);
+        }
+        function up(next) {
+          if (next.pointerId !== event.pointerId) return;
+          head.removeEventListener("pointermove", move);
+          head.removeEventListener("pointerup", up);
+        }
+        head.addEventListener("pointermove", move);
+        head.addEventListener("pointerup", up);
+      });
+      document.querySelector(".stage").addEventListener("pointerdown", (event) => {
+        if (event.target.closest(".node")) return;
+        closeControls();
+      });
+      document.querySelector(".stage").addEventListener("scroll", () => {
+        if (!workspace.classList.contains("is-focus")) return;
+        const editing = current.nodes.find((item) => item.id === selected);
+        if (editing) placeControls(editing);
+      });
+      document.querySelector("#play-from-card").addEventListener("click", openVideo);
+      document.querySelector("#close-video").addEventListener("click", closeVideo);
+    </script>
+  </body>
+</html>
