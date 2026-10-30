@@ -15,18 +15,27 @@ import {
   type CareerHistorySectionKey,
 } from "@core/career-history";
 import {
+  addToSequence,
   pointsAtGroup,
   readCanvasBoards,
   releasePointingMembers,
+  removeFromSequence,
+  sequenceWithoutNodes,
+  settlePhotoNode,
   type CanvasBoard,
   type CanvasGroup,
   type CanvasLink,
   type CanvasNode,
   type CanvasDocument,
+  type CanvasPlace,
 } from "@core/canvas-board";
 import { achievementStatement } from "@core/role-achievements";
 import type { WorkMapRole } from "@core/work-map";
 import { Icon } from "./HomeNav";
+import { ModelStage } from "./ModelStage";
+import { PlaceStage } from "./PlaceStage";
+import { SketchPad } from "./SketchPad";
+import { searchPlaces } from "./place-search";
 import "./role-canvas.css";
 
 type Snap = { id: string; name: string; at: number; nodes: CanvasNode[]; groups?: CanvasGroup[] };
@@ -43,7 +52,7 @@ const saveTail = new Map<string, Promise<void>>();
 const DESIGN_FILM = "https://www.youtube-nocookie.com/embed/xIZYqNS6so0?rel=0";
 const RELATION_KINDS = ["evidence", "example", "design", "outsource", "feedback", "approved"];
 const EMPTY_CHROME: Chrome = { left: 0, top: 0, bottom: 0, extraRight: 0 };
-type BoardSnap = { boardId: string; nodes: CanvasNode[]; groups: CanvasGroup[] };
+type BoardSnap = { boardId: string; nodes: CanvasNode[]; groups: CanvasGroup[]; sequence?: string[] };
 type CanvasCommands = {
   closeMenus: () => void;
   undo: () => void;
@@ -67,6 +76,7 @@ function cloneBoard(board: CanvasBoard): BoardSnap {
       links: node.links.map((link) => ({ ...link })),
     })),
     groups: board.groups.map((group) => ({ ...group, members: [...group.members] })),
+    ...(board.sequence ? { sequence: [...board.sequence] } : {}),
   };
 }
 
@@ -397,17 +407,26 @@ function nodeDraft(node: CanvasNode): {
   url: string;
   achievementId?: string;
   document?: CanvasDocument;
+  photo?: CanvasDocument;
+  model?: CanvasDocument;
+  viewMode?: "orbit" | "walk";
   assets?: CanvasDocument[];
+  place?: CanvasPlace;
 } {
+  const settled = settlePhotoNode(node);
   return {
-    id: node.id,
-    kind: isCanvasNodeKind(node.kind) ? node.kind : "Design",
-    title: node.title,
-    body: node.body,
-    url: node.url,
-    achievementId: node.achievementId,
-    ...(node.document ? { document: { ...node.document } } : {}),
-    ...(node.assets?.length ? { assets: node.assets.map((asset) => ({ ...asset })) } : {}),
+    id: settled.id,
+    kind: isCanvasNodeKind(settled.kind) ? settled.kind : "Design",
+    title: settled.title,
+    body: settled.body,
+    url: settled.url,
+    achievementId: settled.achievementId,
+    ...(settled.document ? { document: { ...settled.document } } : {}),
+    ...(settled.photo ? { photo: { ...settled.photo } } : {}),
+    ...(settled.model ? { model: { ...settled.model } } : {}),
+    ...(settled.viewMode ? { viewMode: settled.viewMode } : {}),
+    ...(settled.assets?.length ? { assets: settled.assets.map((asset) => ({ ...asset })) } : {}),
+    ...(settled.place ? { place: { ...settled.place } } : {}),
   };
 }
 
@@ -441,7 +460,17 @@ function mapFrame(): Frame {
   };
 }
 
-type Viewer = { title: string; url: string; kind: string; srcDoc?: string } | null;
+type Viewer = {
+  title: string;
+  url: string;
+  kind: string;
+  srcDoc?: string;
+  viewMode?: "orbit" | "walk";
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  nodeId?: string;
+} | null;
 
 export function RoleCanvasEntry({
   role,
@@ -472,8 +501,8 @@ export function RoleCanvasEntry({
     () => (scope === "all" ? (roles ?? []) : [role]),
     [scope, role, roles],
   );
-  const openingId = scope === "all" ? (catalog[0]?.id ?? role.id) : role.id;
-  const openingViewport = readViewport(scope === "all" ? openingId : role.id, openingId);
+  const openingId = scope === "all" ? "" : role.id;
+  const openingViewport = openingId ? readViewport(role.id, openingId) : null;
   const loadedStudies = storedStudies(studyBoards);
   const [boards, setBoards] = useState(() =>
     scope === "all" ? loadAllBoards(catalog, loadedStudies) : reflectRole(loadBoards(role, loadedStudies), role),
@@ -506,6 +535,7 @@ export function RoleCanvasEntry({
   const [maximized, setMaximized] = useState(false);
   const [frame, setFrame] = useState<Frame | null>(null);
   const [viewer, setViewer] = useState<Viewer>(null);
+  const [playAt, setPlayAt] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [tool, setTool] = useState<"select" | "pan">("select");
   const [mapOpen, setMapOpen] = useState(true);
@@ -545,7 +575,11 @@ export function RoleCanvasEntry({
     url: string;
     achievementId?: string;
     document?: CanvasDocument;
+    photo?: CanvasDocument;
+    model?: CanvasDocument;
+    viewMode?: "orbit" | "walk";
     assets?: CanvasDocument[];
+    place?: CanvasPlace;
   } | null>(null);
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState(288);
@@ -644,7 +678,9 @@ export function RoleCanvasEntry({
     });
   }, [role, scope, catalog]);
 
-  const canvas = boards.find((board) => board.id === canvasId) ?? boards[0];
+  const canvas =
+    boards.find((board) => board.id === canvasId) ??
+    (scope === "all" && canvasId === "" ? undefined : boards[0]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -831,7 +867,9 @@ export function RoleCanvasEntry({
   function applyBoardSnap(snap: BoardSnap) {
     setBoards((current) =>
       current.map((board) =>
-        board.id === snap.boardId ? { ...board, nodes: snap.nodes, groups: snap.groups } : board,
+        board.id === snap.boardId
+          ? { ...board, nodes: snap.nodes, groups: snap.groups, sequence: snap.sequence }
+          : board,
       ),
     );
     setGuides([]);
@@ -956,6 +994,43 @@ export function RoleCanvasEntry({
     setViewer({ title: node.title, url: node.url, kind: node.kind });
   }
 
+  function openPhoto(node: CanvasNode) {
+    const photo = photoSource(node);
+    if (!photo) return;
+    setViewer({ title: node.title || "Untitled", url: photo.src, kind: "Photo" });
+  }
+
+  function openDrawing(node: CanvasNode) {
+    setViewer({
+      title: node.title || "Drawing",
+      url: "",
+      kind: "Drawing",
+      nodeId: node.id,
+    });
+  }
+
+  function openPlace(node: CanvasNode) {
+    if (!node.place) return;
+    setViewer({
+      title: node.title || "Untitled",
+      url: "",
+      kind: "Location",
+      latitude: node.place.latitude,
+      longitude: node.place.longitude,
+      address: node.place.address,
+    });
+  }
+
+  function openModel(node: CanvasNode) {
+    if (!node.model) return;
+    setViewer({
+      title: node.title || "Untitled",
+      url: `/api/documents/${encodeURIComponent(node.model.id)}?inline=1`,
+      kind: "3D",
+      viewMode: node.viewMode === "walk" ? "walk" : "orbit",
+    });
+  }
+
   function openDocument(node: CanvasNode) {
     if (!node.document) return;
     setViewer({
@@ -988,7 +1063,7 @@ export function RoleCanvasEntry({
       return;
     }
     if (node.kind === "Photo") {
-      openViewer(node);
+      openPhoto(node);
       return;
     }
     openCanvas(node.id);
@@ -1860,20 +1935,24 @@ export function RoleCanvasEntry({
   }
 
   function snapshotNode(node: CanvasNode): CanvasNode {
+    const settled = settlePhotoNode(node);
     return {
-      id: node.id,
-      kind: node.kind,
-      title: node.title,
-      body: node.body,
-      x: node.x,
-      y: node.y,
-      url: node.url,
-      notes: [...node.notes],
-      links: node.links.map((link) => ({ ...link })),
-      ...(node.document ? { document: { ...node.document } } : {}),
-      ...(node.assets?.length ? { assets: node.assets.map((asset) => ({ ...asset })) } : {}),
-      ...(node.w ? { w: node.w } : {}),
-      ...(node.h ? { h: node.h } : {}),
+      id: settled.id,
+      kind: settled.kind,
+      title: settled.title,
+      body: settled.body,
+      x: settled.x,
+      y: settled.y,
+      url: settled.url,
+      notes: [...settled.notes],
+      links: settled.links.map((link) => ({ ...link })),
+      ...(settled.document ? { document: { ...settled.document } } : {}),
+      ...(settled.photo ? { photo: { ...settled.photo } } : {}),
+      ...(settled.model ? { model: { ...settled.model } } : {}),
+      ...(settled.viewMode ? { viewMode: settled.viewMode } : {}),
+      ...(settled.assets?.length ? { assets: settled.assets.map((asset) => ({ ...asset })) } : {}),
+      ...(settled.w ? { w: settled.w } : {}),
+      ...(settled.h ? { h: settled.h } : {}),
     };
   }
 
@@ -2079,7 +2158,8 @@ export function RoleCanvasEntry({
           const members = entry.members.filter((member) => !ids.has(member));
           return members.length > 1 ? [{ ...entry, members }] : [];
         });
-        return { ...board, nodes, groups };
+        const sequence = sequenceWithoutNodes(board.sequence, ids);
+        return { ...board, nodes, groups, sequence: sequence.length ? sequence : undefined };
       }),
     );
     setSelection((current) => current.filter((item) => !ids.has(item)));
@@ -2261,17 +2341,40 @@ export function RoleCanvasEntry({
     }
     setNodeError("");
     remember();
+    const photoNode = prepared.value.kind === "Photo";
+    const modelNode = prepared.value.kind === "3D";
+    const locationNode = prepared.value.kind === "Location";
+    const photo = photoNode ? draft.photo : undefined;
+    const model = modelNode ? draft.model : undefined;
+    const viewMode = modelNode ? (draft.viewMode === "walk" ? "walk" : "orbit") : undefined;
+    const place =
+      locationNode &&
+      draft.place &&
+      Number.isFinite(draft.place.latitude) &&
+      Number.isFinite(draft.place.longitude)
+        ? draft.place
+        : undefined;
+    const plainNode = prepared.value.kind === "Text" || prepared.value.kind === "Drawing";
+    const document = photoNode || modelNode || locationNode || plainNode ? undefined : draft.document;
     if (draft.id) {
       patchNode(draft.id, {
         ...prepared.value,
-        document: draft.document,
+        document,
+        photo,
+        model,
+        viewMode,
+        place,
         assets: draft.assets?.length ? draft.assets : undefined,
       });
       setDraft({
         id: draft.id,
         ...prepared.value,
         achievementId: draft.achievementId,
-        document: draft.document,
+        ...(document ? { document } : {}),
+        ...(photo ? { photo } : {}),
+        ...(model ? { model } : {}),
+        ...(viewMode ? { viewMode } : {}),
+        ...(place ? { place } : {}),
         ...(draft.assets?.length ? { assets: draft.assets } : {}),
       });
       return;
@@ -2285,7 +2388,11 @@ export function RoleCanvasEntry({
       notes: [],
       links: [],
       ...(prepared.value.kind === "Page" ? { w: PAGE_DEFAULT_W, h: PAGE_DEFAULT_H } : {}),
-      ...(draft.document ? { document: draft.document } : {}),
+      ...(document ? { document } : {}),
+      ...(photo ? { photo } : {}),
+      ...(model ? { model } : {}),
+      ...(viewMode ? { viewMode } : {}),
+      ...(place ? { place } : {}),
       ...(draft.assets?.length ? { assets: draft.assets } : {}),
     };
     setBoards((current) =>
@@ -2296,10 +2403,46 @@ export function RoleCanvasEntry({
     setDraft({
       id: created.id,
       ...prepared.value,
-      ...(draft.document ? { document: draft.document } : {}),
+      ...(document ? { document } : {}),
+      ...(photo ? { photo } : {}),
+      ...(model ? { model } : {}),
+      ...(viewMode ? { viewMode } : {}),
+      ...(place ? { place } : {}),
       ...(draft.assets?.length ? { assets: draft.assets } : {}),
     });
     setSelectedId(created.id);
+  }
+
+  async function findPlace() {
+    if (!draft || draft.kind !== "Location") return;
+    const query = draft.place?.address.trim() ?? "";
+    if (!query) {
+      setNodeError("Enter a place.");
+      return;
+    }
+    setNodeError("");
+    try {
+      const found = await searchPlaces(query);
+      const hit = found?.place ?? found?.places[0] ?? null;
+      if (!hit) {
+        setNodeError("That place could not be found.");
+        return;
+      }
+      setDraft((current) =>
+        current
+          ? {
+              ...current,
+              place: {
+                address: hit.address || hit.label,
+                latitude: hit.latitude,
+                longitude: hit.longitude,
+              },
+            }
+          : current,
+      );
+    } catch {
+      setNodeError("That place could not be found.");
+    }
   }
 
   function applyDocument(document: CanvasDocument | undefined, nodeId: string | null) {
@@ -2330,8 +2473,28 @@ export function RoleCanvasEntry({
     );
   }
 
+  function nodeKind(nodeId: string | null) {
+    if (nodeId) {
+      for (const board of boardsRef.current) {
+        const node = board.nodes.find((item) => item.id === nodeId);
+        if (node) return node.kind;
+      }
+    }
+    return draft?.kind;
+  }
+
   async function uploadDocument(file: File, nodeId: string | null = null, append = false) {
     const targetId = nodeId ?? draft?.id ?? null;
+    const photoNode = nodeKind(targetId) === "Photo";
+    const modelNode = nodeKind(targetId) === "3D";
+    if (photoNode && !isPhotoFile(file)) {
+      setNodeError("Choose a photo.");
+      return;
+    }
+    if (modelNode && !isModelFile(file)) {
+      setNodeError("Choose a glTF or GLB model.");
+      return;
+    }
     const body = new FormData();
     body.set("file", file);
     body.set("category", "canvas");
@@ -2355,10 +2518,64 @@ export function RoleCanvasEntry({
       return;
     }
     const document = { id: stored.id, name: stored.originalName, mediaType: stored.mediaType || "" };
+    if (photoNode && !document.mediaType.startsWith("image/")) {
+      setNodeError("Choose a photo.");
+      return;
+    }
+    if (modelNode && !isModelDocument(document)) {
+      setNodeError("Choose a glTF or GLB model.");
+      return;
+    }
     setNodeError("");
     setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
-    if (append) appendAsset(document, targetId);
+    if (photoNode) applyPhoto(document, targetId);
+    else if (modelNode) applyModel(document, targetId);
+    else if (append) appendAsset(document, targetId);
     else applyDocument(document, targetId);
+  }
+
+  function applyModel(model: CanvasDocument | undefined, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      if (!nodeId && current.id) return current;
+      const { document: _document, model: _model, ...rest } = current;
+      return model ? { ...rest, model, viewMode: current.viewMode === "walk" ? "walk" : "orbit" } : rest;
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const { document: _document, model: _model, ...rest } = node;
+          return model ? { ...rest, model, viewMode: node.viewMode === "walk" ? "walk" : "orbit" } : rest;
+        }),
+      })),
+    );
+  }
+
+  function applyPhoto(photo: CanvasDocument | undefined, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      if (!nodeId && current.id) return current;
+      const { document: _document, photo: _photo, ...rest } = current;
+      return photo ? { ...rest, photo } : rest;
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const { document: _document, photo: _photo, ...rest } = node;
+          return photo ? { ...rest, photo } : rest;
+        }),
+      })),
+    );
   }
 
   function appendAsset(asset: CanvasDocument, nodeId: string | null) {
@@ -2453,6 +2670,10 @@ export function RoleCanvasEntry({
   function startReplace(nodeId: string) {
     uploadMode.current = "document";
     replaceNodeId.current = nodeId;
+    if (replaceInputRef.current) {
+      const kind = nodeKind(nodeId);
+      replaceInputRef.current.accept = kind === "Photo" ? "image/*" : kind === "3D" ? ".gltf,.glb" : "";
+    }
     closeMenus();
     replaceInputRef.current?.click();
   }
@@ -2476,13 +2697,56 @@ export function RoleCanvasEntry({
           const members = group.members.filter((id) => id !== draft.id);
           return members.length > 1 ? [{ ...group, members }] : [];
         });
-        return { ...board, nodes: next, groups };
+        const sequence = sequenceWithoutNodes(board.sequence, new Set([draft.id]));
+        return { ...board, nodes: next, groups, sequence: sequence.length ? sequence : undefined };
       }),
     );
     setSelectedId(null);
     setDraft(null);
     setNodeError("");
     setLinkOpen(false);
+  }
+
+  function writeSequence(next: string[]) {
+    if (!canvas) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => {
+        if (board.id !== canvas.id) return board;
+        if (!next.length) {
+          const { sequence: _sequence, ...rest } = board;
+          return rest;
+        }
+        return { ...board, sequence: next };
+      }),
+    );
+    closeMenus();
+  }
+
+  function showSequenceStep(index: number) {
+    const order = canvas?.sequence ?? [];
+    const node = canvas?.nodes.find((item) => item.id === order[index]);
+    if (!canvas || !node) {
+      setPlayAt(null);
+      setViewer(null);
+      return;
+    }
+    setPlayAt(index);
+    setSelection([node.id]);
+    setSelectedId(node.id);
+    setDraft(null);
+    const stage = stageRef.current;
+    if (stage) {
+      const origin = planeOrigin();
+      stage.scrollLeft = Math.max(0, node.x * zoom - stage.clientWidth / 2 + origin.left);
+      stage.scrollTop = Math.max(0, node.y * zoom - stage.clientHeight / 2 + origin.top);
+    }
+    if (photoSource(node)) openPhoto(node);
+    else if (videoSource(node)) openVideo(node);
+    else if (node.kind === "Page") openPage(node);
+    else if (node.document) openDocument(node);
+    else if (node.kind === "Event" && node.assets?.[0]) openAsset(node.assets[0]);
+    else setViewer(null);
   }
 
   function jumpSearch() {
@@ -2512,7 +2776,7 @@ export function RoleCanvasEntry({
     setSelectedId(target.id);
     setLinkOpen(false);
     if (target.kind === "Video") openVideo(target);
-    else if (target.kind === "Photo") openViewer(target);
+    else if (target.kind === "Photo") openPhoto(target);
   }
 
   function addNote() {
@@ -2946,14 +3210,58 @@ export function RoleCanvasEntry({
               onChange={(event) => setDraft({ ...draft, title: event.target.value })}
             />
           </label>
+          {draft.kind === "Drawing" ? null : (
           <label>
-            Description
+            {draft.kind === "Text" ? "Text" : "Description"}
             <textarea
-              aria-label="Description"
+              aria-label={draft.kind === "Text" ? "Text" : "Description"}
               value={draft.body}
               onChange={(event) => setDraft({ ...draft, body: event.target.value })}
             />
           </label>
+          )}
+          {draft.kind === "Text" || draft.kind === "Drawing" ? null : draft.kind === "Location" ? (
+            <>
+              <label>
+                Place
+                <input
+                  aria-label="Place"
+                  value={draft.place?.address ?? ""}
+                  placeholder="Address or place"
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      place: {
+                        address: event.target.value,
+                        latitude: Number.NaN,
+                        longitude: Number.NaN,
+                      },
+                    })
+                  }
+                />
+              </label>
+              <button type="button" onClick={() => void findPlace()}>
+                Find place
+              </button>
+              {draft.place && Number.isFinite(draft.place.latitude) && Number.isFinite(draft.place.longitude) ? (
+                <p>
+                  {draft.place.address || "Place found"}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((current) => {
+                        if (!current) return current;
+                        const { place: _place, ...rest } = current;
+                        return rest;
+                      })
+                    }
+                  >
+                    Remove place
+                  </button>
+                </p>
+              ) : null}
+            </>
+          ) : (
           <label>
             URL
             <input
@@ -2962,6 +3270,7 @@ export function RoleCanvasEntry({
               onChange={(event) => setDraft({ ...draft, url: event.target.value })}
             />
           </label>
+          )}
           {draft.kind === "Event" ? (
             <>
               <label>
@@ -3007,7 +3316,108 @@ export function RoleCanvasEntry({
                 </p>
               ))}
             </>
-          ) : (
+          ) : draft.kind === "3D" ? (
+            <>
+              <label>
+                Model
+                <input
+                  aria-label="Upload a model"
+                  type="file"
+                  accept=".gltf,.glb,model/gltf-binary,model/gltf+json"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void uploadDocument(file);
+                  }}
+                />
+              </label>
+              <label>
+                Opening view
+                <select
+                  aria-label="Opening view"
+                  value={draft.viewMode === "walk" ? "walk" : "orbit"}
+                  onChange={(event) => setDraft({ ...draft, viewMode: event.target.value === "walk" ? "walk" : "orbit" })}
+                >
+                  <option value="orbit">Orbit</option>
+                  <option value="walk">Walk</option>
+                </select>
+              </label>
+              {documents.some((item) => isModelDocument(item)) ? (
+                <label>
+                  Attach a model
+                  <select
+                    aria-label="Attach a model"
+                    value={draft.model?.id ?? ""}
+                    onChange={(event) => {
+                      const next = documents.find((item) => item.id === event.target.value);
+                      applyModel(next && isModelDocument(next) ? next : undefined, draft.id);
+                    }}
+                  >
+                    <option value="">None</option>
+                    {documents.filter((item) => isModelDocument(item)).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {draft.model ? (
+                <p className="role-canvas-document-name">
+                  {draft.model.name}
+                  <button type="button" onClick={() => applyModel(undefined, draft.id)}>
+                    Remove model
+                  </button>
+                </p>
+              ) : null}
+            </>
+          ) : draft.kind === "Photo" ? (
+            <>
+              <label>
+                Photo
+                <input
+                  aria-label="Upload a photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void uploadDocument(file);
+                  }}
+                />
+              </label>
+              {documents.some((item) => item.mediaType.startsWith("image/")) ? (
+                <label>
+                  Attach a photo
+                  <select
+                    aria-label="Attach a photo"
+                    value={draft.photo?.id ?? ""}
+                    onChange={(event) => {
+                      const next = documents.find((item) => item.id === event.target.value);
+                      applyPhoto(next?.mediaType.startsWith("image/") ? next : undefined, draft.id);
+                    }}
+                  >
+                    <option value="">None</option>
+                    {documents
+                      .filter((item) => item.mediaType.startsWith("image/"))
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              ) : null}
+              {draft.photo ? (
+                <p className="role-canvas-document-name">
+                  {draft.photo.name}
+                  <button type="button" onClick={() => applyPhoto(undefined, draft.id)}>
+                    Remove photo
+                  </button>
+                </p>
+              ) : null}
+            </>
+          ) : draft.kind === "Location" || draft.kind === "Text" || draft.kind === "Drawing" ? null : (
             <>
           <label>
             Document
@@ -3116,9 +3526,9 @@ export function RoleCanvasEntry({
                 Play
               </button>
             ) : null}
-            {selected?.url && selected.kind === "Photo" ? (
-              <button type="button" onClick={() => openViewer(selected)}>
-                Open
+            {selected && photoSource(selected) ? (
+              <button type="button" onClick={() => openPhoto(selected)}>
+                View
               </button>
             ) : null}
           </div>
@@ -3208,6 +3618,10 @@ export function RoleCanvasEntry({
           setWireMenu(null);
         }}
         onContextMenu={(event) => {
+          if (!canvas) {
+            event.preventDefault();
+            return;
+          }
           if (openWireAt(event)) return;
           const target = event.target as HTMLElement;
           if (target.closest(".role-canvas-node")) return;
@@ -3323,6 +3737,13 @@ export function RoleCanvasEntry({
         }}
       >
         <div className="role-canvas-plane" ref={planeRef}>
+          {scope === "all" && !canvas ? (
+            <article className="role-canvas-node role-canvas-overview" aria-label={`${boards.length} boards in career history`}>
+              <p className="kind">Overview</p>
+              <h3>Career history</h3>
+              <p className="count">{boards.length === 1 ? "1 board" : `${boards.length} boards`}</p>
+            </article>
+          ) : null}
           <svg className="role-canvas-guides" aria-hidden="true">
             {guides.map((line, index) => (
               <line key={index} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} />
@@ -3409,13 +3830,14 @@ export function RoleCanvasEntry({
               query.trim() &&
               !`${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase());
             const video = videoSource(node);
+            const photo = photoSource(node);
             return (
               <article
                 key={node.id}
                 className={[
                   "role-canvas-node",
                   node.kind === "Page" ? "is-page" : "",
-                  node.document ? "has-document" : "",
+                  node.kind !== "Photo" && node.kind !== "3D" && node.document ? "has-document" : "",
                   node.w || node.h ? "is-sized" : "",
                   node.locked ? "is-locked" : "",
                   selection.includes(node.id) ? "is-selected" : "",
@@ -3449,10 +3871,28 @@ export function RoleCanvasEntry({
                   event.preventDefault();
                   event.stopPropagation();
                   setFileDropId(null);
-                  if (node.locked) return;
+                  if (node.locked || node.kind === "Text" || node.kind === "Drawing") return;
                   const files = [...event.dataTransfer.files];
                   if (node.kind === "Event") {
                     for (const file of files) void uploadDocument(file, node.id, true);
+                    return;
+                  }
+                  if (node.kind === "Photo") {
+                    const file = files.find((item) => isPhotoFile(item));
+                    if (!file) {
+                      setNodeError("Choose a photo.");
+                      return;
+                    }
+                    void uploadDocument(file, node.id);
+                    return;
+                  }
+                  if (node.kind === "3D") {
+                    const file = files.find((item) => isModelFile(item));
+                    if (!file) {
+                      setNodeError("Choose a glTF or GLB model.");
+                      return;
+                    }
+                    void uploadDocument(file, node.id);
                     return;
                   }
                   if (files[0]) void uploadDocument(files[0], node.id);
@@ -3480,13 +3920,50 @@ export function RoleCanvasEntry({
                   ) : null}
                 </p>
                 <h3 title={node.title || undefined}>{node.title || "Untitled"}</h3>
-                {video ? (
+                {(canvas?.sequence?.indexOf(node.id) ?? -1) >= 0 ? (
+                  <span className="role-canvas-sequence-mark">{(canvas?.sequence?.indexOf(node.id) ?? 0) + 1}</span>
+                ) : null}
+                {node.kind === "Text" ? (
+                  node.body ? <p className="role-canvas-writing">{node.body}</p> : null
+                ) : node.kind === "Drawing" ? (
+                  <SketchPad
+                    strokes={node.strokes ?? []}
+                    onStrokeStart={remember}
+                    onChange={(strokes) => patchNode(node.id, { strokes })}
+                  />
+                ) : node.kind === "Location" && node.place ? (
+                  <>
+                    <PlaceStage
+                      latitude={node.place.latitude}
+                      longitude={node.place.longitude}
+                      interactive={false}
+                      label={node.title || "Location"}
+                    />
+                    {node.body ? <p>{node.body}</p> : null}
+                  </>
+                ) : node.kind === "3D" && node.model ? (
+                  <>
+                    <ModelStage
+                      src={`/api/documents/${encodeURIComponent(node.model.id)}?inline=1`}
+                      interactive={false}
+                      label={node.title || "Model"}
+                    />
+                    {node.body ? <p>{node.body}</p> : null}
+                  </>
+                ) : photo ? (
+                  <>
+                    <div className="role-canvas-photo-preview">
+                      <img alt={node.title || "Photo"} src={photo.src} />
+                    </div>
+                    {node.body ? <p>{node.body}</p> : null}
+                  </>
+                ) : video ? (
                   video.embed ? null : (
                     <div className="role-canvas-video-preview">
                       <video muted playsInline preload="metadata" tabIndex={-1} src={video.src} />
                     </div>
                   )
-                ) : node.document && canShowDocument(node.document.mediaType) ? (
+                ) : node.kind !== "Photo" && node.kind !== "3D" && node.document && canShowDocument(node.document.mediaType) ? (
                   <div
                     className={
                       node.document.mediaType === "application/pdf"
@@ -3517,7 +3994,43 @@ export function RoleCanvasEntry({
                 ) : node.body ? (
                   <p>{node.body}</p>
                 ) : null}
-                {video ? (
+                {node.kind === "Drawing" ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View drawing"
+                    onClick={() => openDrawing(node)}
+                  >
+                    View
+                  </button>
+                ) : node.kind === "Location" && node.place ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View map"
+                    onClick={() => openPlace(node)}
+                  >
+                    View
+                  </button>
+                ) : node.kind === "3D" && node.model ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View model"
+                    onClick={() => openModel(node)}
+                  >
+                    View
+                  </button>
+                ) : photo ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View photo"
+                    onClick={() => openPhoto(node)}
+                  >
+                    View
+                  </button>
+                ) : video ? (
                   <button
                     type="button"
                     className="role-canvas-view"
@@ -3526,7 +4039,7 @@ export function RoleCanvasEntry({
                   >
                     Play
                   </button>
-                ) : node.document ? (
+                ) : node.kind !== "Photo" && node.kind !== "3D" && node.document ? (
                   <button
                     type="button"
                     className="role-canvas-view"
@@ -3580,14 +4093,6 @@ export function RoleCanvasEntry({
                   </div>
                 ) : null}
                 {node.notes.length > 0 ? <p>{node.notes.join(" ")}</p> : null}
-                {node.links.length > 0 ? (
-                  <p className="links">
-                    Links out to{" "}
-                    {node.links
-                      .map((link) => (link.relation ? `${link.label} (${link.relation})` : link.label))
-                      .join(", ")}
-                  </p>
-                ) : null}
                 {node.kind === "Page" && !node.locked ? (
                   <PageHandles node={node} zoom={zoom} onRemember={remember} onResize={(patch) => patchNode(node.id, patch)} />
                 ) : null}
@@ -3651,7 +4156,7 @@ export function RoleCanvasEntry({
           })}
         </div>
       </div>
-      {(canvas?.nodes.length ?? 0) === 0 ? (
+      {canvas && canvas.nodes.length === 0 ? (
         <div className="role-canvas-empty">
           <button type="button" className="role-canvas-empty-add" onClick={beginAdd}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
@@ -3724,10 +4229,17 @@ export function RoleCanvasEntry({
               {canvas?.nodes.filter((node) => `${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase())).length ?? 0} of {canvas?.nodes.length ?? 0}
             </span>
           ) : null}
+          {canvas?.sequence?.length ? (
+            <button type="button" className="tool is-play" aria-label="Play sequence" onClick={() => showSequenceStep(0)}>
+              Play sequence
+            </button>
+          ) : null}
+          {canvas ? (
           <button type="button" className="tool is-add" aria-label="Add node" onClick={beginAdd}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M8 3.25v9.5M3.25 8h9.5" /></svg>
             add node
           </button>
+          ) : null}
         </div>
       </div>
       </div>
@@ -3757,10 +4269,33 @@ export function RoleCanvasEntry({
           ) : (
             <>
               <MenuButton label="Edit" onClick={() => editNode(nodeMenu.id)} />
+              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.kind === "Drawing" ? (
+                <MenuButton
+                  label="Clear drawing"
+                  onClick={() => {
+                    remember();
+                    patchNode(nodeMenu.id, { strokes: [] });
+                    closeMenus();
+                  }}
+                />
+              ) : null}
+              {canvas.sequence?.includes(nodeMenu.id) ? (
+                <MenuButton
+                  label="Remove from sequence"
+                  onClick={() => writeSequence(removeFromSequence(canvas.sequence, nodeMenu.id))}
+                />
+              ) : (
+                <MenuButton
+                  label={canvas.sequence?.length ? "Add next" : "Start the sequence"}
+                  onClick={() => writeSequence(addToSequence(canvas.sequence, nodeMenu.id))}
+                />
+              )}
               {canvas.nodes.find((node) => node.id === nodeMenu.id)?.kind === "Event" ? (
                 <MenuButton label="Add media" onClick={() => startAddMedia(nodeMenu.id)} />
               ) : null}
-              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.document ? (
+              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.document &&
+              canvas.nodes.find((node) => node.id === nodeMenu.id)?.kind !== "Photo" &&
+              canvas.nodes.find((node) => node.id === nodeMenu.id)?.kind !== "3D" ? (
                 <>
                   <MenuButton
                     label="Download"
@@ -3790,6 +4325,46 @@ export function RoleCanvasEntry({
                     )}
                     <MenuButton label="Replace" onClick={() => startReplace(menuNode.id)} />
                     <MenuButton label="Remove" onClick={() => clearVideoUrl(menuNode.id)} />
+                  </>
+                );
+              })()}
+              {(() => {
+                const menuNode = canvas.nodes.find((node) => node.id === nodeMenu.id);
+                const photo = menuNode ? photoSource(menuNode) : null;
+                if (!menuNode || !photo) return null;
+                return (
+                  <>
+                    <MenuButton label="Download" onClick={() => downloadLink(photo.src, photo.fileName)} />
+                    <MenuButton label="Replace" onClick={() => startReplace(menuNode.id)} />
+                    <MenuButton
+                      label="Remove"
+                      onClick={() => {
+                        if (photo.stored) {
+                          applyPhoto(undefined, menuNode.id);
+                          closeMenus();
+                          return;
+                        }
+                        clearVideoUrl(menuNode.id);
+                      }}
+                    />
+                  </>
+                );
+              })()}
+              {(() => {
+                const menuNode = canvas.nodes.find((node) => node.id === nodeMenu.id);
+                if (!menuNode?.model || menuNode.kind !== "3D") return null;
+                const src = `/api/documents/${encodeURIComponent(menuNode.model.id)}?inline=1`;
+                return (
+                  <>
+                    <MenuButton label="Download" onClick={() => downloadLink(src, menuNode.model?.name || "model")} />
+                    <MenuButton label="Replace" onClick={() => startReplace(menuNode.id)} />
+                    <MenuButton
+                      label="Remove"
+                      onClick={() => {
+                        applyModel(undefined, menuNode.id);
+                        closeMenus();
+                      }}
+                    />
                   </>
                 );
               })()}
@@ -3915,10 +4490,18 @@ export function RoleCanvasEntry({
       {windowNode && windowHost ? createPortal(windowNode, windowHost) : null}
       {viewer
         ? createPortal(
-            viewer.kind === "Document" || viewer.kind === "Video" || viewer.kind === "Page" ? (
+            viewer.kind === "Document" || viewer.kind === "Video" || viewer.kind === "Page" || viewer.kind === "Photo" || viewer.kind === "3D" || viewer.kind === "Location" || viewer.kind === "Drawing" ? (
               <div className="role-canvas-document-view" role="dialog" aria-label={viewer.title}>
                 <header>
-                  <h2>{viewer.title}</h2>
+                  <div>
+                    <h2>{viewer.title}</h2>
+                    {viewer.kind === "3D" && viewer.viewMode === "walk" ? (
+                      <p className="role-canvas-model-note">Walkthrough is next. Orbit is on for now.</p>
+                    ) : null}
+                    {viewer.kind === "Location" && viewer.address ? (
+                      <p className="role-canvas-model-note">{viewer.address}</p>
+                    ) : null}
+                  </div>
                   <button type="button" onClick={() => setViewer(null)}>
                     Close
                   </button>
@@ -3935,6 +4518,25 @@ export function RoleCanvasEntry({
                   ) : (
                     <video className="role-canvas-document-frame" controls src={viewer.url} />
                   )
+                ) : viewer.kind === "Photo" ? (
+                  <img className="role-canvas-document-frame is-photo" alt={viewer.title} src={viewer.url} />
+                ) : viewer.kind === "3D" ? (
+                  <ModelStage src={viewer.url} interactive label={viewer.title} />
+                ) : viewer.kind === "Drawing" && viewer.nodeId ? (
+                  <SketchPad
+                    strokes={canvas?.nodes.find((item) => item.id === viewer.nodeId)?.strokes ?? []}
+                    onStrokeStart={remember}
+                    onChange={(strokes) => {
+                      if (viewer.nodeId) patchNode(viewer.nodeId, { strokes });
+                    }}
+                  />
+                ) : viewer.kind === "Location" && viewer.latitude !== undefined && viewer.longitude !== undefined ? (
+                  <PlaceStage
+                    latitude={viewer.latitude}
+                    longitude={viewer.longitude}
+                    interactive
+                    label={viewer.title}
+                  />
                 ) : viewer.kind === "Page" ? (
                   <iframe
                     className="role-canvas-document-frame"
@@ -4060,6 +4662,45 @@ function hiddenMemberIds(groups: CanvasGroup[]) {
 
 function canShowDocument(mediaType: string) {
   return mediaType.startsWith("image/") || mediaType.startsWith("text/") || mediaType === "application/pdf";
+}
+
+function isModelFile(file: File) {
+  return /\.(gltf|glb)$/i.test(file.name) || file.type === "model/gltf-binary" || file.type === "model/gltf+json";
+}
+
+function isModelDocument(file: { name: string; mediaType: string }) {
+  return /\.(gltf|glb)$/i.test(file.name) || file.mediaType === "model/gltf-binary" || file.mediaType === "model/gltf+json";
+}
+
+function isPhotoFile(file: File) {
+  if (file.type.startsWith("image/")) return true;
+  return /\.(png|jpe?g|gif|webp|avif|bmp|heic|heif)$/i.test(file.name);
+}
+
+function photoFile(node: CanvasNode) {
+  const file = node.photo?.mediaType.startsWith("image/")
+    ? node.photo
+    : node.document?.mediaType.startsWith("image/")
+      ? node.document
+      : undefined;
+  return file;
+}
+
+function photoSource(node: CanvasNode) {
+  if (node.kind !== "Photo") return null;
+  const title = node.title || "Untitled";
+  const file = photoFile(node);
+  if (file) {
+    return {
+      src: `/api/documents/${encodeURIComponent(file.id)}?inline=1`,
+      name: title,
+      fileName: file.name,
+      stored: true,
+    };
+  }
+  const url = node.url.trim();
+  if (!url) return null;
+  return { src: url, name: title, fileName: title, stored: false };
 }
 
 function videoSource(node: CanvasNode) {

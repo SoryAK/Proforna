@@ -424,13 +424,19 @@ export {
   type WorkMapSnapshot,
 } from "./work-map";
 export {
+  addToSequence,
   pointsAtGroup,
   readCanvasBoards,
   releasePointingMembers,
+  removeFromSequence,
+  sequenceWithoutNodes,
+  settlePhotoNode,
   type CanvasBoard,
   type CanvasGroup,
   type CanvasLink,
   type CanvasNode,
+  type CanvasPlace,
+  type CanvasStroke,
 } from "./canvas-board";
 export {
   achievementStatement,

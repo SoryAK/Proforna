@@ -6,6 +6,14 @@ export type CanvasDocument = {
   mediaType: string;
 };
 
+export type CanvasPlace = {
+  address: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type CanvasStroke = { x: number; y: number }[];
+
 export type CanvasNode = {
   id: string;
   kind: string;
@@ -21,7 +29,12 @@ export type CanvasNode = {
   locked?: boolean;
   achievementId?: string;
   document?: CanvasDocument;
+  photo?: CanvasDocument;
+  model?: CanvasDocument;
+  viewMode?: "orbit" | "walk";
   assets?: CanvasDocument[];
+  place?: CanvasPlace;
+  strokes?: CanvasStroke[];
 };
 
 export type CanvasGroup = {
@@ -39,6 +52,7 @@ export type CanvasBoard = {
   name: string;
   nodes: CanvasNode[];
   groups: CanvasGroup[];
+  sequence?: string[];
 };
 
 export function readCanvasBoards(value: unknown): CanvasBoard[] | null {
@@ -66,12 +80,37 @@ function readBoard(value: unknown): CanvasBoard | null {
         return group ? [group] : [];
       })
     : [];
+  const sequence = readSequence(board.sequence, new Set(nodes.map((node) => node.id)));
   return releasePointingMembers({
     id: board.id,
     name: typeof board.name === "string" && board.name ? board.name : board.id,
     nodes,
     groups,
+    ...(sequence ? { sequence } : {}),
   });
+}
+
+export function addToSequence(sequence: readonly string[] | undefined, nodeId: string): string[] {
+  if (sequence?.includes(nodeId)) return [...sequence];
+  return [...(sequence ?? []), nodeId];
+}
+
+export function removeFromSequence(sequence: readonly string[] | undefined, nodeId: string): string[] {
+  return (sequence ?? []).filter((id) => id !== nodeId);
+}
+
+export function sequenceWithoutNodes(sequence: readonly string[] | undefined, removed: ReadonlySet<string>): string[] {
+  return (sequence ?? []).filter((id) => !removed.has(id));
+}
+
+function readSequence(value: unknown, nodeIds: ReadonlySet<string>): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !nodeIds.has(entry) || ids.includes(entry)) continue;
+    ids.push(entry);
+  }
+  return ids.length ? ids : undefined;
 }
 
 function readNode(value: unknown): CanvasNode | null {
@@ -80,7 +119,7 @@ function readNode(value: unknown): CanvasNode | null {
   if (typeof node.id !== "string" || !node.id || typeof node.title !== "string") return null;
   const x = Number(node.x);
   const y = Number(node.y);
-  return {
+  const read: CanvasNode = {
     id: node.id,
     kind: typeof node.kind === "string" ? node.kind : "Design",
     title: node.title,
@@ -100,8 +139,14 @@ function readNode(value: unknown): CanvasNode | null {
     locked: node.locked === true ? true : undefined,
     achievementId: typeof node.achievementId === "string" && node.achievementId ? node.achievementId : undefined,
     ...(readDocument(node.document) ? { document: readDocument(node.document) } : {}),
+    ...(readDocument(node.photo) ? { photo: readDocument(node.photo) } : {}),
+    ...(readDocument(node.model) ? { model: readDocument(node.model) } : {}),
+    ...(readViewMode(node.viewMode) ? { viewMode: readViewMode(node.viewMode) } : {}),
     ...(readAssets(node.assets).length ? { assets: readAssets(node.assets) } : {}),
+    ...(readPlace(node.place) ? { place: readPlace(node.place) } : {}),
+    ...(readStrokes(node.strokes).length ? { strokes: readStrokes(node.strokes) } : {}),
   };
+  return settlePhotoNode(read);
 }
 
 function readAssets(value: unknown): CanvasDocument[] {
@@ -110,6 +155,55 @@ function readAssets(value: unknown): CanvasDocument[] {
     const asset = readDocument(entry);
     return asset ? [asset] : [];
   });
+}
+
+export function settlePhotoNode(node: CanvasNode): CanvasNode {
+  if (node.kind !== "Photo") return node;
+  const photo = imageFile(node.photo) ?? imageFile(node.document);
+  const photoSame = (node.photo?.id ?? "") === (photo?.id ?? "") && (!node.photo || Boolean(imageFile(node.photo)));
+  if (node.document === undefined && photoSame) return node;
+  const { document: _document, photo: _photo, ...rest } = node;
+  return photo ? { ...rest, photo } : rest;
+}
+
+function readPlace(value: unknown): CanvasPlace | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const place = value as Partial<CanvasPlace>;
+  const latitude = Number(place.latitude);
+  const longitude = Number(place.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return undefined;
+  return {
+    address: typeof place.address === "string" ? place.address.trim() : "",
+    latitude,
+    longitude,
+  };
+}
+
+function readStrokes(value: unknown): CanvasStroke[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((stroke) => {
+    if (!Array.isArray(stroke)) return [];
+    const points = stroke.flatMap((point) => {
+      if (!point || typeof point !== "object") return [];
+      const mark = point as { x?: unknown; y?: unknown };
+      const x = Number(mark.x);
+      const y = Number(mark.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return [];
+      if (x < 0 || x > 1 || y < 0 || y > 1) return [];
+      return [{ x, y }];
+    });
+    return points.length ? [points] : [];
+  });
+}
+
+function readViewMode(value: unknown): "orbit" | "walk" | undefined {
+  return value === "orbit" || value === "walk" ? value : undefined;
+}
+
+function imageFile(file: CanvasDocument | undefined): CanvasDocument | undefined {
+  if (!file?.mediaType.startsWith("image/")) return undefined;
+  return file;
 }
 
 function readDocument(value: unknown): CanvasDocument | undefined {

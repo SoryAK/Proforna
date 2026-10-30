@@ -65,6 +65,150 @@ describe("readCanvasBoards", () => {
     expect(boards?.[0].nodes[1].document).toBeUndefined();
   });
 
+  it("keeps a photo file on a photo node and does not keep it as a document", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "still",
+            kind: "Photo",
+            title: "Still",
+            body: "A still from the floor.",
+            photo: { id: "pic-1", name: "still.png", mediaType: "image/png" },
+          },
+          {
+            id: "legacy",
+            kind: "Photo",
+            title: "Legacy",
+            document: { id: "pic-2", name: "floor.jpg", mediaType: "image/jpeg" },
+          },
+          {
+            id: "note",
+            kind: "Photo",
+            title: "Note",
+            document: { id: "doc-9", name: "notes.txt", mediaType: "text/plain" },
+          },
+        ],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].photo).toEqual({
+      id: "pic-1",
+      name: "still.png",
+      mediaType: "image/png",
+    });
+    expect(boards?.[0].nodes[0].document).toBeUndefined();
+    expect(boards?.[0].nodes[1].photo).toEqual({
+      id: "pic-2",
+      name: "floor.jpg",
+      mediaType: "image/jpeg",
+    });
+    expect(boards?.[0].nodes[1].document).toBeUndefined();
+    expect(boards?.[0].nodes[2].photo).toBeUndefined();
+    expect(boards?.[0].nodes[2].document).toBeUndefined();
+  });
+
+  it("keeps a sequence of nodes that are still on the board", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          { id: "north", title: "North" },
+          { id: "clip", title: "Clip" },
+        ],
+        sequence: ["clip", "missing", "north", "clip"],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].sequence).toEqual(["clip", "north"]);
+  });
+
+  it("keeps a model and an opening view on a 3D node", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "hinge",
+            kind: "3D",
+            title: "Hinge",
+            model: { id: "model-1", name: "hinge.glb", mediaType: "model/gltf-binary" },
+            viewMode: "orbit",
+          },
+          { id: "sign", kind: "Demonstration", title: "Product demonstration" },
+        ],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].model).toEqual({
+      id: "model-1",
+      name: "hinge.glb",
+      mediaType: "model/gltf-binary",
+    });
+    expect(boards?.[0].nodes[0].viewMode).toBe("orbit");
+    expect(boards?.[0].nodes[1].kind).toBe("Demonstration");
+    expect(boards?.[0].nodes[1].model).toBeUndefined();
+  });
+
+  it("keeps a place on a location node and drops a place with no coordinates", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "floor",
+            kind: "Location",
+            title: "Lancaster",
+            place: { address: "Lancaster, PA", latitude: 40.0379, longitude: -76.3055 },
+          },
+          { id: "blank", kind: "Location", title: "Unplaced", place: { address: "Somewhere" } },
+        ],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].place).toEqual({
+      address: "Lancaster, PA",
+      latitude: 40.0379,
+      longitude: -76.3055,
+    });
+    expect(boards?.[0].nodes[1].place).toBeUndefined();
+  });
+
+  it("keeps strokes on a drawing node and drops a point outside the surface", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "mark",
+            kind: "Drawing",
+            title: "Drawing",
+            strokes: [
+              [
+                { x: 0.1, y: 0.2 },
+                { x: 0.4, y: 0.8 },
+              ],
+              [{ x: 2, y: 0.2 }],
+            ],
+          },
+        ],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].strokes).toEqual([
+      [
+        { x: 0.1, y: 0.2 },
+        { x: 0.4, y: 0.8 },
+      ],
+    ]);
+  });
+
   it("keeps several assets on an event and an event group", () => {
     const boards = readCanvasBoards([
       {

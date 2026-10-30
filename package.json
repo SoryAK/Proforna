@@ -34,7 +34,8 @@
     "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-leaflet": "^5.0.0"
+    "react-leaflet": "^5.0.0",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.5",
