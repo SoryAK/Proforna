@@ -1626,7 +1626,8 @@ button.role-canvas-board-name:focus-visible {
   transform: rotate(90deg);
 }
 
-.role-canvas-node.is-page .role-canvas-page {
+.role-canvas-node.is-page .role-canvas-page,
+.role-canvas-node.has-document .role-canvas-page {
   display: block;
   width: 100%;
   height: 9rem;
@@ -1785,6 +1786,18 @@ button.role-canvas-board-name:focus-visible {
   margin-top: 0;
   border: 0;
   border-radius: 0;
+  background: #fff;
+  pointer-events: none;
+}
+
+.role-canvas-document-preview.is-sheet::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.15rem;
   background: #fff;
   pointer-events: none;
 }
