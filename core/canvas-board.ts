@@ -21,6 +21,7 @@ export type CanvasNode = {
   locked?: boolean;
   achievementId?: string;
   document?: CanvasDocument;
+  assets?: CanvasDocument[];
 };
 
 export type CanvasGroup = {
@@ -30,6 +31,7 @@ export type CanvasGroup = {
   collapsed: boolean;
   x: number;
   y: number;
+  event?: boolean;
 };
 
 export type CanvasBoard = {
@@ -98,7 +100,16 @@ function readNode(value: unknown): CanvasNode | null {
     locked: node.locked === true ? true : undefined,
     achievementId: typeof node.achievementId === "string" && node.achievementId ? node.achievementId : undefined,
     ...(readDocument(node.document) ? { document: readDocument(node.document) } : {}),
+    ...(readAssets(node.assets).length ? { assets: readAssets(node.assets) } : {}),
   };
+}
+
+function readAssets(value: unknown): CanvasDocument[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const asset = readDocument(entry);
+    return asset ? [asset] : [];
+  });
 }
 
 function readDocument(value: unknown): CanvasDocument | undefined {
@@ -140,6 +151,7 @@ function readGroup(value: unknown): CanvasGroup | null {
     collapsed: group.collapsed === true,
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
+    ...(group.event === true ? { event: true } : {}),
   };
 }
 

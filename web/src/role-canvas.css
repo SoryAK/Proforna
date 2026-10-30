@@ -1539,6 +1539,19 @@
   outline-offset: 3px;
 }
 
+.role-canvas-event-asset {
+  margin-top: 0.45rem;
+}
+
+.role-canvas-event-asset .role-canvas-video-preview,
+.role-canvas-event-asset .role-canvas-document-preview {
+  height: 5.5rem;
+}
+
+.role-canvas-node.is-group.is-event .kind {
+  color: #e8d5b7;
+}
+
 .role-canvas-video-preview {
   overflow: hidden;
   height: 9rem;

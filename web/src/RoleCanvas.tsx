@@ -397,6 +397,7 @@ function nodeDraft(node: CanvasNode): {
   url: string;
   achievementId?: string;
   document?: CanvasDocument;
+  assets?: CanvasDocument[];
 } {
   return {
     id: node.id,
@@ -406,6 +407,7 @@ function nodeDraft(node: CanvasNode): {
     url: node.url,
     achievementId: node.achievementId,
     ...(node.document ? { document: { ...node.document } } : {}),
+    ...(node.assets?.length ? { assets: node.assets.map((asset) => ({ ...asset })) } : {}),
   };
 }
 
@@ -542,6 +544,7 @@ export function RoleCanvasEntry({
     url: string;
     achievementId?: string;
     document?: CanvasDocument;
+    assets?: CanvasDocument[];
   } | null>(null);
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState(288);
@@ -582,6 +585,7 @@ export function RoleCanvasEntry({
   const commandRef = useRef<CanvasCommands | null>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const replaceNodeId = useRef<string | null>(null);
+  const uploadMode = useRef<"document" | "asset">("document");
 
   useEffect(() => {
     if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen) return;
@@ -1454,6 +1458,10 @@ export function RoleCanvasEntry({
     gatherSelection(false);
   }
 
+  function makeEventGroup() {
+    gatherSelection(true);
+  }
+
   function gatherSelection(eventGroup: boolean) {
     if (!canvas || selection.length < 2) return;
     let name = eventGroup ? "Event" : "Group";
@@ -1473,6 +1481,7 @@ export function RoleCanvasEntry({
       collapsed: true,
       x: Math.min(...cards.map((item) => item.x)),
       y: Math.min(...cards.map((item) => item.y)),
+      ...(eventGroup ? { event: true } : {}),
     };
     const taken = new Set(members);
     setBoards((current) =>
@@ -1807,6 +1816,7 @@ export function RoleCanvasEntry({
       notes: [...node.notes],
       links: node.links.map((link) => ({ ...link })),
       ...(node.document ? { document: { ...node.document } } : {}),
+      ...(node.assets?.length ? { assets: node.assets.map((asset) => ({ ...asset })) } : {}),
       ...(node.w ? { w: node.w } : {}),
       ...(node.h ? { h: node.h } : {}),
     };
@@ -2200,12 +2210,14 @@ export function RoleCanvasEntry({
       patchNode(draft.id, {
         ...prepared.value,
         document: draft.document,
+        assets: draft.assets?.length ? draft.assets : undefined,
       });
       setDraft({
         id: draft.id,
         ...prepared.value,
         achievementId: draft.achievementId,
         document: draft.document,
+        ...(draft.assets?.length ? { assets: draft.assets } : {}),
       });
       return;
     }
@@ -2219,6 +2231,7 @@ export function RoleCanvasEntry({
       links: [],
       ...(prepared.value.kind === "Page" ? { w: PAGE_DEFAULT_W, h: PAGE_DEFAULT_H } : {}),
       ...(draft.document ? { document: draft.document } : {}),
+      ...(draft.assets?.length ? { assets: draft.assets } : {}),
     };
     setBoards((current) =>
       current.map((board) =>
@@ -2229,6 +2242,7 @@ export function RoleCanvasEntry({
       id: created.id,
       ...prepared.value,
       ...(draft.document ? { document: draft.document } : {}),
+      ...(draft.assets?.length ? { assets: draft.assets } : {}),
     });
     setSelectedId(created.id);
   }
@@ -2261,7 +2275,7 @@ export function RoleCanvasEntry({
     );
   }
 
-  async function uploadDocument(file: File, nodeId: string | null = null) {
+  async function uploadDocument(file: File, nodeId: string | null = null, append = false) {
     const targetId = nodeId ?? draft?.id ?? null;
     const body = new FormData();
     body.set("file", file);
@@ -2288,7 +2302,68 @@ export function RoleCanvasEntry({
     const document = { id: stored.id, name: stored.originalName, mediaType: stored.mediaType || "" };
     setNodeError("");
     setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
-    applyDocument(document, targetId);
+    if (append) appendAsset(document, targetId);
+    else applyDocument(document, targetId);
+  }
+
+  function appendAsset(asset: CanvasDocument, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      if (!nodeId && current.id) return current;
+      const assets = [...(current.assets ?? []).filter((item) => item.id !== asset.id), asset];
+      return { ...current, assets };
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const assets = [...(node.assets ?? []).filter((item) => item.id !== asset.id), asset];
+          return { ...node, assets };
+        }),
+      })),
+    );
+  }
+
+  function removeAsset(assetId: string, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      const assets = (current.assets ?? []).filter((item) => item.id !== assetId);
+      if (!assets.length) {
+        const { assets: _removed, ...rest } = current;
+        return rest;
+      }
+      return { ...current, assets };
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const assets = (node.assets ?? []).filter((item) => item.id !== assetId);
+          if (!assets.length) {
+            const { assets: _removed, ...rest } = node;
+            return rest;
+          }
+          return { ...node, assets };
+        }),
+      })),
+    );
+  }
+
+  function openAsset(asset: CanvasDocument) {
+    const url = `/api/documents/${encodeURIComponent(asset.id)}?inline=1`;
+    setViewer({
+      title: asset.name,
+      url,
+      kind: asset.mediaType.startsWith("video/") ? "Video" : "Document",
+    });
   }
 
   function fileDrag(event: ReactDragEvent) {
@@ -2321,6 +2396,14 @@ export function RoleCanvasEntry({
   }
 
   function startReplace(nodeId: string) {
+    uploadMode.current = "document";
+    replaceNodeId.current = nodeId;
+    closeMenus();
+    replaceInputRef.current?.click();
+  }
+
+  function startAddMedia(nodeId: string) {
+    uploadMode.current = "asset";
     replaceNodeId.current = nodeId;
     closeMenus();
     replaceInputRef.current?.click();
@@ -2729,6 +2812,53 @@ export function RoleCanvasEntry({
               onChange={(event) => setDraft({ ...draft, url: event.target.value })}
             />
           </label>
+          {draft.kind === "Event" ? (
+            <>
+              <label>
+                Media
+                <input
+                  aria-label="Add media"
+                  type="file"
+                  multiple
+                  onChange={(event) => {
+                    const files = [...(event.target.files ?? [])];
+                    event.target.value = "";
+                    for (const file of files) void uploadDocument(file, draft.id, true);
+                  }}
+                />
+              </label>
+              {documents.length > 0 ? (
+                <label>
+                  Attach media
+                  <select
+                    aria-label="Attach media"
+                    value=""
+                    onChange={(event) => {
+                      const next = documents.find((item) => item.id === event.target.value);
+                      event.target.value = "";
+                      if (next) appendAsset(next, draft.id);
+                    }}
+                  >
+                    <option value="">Choose</option>
+                    {documents.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {(draft.assets ?? []).map((asset) => (
+                <p key={asset.id} className="role-canvas-document-name">
+                  {asset.name}
+                  <button type="button" onClick={() => removeAsset(asset.id, draft.id)}>
+                    Remove
+                  </button>
+                </p>
+              ))}
+            </>
+          ) : (
+            <>
           <label>
             Document
             <input
@@ -2769,6 +2899,8 @@ export function RoleCanvasEntry({
               </button>
             </p>
           ) : null}
+            </>
+          )}
           <div className="role-canvas-control-row">
             <button type="button" onClick={saveNode}>
               {draft.id ? "Save" : "Add node"}
@@ -3169,6 +3301,10 @@ export function RoleCanvasEntry({
                   setFileDropId(null);
                   if (node.locked) return;
                   const files = [...event.dataTransfer.files];
+                  if (node.kind === "Event") {
+                    for (const file of files) void uploadDocument(file, node.id, true);
+                    return;
+                  }
                   if (files[0]) void uploadDocument(files[0], node.id);
                 }}
                 onContextMenu={(event) => {
@@ -3259,6 +3395,40 @@ export function RoleCanvasEntry({
                     View
                   </button>
                 ) : null}
+                {node.kind === "Event" && node.assets?.length ? (
+                  <div className="role-canvas-event-assets">
+                    {node.assets.map((asset) => {
+                      const videoFile = asset.mediaType.startsWith("video/");
+                      return (
+                        <div key={asset.id} className="role-canvas-event-asset">
+                          {videoFile ? (
+                            <div className="role-canvas-video-preview">
+                              <video muted playsInline preload="metadata" tabIndex={-1} src={`/api/documents/${encodeURIComponent(asset.id)}?inline=1`} />
+                            </div>
+                          ) : canShowDocument(asset.mediaType) ? (
+                            <div className={asset.mediaType === "application/pdf" ? "role-canvas-document-preview is-sheet" : "role-canvas-document-preview"}>
+                              <iframe
+                                className="role-canvas-page"
+                                title={node.title || "Event"}
+                                scrolling="no"
+                                tabIndex={-1}
+                                src={documentPreviewSrc(asset)}
+                              />
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="role-canvas-view"
+                            aria-label={videoFile ? "Play video" : "View document"}
+                            onClick={() => openAsset(asset)}
+                          >
+                            {videoFile ? "Play" : "View"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 {node.notes.length > 0 ? <p>{node.notes.join(" ")}</p> : null}
                 {node.links.length > 0 ? (
                   <p className="links">
@@ -3284,6 +3454,7 @@ export function RoleCanvasEntry({
                 className={[
                   "role-canvas-node",
                   "is-group",
+                  group.event ? "is-event" : "",
                   group.collapsed ? "" : "is-open",
                   selectedGroupId === group.id ? "is-selected" : "",
                 ]
@@ -3306,8 +3477,9 @@ export function RoleCanvasEntry({
               >
                 {group.collapsed ? (
                   <>
-                    <p className="kind">{group.name}</p>
-                    <h3>{group.members.length} cards</h3>
+                    <p className="kind">{group.event ? "Event" : group.name}</p>
+                    <h3>{group.event ? group.name : `${group.members.length} cards`}</h3>
+                    {group.event ? <p>{group.members.length} cards</p> : null}
                     {names.length > 0 ? <p>{names.join(", ")}</p> : null}
                   </>
                 ) : null}
@@ -3418,9 +3590,11 @@ export function RoleCanvasEntry({
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           const nodeId = replaceNodeId.current;
+          const append = uploadMode.current === "asset";
           event.currentTarget.value = "";
           replaceNodeId.current = null;
-          if (file && nodeId) void uploadDocument(file, nodeId);
+          uploadMode.current = "document";
+          if (file && nodeId) void uploadDocument(file, nodeId, append);
         }}
       />
       {nodeMenu && canvas ? (
@@ -3433,6 +3607,9 @@ export function RoleCanvasEntry({
           ) : (
             <>
               <MenuButton label="Edit" onClick={() => editNode(nodeMenu.id)} />
+              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.kind === "Event" ? (
+                <MenuButton label="Add media" onClick={() => startAddMedia(nodeMenu.id)} />
+              ) : null}
               {canvas.nodes.find((node) => node.id === nodeMenu.id)?.document ? (
                 <>
                   <MenuButton
@@ -3468,7 +3645,10 @@ export function RoleCanvasEntry({
               })()}
               <div className="role-canvas-context-rule" />
               {selection.includes(nodeMenu.id) && selection.length > 1 ? (
-                <MenuButton label="Group" onClick={makeGroup} />
+                <>
+                  <MenuButton label="Group" onClick={makeGroup} />
+                  <MenuButton label="Event group" onClick={makeEventGroup} />
+                </>
               ) : null}
               {canvas.groups
                 .filter((group) => !group.collapsed && group.members.includes(nodeMenu.id))

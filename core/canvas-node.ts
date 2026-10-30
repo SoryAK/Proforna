@@ -1,4 +1,4 @@
-export const CANVAS_NODE_KINDS = ["Role", "Design", "Demonstration", "Video", "Photo", "Page"] as const;
+export const CANVAS_NODE_KINDS = ["Role", "Design", "Demonstration", "Video", "Photo", "Page", "Event"] as const;
 
 export type CanvasNodeKind = (typeof CANVAS_NODE_KINDS)[number];
 
