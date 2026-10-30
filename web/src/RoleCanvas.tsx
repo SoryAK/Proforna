@@ -912,6 +912,16 @@ export function RoleCanvasEntry({
     setViewer({ title: video.name, url: video.src, kind: "Video" });
   }
 
+  function openPage(node: CanvasNode) {
+    const url = pageSrc(node);
+    setViewer({
+      title: node.title || "Page",
+      url,
+      kind: "Page",
+      ...(url ? {} : { srcDoc: pageDocument(node) }),
+    });
+  }
+
   function onLinked(node: CanvasNode) {
     if (scope !== "all" && canvasId !== role.id) showHome(role.id);
     if (node.kind === "Video") {
@@ -2207,6 +2217,7 @@ export function RoleCanvasEntry({
       y: anchor ? anchor.y + 36 : 48,
       notes: [],
       links: [],
+      ...(prepared.value.kind === "Page" ? { w: PAGE_DEFAULT_W, h: PAGE_DEFAULT_H } : {}),
       ...(draft.document ? { document: draft.document } : {}),
     };
     setBoards((current) =>
@@ -3206,22 +3217,17 @@ export function RoleCanvasEntry({
                     />
                   </div>
                 ) : node.kind === "Page" ? (
-                  pageSrc(node) ? (
+                  <div className="role-canvas-page-preview">
                     <iframe
                       className="role-canvas-page"
                       title={node.title || "Embedded page"}
+                      scrolling="no"
+                      tabIndex={-1}
                       sandbox="allow-scripts allow-forms allow-popups"
                       referrerPolicy="no-referrer"
-                      src={pageSrc(node)}
+                      {...(pageSrc(node) ? { src: pageSrc(node) } : { srcDoc: pageDocument(node) })}
                     />
-                  ) : (
-                    <iframe
-                      className="role-canvas-page"
-                      title={node.title || "Embedded page"}
-                      sandbox="allow-scripts allow-forms allow-popups"
-                      srcDoc={pageDocument(node)}
-                    />
-                  )
+                  </div>
                 ) : node.body ? (
                   <p>{node.body}</p>
                 ) : null}
@@ -3240,6 +3246,15 @@ export function RoleCanvasEntry({
                     className="role-canvas-view"
                     aria-label="View document"
                     onClick={() => openDocument(node)}
+                  >
+                    View
+                  </button>
+                ) : node.kind === "Page" ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View page"
+                    onClick={() => openPage(node)}
                   >
                     View
                   </button>
@@ -3570,7 +3585,7 @@ export function RoleCanvasEntry({
       {windowNode && windowHost ? createPortal(windowNode, windowHost) : null}
       {viewer
         ? createPortal(
-            viewer.kind === "Document" || viewer.kind === "Video" ? (
+            viewer.kind === "Document" || viewer.kind === "Video" || viewer.kind === "Page" ? (
               <div className="role-canvas-document-view" role="dialog" aria-label={viewer.title}>
                 <header>
                   <h2>{viewer.title}</h2>
@@ -3590,6 +3605,15 @@ export function RoleCanvasEntry({
                   ) : (
                     <video className="role-canvas-document-frame" controls src={viewer.url} />
                   )
+                ) : viewer.kind === "Page" ? (
+                  <iframe
+                    className="role-canvas-document-frame"
+                    title={viewer.title}
+                    sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                    referrerPolicy="no-referrer"
+                    src={viewer.srcDoc ? undefined : viewer.url}
+                    srcDoc={viewer.srcDoc}
+                  />
                 ) : (
                   <iframe className="role-canvas-document-frame" title={viewer.title} src={viewer.url} />
                 )}
@@ -3746,8 +3770,10 @@ function pageDocument(node: CanvasNode) {
 }
 
 const PAGE_MIN_W = 220;
+const PAGE_DEFAULT_W = 400;
 const PAGE_MAX_W = 480;
 const PAGE_MIN_H = 104;
+const PAGE_DEFAULT_H = 320;
 const PAGE_MAX_H = 360;
 
 function clampSize(value: number, min: number, max: number) {

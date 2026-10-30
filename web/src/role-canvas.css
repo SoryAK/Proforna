@@ -1472,12 +1472,36 @@
   pointer-events: none;
 }
 
+.role-canvas-node.is-page:not(.is-sized) {
+  width: 25rem;
+}
+
+.role-canvas-page-preview {
+  position: relative;
+  overflow: hidden;
+  height: 16rem;
+  margin-top: 0.45rem;
+  border-radius: 10px;
+  background: #f4f0e8;
+  pointer-events: none;
+}
+
 .role-canvas-node.is-page.is-sized {
   overflow: hidden;
 }
 
-.role-canvas-node.is-page.is-sized .role-canvas-page {
+.role-canvas-node.is-page.is-sized .role-canvas-page-preview {
   height: calc(100% - 4.5rem);
+}
+
+.role-canvas-node.is-page .role-canvas-page-preview .role-canvas-page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% + 1.25rem);
+  height: calc(100% + 1.25rem);
+  margin-top: 0;
+  pointer-events: none;
 }
 
 .role-canvas-document-name {
