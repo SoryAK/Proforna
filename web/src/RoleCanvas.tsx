@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   CANVAS_NODE_KINDS,
@@ -22,6 +22,7 @@ import {
   type CanvasGroup,
   type CanvasLink,
   type CanvasNode,
+  type CanvasDocument,
 } from "@core/canvas-board";
 import { achievementStatement } from "@core/role-achievements";
 import type { WorkMapRole } from "@core/work-map";
@@ -395,6 +396,8 @@ function nodeDraft(node: CanvasNode): {
   body: string;
   url: string;
   achievementId?: string;
+  document?: CanvasDocument;
+  assets?: CanvasDocument[];
 } {
   return {
     id: node.id,
@@ -403,6 +406,8 @@ function nodeDraft(node: CanvasNode): {
     body: node.body,
     url: node.url,
     achievementId: node.achievementId,
+    ...(node.document ? { document: { ...node.document } } : {}),
+    ...(node.assets?.length ? { assets: node.assets.map((asset) => ({ ...asset })) } : {}),
   };
 }
 
@@ -436,7 +441,7 @@ function mapFrame(): Frame {
   };
 }
 
-type Viewer = { title: string; url: string; kind: string } | null;
+type Viewer = { title: string; url: string; kind: string; srcDoc?: string } | null;
 
 export function RoleCanvasEntry({
   role,
@@ -496,6 +501,7 @@ export function RoleCanvasEntry({
   const [railOpen, setRailOpen] = useState(true);
   const [boardQuery, setBoardQuery] = useState("");
   const [titleOpen, setTitleOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -519,6 +525,7 @@ export function RoleCanvasEntry({
   } | null>(null);
   const [draftWire, setDraftWire] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [hotTarget, setHotTarget] = useState<string | null>(null);
+  const [fileDropId, setFileDropId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const chromeRef = useRef<Chrome>(EMPTY_CHROME);
   const pendingScroll = useRef<{ left: number; top: number } | null>(
@@ -537,14 +544,38 @@ export function RoleCanvasEntry({
     body: string;
     url: string;
     achievementId?: string;
+    document?: CanvasDocument;
+    assets?: CanvasDocument[];
   } | null>(null);
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState(288);
   const [nodeError, setNodeError] = useState("");
+  const [documents, setDocuments] = useState<CanvasDocument[]>([]);
 
   useEffect(() => {
     if (!draft) setPanelPos(null);
   }, [draft]);
+
+  useEffect(() => {
+    if (!draft) return;
+    let cancel = false;
+    void fetch("/api/documents")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { documents?: Array<{ id: string; originalName: string; mediaType: string }> } | null) => {
+        if (cancel || !body?.documents) return;
+        setDocuments(
+          body.documents.map((item) => ({
+            id: item.id,
+            name: item.originalName,
+            mediaType: item.mediaType || "",
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [draft?.id, draft ? 1 : 0]);
   const windowRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const planeRef = useRef<HTMLDivElement>(null);
@@ -553,12 +584,16 @@ export function RoleCanvasEntry({
   const redoRef = useRef<BoardSnap[]>([]);
   const copiedRef = useRef<CanvasNode[]>([]);
   const commandRef = useRef<CanvasCommands | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const replaceNodeId = useRef<string | null>(null);
+  const uploadMode = useRef<"document" | "asset">("document");
 
   useEffect(() => {
-    if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen) return;
+    if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen && !boardOpen) return;
     function onPointer(event: PointerEvent) {
       const target = event.target as HTMLElement | null;
       if (!target?.closest(".role-canvas-title-menu, .role-canvas-title")) setTitleOpen(false);
+      if (!target?.closest(".role-canvas-board-menu, .role-canvas-board-name")) setBoardOpen(false);
       if (!target?.closest(".role-canvas-history-panel, .role-canvas-history, .role-canvas-save")) {
         setHistoryOpen(false);
       }
@@ -571,7 +606,7 @@ export function RoleCanvasEntry({
     }
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, [historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt, titleOpen]);
+  }, [historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt, titleOpen, boardOpen]);
 
   useEffect(() => {
     try {
@@ -739,6 +774,58 @@ export function RoleCanvasEntry({
     setCanvasMenu(null);
     setWireMenu(null);
     setTitleOpen(false);
+    setBoardOpen(false);
+  }
+
+  function renameBoard() {
+    if (!canvas) return;
+    setBoardOpen(false);
+    const entered = window.prompt("Name this board", canvas.name);
+    if (entered === null) return;
+    const next = entered.trim();
+    if (!next || next === canvas.name) return;
+    const id = canvas.id;
+    setBoards((current) => current.map((board) => (board.id === id ? { ...board, name: next } : board)));
+  }
+
+  function duplicateBoard() {
+    if (!canvas) return;
+    const stamp = Date.now();
+    const ids = new Map(canvas.nodes.map((node, index) => [node.id, `node-${stamp}-${index}`]));
+    const nodes = canvas.nodes.map((node, index) => ({
+      ...snapshotNode(node),
+      id: ids.get(node.id) ?? `node-${stamp}-${index}`,
+      links: node.links.map((link) => ({
+        ...link,
+        id: ids.get(link.id) ?? link.id,
+        key: ids.get(link.key) ?? link.key,
+      })),
+    }));
+    const groups = canvas.groups.map((group, index) => ({
+      ...group,
+      id: `group-${stamp}-${index}`,
+      members: group.members.map((member) => ids.get(member) ?? member),
+    }));
+    const copy: CanvasBoard = {
+      id: `board-${stamp}`,
+      name: `${canvas.name.trim() || "Board"} copy`,
+      nodes,
+      groups,
+    };
+    setBoardOpen(false);
+    setBoards((current) => [...current, copy]);
+    showHome(copy.id);
+  }
+
+  function deleteBoard() {
+    if (!canvas || canvas.id === role.id) return;
+    const id = canvas.id;
+    const order = boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+    const index = order.findIndex((board) => board.id === id);
+    const fallback = order[index - 1]?.id ?? order[index + 1]?.id ?? role.id;
+    setBoardOpen(false);
+    setBoards((current) => current.filter((board) => board.id !== id));
+    showHome(fallback);
   }
 
   function applyBoardSnap(snap: BoardSnap) {
@@ -789,14 +876,6 @@ export function RoleCanvasEntry({
     setMenuEpoch((value) => value + 1);
   }
 
-  useEffect(() => {
-    if (!selectedId) return;
-    const node = boardsRef.current.flatMap((board) => board.nodes).find((item) => item.id === selectedId);
-    if (!node) return;
-    setDraft(nodeDraft(node));
-    setNodeError("");
-  }, [selectedId]);
-
   function patchNode(id: string, patch: Partial<CanvasNode>) {
     setBoards((current) =>
       current.map((board) => ({
@@ -825,6 +904,7 @@ export function RoleCanvasEntry({
     setSelectedId(null);
     setLinkOpen(false);
     setTitleOpen(false);
+    setBoardOpen(false);
   }
 
   function showRoleBoards(item: WorkMapRole) {
@@ -876,9 +956,38 @@ export function RoleCanvasEntry({
     setViewer({ title: node.title, url: node.url, kind: node.kind });
   }
 
+  function openDocument(node: CanvasNode) {
+    if (!node.document) return;
+    setViewer({
+      title: node.document.name,
+      url: `/api/documents/${encodeURIComponent(node.document.id)}?inline=1`,
+      kind: "Document",
+    });
+  }
+
+  function openVideo(node: CanvasNode) {
+    const video = videoSource(node);
+    if (!video) return;
+    setViewer({ title: video.name, url: video.src, kind: "Video" });
+  }
+
+  function openPage(node: CanvasNode) {
+    const url = pageSrc(node);
+    setViewer({
+      title: node.title || "Page",
+      url,
+      kind: "Page",
+      ...(url ? {} : { srcDoc: pageDocument(node) }),
+    });
+  }
+
   function onLinked(node: CanvasNode) {
     if (scope !== "all" && canvasId !== role.id) showHome(role.id);
-    if (node.kind === "Video" || node.kind === "Photo") {
+    if (node.kind === "Video") {
+      openVideo(node);
+      return;
+    }
+    if (node.kind === "Photo") {
       openViewer(node);
       return;
     }
@@ -1169,7 +1278,7 @@ export function RoleCanvasEntry({
 
   function dragNode(event: ReactPointerEvent<HTMLElement>, node: CanvasNode) {
     if (tool === "pan" || event.button !== 0) return;
-    if ((event.target as HTMLElement).closest("button, input, textarea")) return;
+    if ((event.target as HTMLElement).closest("button, input, textarea, a, label")) return;
     const board = boardsRef.current.find((item) => item.id === canvas?.id);
     if (!board) return;
     const boardId = board.id;
@@ -1248,17 +1357,15 @@ export function RoleCanvasEntry({
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
         setSelection((current) => {
           const next = current.includes(node.id) ? current.filter((id) => id !== node.id) : [...current, node.id];
-          if (next.length === 1) setSelectedId(next[0]);
-          else {
-            setSelectedId(null);
-            setDraft(null);
-          }
+          setSelectedId(next.length === 1 ? next[0] : null);
+          setDraft(null);
           return next;
         });
         return;
       }
       setSelection([node.id]);
       setSelectedId(node.id);
+      setDraft(null);
     }
     card.addEventListener("pointermove", move);
     card.addEventListener("pointerup", up);
@@ -1403,20 +1510,33 @@ export function RoleCanvasEntry({
   }
 
   function makeGroup() {
+    gatherSelection(false);
+  }
+
+  function makeEventGroup() {
+    gatherSelection(true);
+  }
+
+  function gatherSelection(eventGroup: boolean) {
     if (!canvas || selection.length < 2) return;
-    const name = window.prompt("Name this group", "Group");
-    if (name === null) return;
+    let name = eventGroup ? "Event" : "Group";
+    if (!eventGroup) {
+      const entered = window.prompt("Name this group", "Group");
+      if (entered === null) return;
+      name = entered.trim() || "Group";
+    }
     const members = [...selection];
     const cards = canvas.nodes.filter((node) => members.includes(node.id));
     if (cards.length < 2) return;
     remember();
     const group: CanvasGroup = {
       id: `group-${Date.now()}`,
-      name: name.trim() || "Group",
+      name,
       members,
       collapsed: true,
       x: Math.min(...cards.map((item) => item.x)),
       y: Math.min(...cards.map((item) => item.y)),
+      ...(eventGroup ? { event: true } : {}),
     };
     const taken = new Set(members);
     setBoards((current) =>
@@ -1750,6 +1870,8 @@ export function RoleCanvasEntry({
       url: node.url,
       notes: [...node.notes],
       links: node.links.map((link) => ({ ...link })),
+      ...(node.document ? { document: { ...node.document } } : {}),
+      ...(node.assets?.length ? { assets: node.assets.map((asset) => ({ ...asset })) } : {}),
       ...(node.w ? { w: node.w } : {}),
       ...(node.h ? { h: node.h } : {}),
     };
@@ -1757,7 +1879,6 @@ export function RoleCanvasEntry({
 
   function placeCopies(copies: CanvasNode[]) {
     if (!canvas || copies.length === 0) return;
-    const editing = Boolean(selectedId);
     setBoards((current) =>
       current.map((board) =>
         board.id === canvas.id ? { ...board, nodes: [...board.nodes, ...copies] } : board,
@@ -1765,8 +1886,10 @@ export function RoleCanvasEntry({
     );
     setSelection(copies.map((copy) => copy.id));
     setSelectedGroupId(null);
-    if (editing && copies.length === 1) setSelectedId(copies[0].id);
-    else {
+    if (draft?.id && copies.length === 1) {
+      setSelectedId(copies[0].id);
+      setDraft(nodeDraft(copies[0]));
+    } else {
       setSelectedId(null);
       setDraft(null);
     }
@@ -1968,8 +2091,12 @@ export function RoleCanvasEntry({
   }
 
   function editNode(id: string) {
+    const node = canvas?.nodes.find((item) => item.id === id);
+    if (!node) return;
     setSelection([id]);
     setSelectedId(id);
+    setDraft(nodeDraft(node));
+    setNodeError("");
     closeMenus();
   }
 
@@ -2135,8 +2262,18 @@ export function RoleCanvasEntry({
     setNodeError("");
     remember();
     if (draft.id) {
-      patchNode(draft.id, prepared.value);
-      setDraft({ id: draft.id, ...prepared.value, achievementId: draft.achievementId });
+      patchNode(draft.id, {
+        ...prepared.value,
+        document: draft.document,
+        assets: draft.assets?.length ? draft.assets : undefined,
+      });
+      setDraft({
+        id: draft.id,
+        ...prepared.value,
+        achievementId: draft.achievementId,
+        document: draft.document,
+        ...(draft.assets?.length ? { assets: draft.assets } : {}),
+      });
       return;
     }
     const anchor = canvas.nodes[canvas.nodes.length - 1];
@@ -2147,14 +2284,184 @@ export function RoleCanvasEntry({
       y: anchor ? anchor.y + 36 : 48,
       notes: [],
       links: [],
+      ...(prepared.value.kind === "Page" ? { w: PAGE_DEFAULT_W, h: PAGE_DEFAULT_H } : {}),
+      ...(draft.document ? { document: draft.document } : {}),
+      ...(draft.assets?.length ? { assets: draft.assets } : {}),
     };
     setBoards((current) =>
       current.map((board) =>
         board.id === canvas.id ? { ...board, nodes: [...board.nodes, created] } : board,
       ),
     );
-    setDraft({ id: created.id, ...prepared.value });
+    setDraft({
+      id: created.id,
+      ...prepared.value,
+      ...(draft.document ? { document: draft.document } : {}),
+      ...(draft.assets?.length ? { assets: draft.assets } : {}),
+    });
     setSelectedId(created.id);
+  }
+
+  function applyDocument(document: CanvasDocument | undefined, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      if (!nodeId && current.id) return current;
+      if (!document) {
+        const { document: _removed, ...rest } = current;
+        return rest;
+      }
+      return { ...current, document };
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          if (!document) {
+            const { document: _removed, ...rest } = node;
+            return rest;
+          }
+          return { ...node, document };
+        }),
+      })),
+    );
+  }
+
+  async function uploadDocument(file: File, nodeId: string | null = null, append = false) {
+    const targetId = nodeId ?? draft?.id ?? null;
+    const body = new FormData();
+    body.set("file", file);
+    body.set("category", "canvas");
+    let response: Response;
+    try {
+      response = await fetch("/api/documents", { method: "POST", body });
+    } catch {
+      setNodeError("That document could not be saved.");
+      return;
+    }
+    if (!response.ok) {
+      setNodeError("That document could not be saved.");
+      return;
+    }
+    const payload = (await response.json()) as {
+      document?: { id: string; originalName: string; mediaType: string };
+    };
+    const stored = payload.document;
+    if (!stored?.id || !stored.originalName) {
+      setNodeError("That document could not be saved.");
+      return;
+    }
+    const document = { id: stored.id, name: stored.originalName, mediaType: stored.mediaType || "" };
+    setNodeError("");
+    setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
+    if (append) appendAsset(document, targetId);
+    else applyDocument(document, targetId);
+  }
+
+  function appendAsset(asset: CanvasDocument, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      if (!nodeId && current.id) return current;
+      const assets = [...(current.assets ?? []).filter((item) => item.id !== asset.id), asset];
+      return { ...current, assets };
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const assets = [...(node.assets ?? []).filter((item) => item.id !== asset.id), asset];
+          return { ...node, assets };
+        }),
+      })),
+    );
+  }
+
+  function removeAsset(assetId: string, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      const assets = (current.assets ?? []).filter((item) => item.id !== assetId);
+      if (!assets.length) {
+        const { assets: _removed, ...rest } = current;
+        return rest;
+      }
+      return { ...current, assets };
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const assets = (node.assets ?? []).filter((item) => item.id !== assetId);
+          if (!assets.length) {
+            const { assets: _removed, ...rest } = node;
+            return rest;
+          }
+          return { ...node, assets };
+        }),
+      })),
+    );
+  }
+
+  function openAsset(asset: CanvasDocument) {
+    const url = `/api/documents/${encodeURIComponent(asset.id)}?inline=1`;
+    setViewer({
+      title: asset.name,
+      url,
+      kind: asset.mediaType.startsWith("video/") ? "Video" : "Document",
+    });
+  }
+
+  function fileDrag(event: ReactDragEvent) {
+    return [...event.dataTransfer.types].includes("Files");
+  }
+
+  function downloadDocument(node: CanvasNode) {
+    if (!node.document) return;
+    downloadLink(`/api/documents/${encodeURIComponent(node.document.id)}`, node.document.name);
+  }
+
+  function downloadLink(href: string, name: string) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    closeMenus();
+  }
+
+  function clearVideoUrl(nodeId: string) {
+    setDraft((current) => {
+      if (!current || current.id !== nodeId) return current;
+      return { ...current, url: "" };
+    });
+    remember();
+    patchNode(nodeId, { url: "" });
+    closeMenus();
+  }
+
+  function startReplace(nodeId: string) {
+    uploadMode.current = "document";
+    replaceNodeId.current = nodeId;
+    closeMenus();
+    replaceInputRef.current?.click();
+  }
+
+  function startAddMedia(nodeId: string) {
+    uploadMode.current = "asset";
+    replaceNodeId.current = nodeId;
+    closeMenus();
+    replaceInputRef.current?.click();
   }
 
   function removeNode() {
@@ -2204,7 +2511,8 @@ export function RoleCanvasEntry({
     }
     setSelectedId(target.id);
     setLinkOpen(false);
-    if (target.kind === "Video" || target.kind === "Photo") openViewer(target);
+    if (target.kind === "Video") openVideo(target);
+    else if (target.kind === "Photo") openViewer(target);
   }
 
   function addNote() {
@@ -2257,6 +2565,13 @@ export function RoleCanvasEntry({
     minimized || !frame
       ? undefined
       : { left: frame.left, top: frame.top, width: frame.width, height: frame.height };
+
+  const boardOrder =
+    scope === "all" ? [] : boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+  const boardIndex = boardOrder.findIndex((board) => board.id === canvas?.id);
+  const previousBoard = boardIndex > 0 ? boardOrder[boardIndex - 1] : null;
+  const nextBoard =
+    boardIndex >= 0 && boardIndex < boardOrder.length - 1 ? boardOrder[boardIndex + 1] : null;
 
   const roleFacts = [
     role.organization.trim(),
@@ -2318,18 +2633,106 @@ export function RoleCanvasEntry({
           {scope === "all" ? (
             <span className="role-canvas-title">Career history</span>
           ) : role.title.trim() ? (
-            <button
-              type="button"
-              className="role-canvas-title"
-              aria-expanded={titleOpen}
-              aria-haspopup="menu"
-              onClick={() => {
-                if (minimized) return;
-                setTitleOpen((value) => !value);
-              }}
-            >
-              {role.title.trim()}
-            </button>
+            <>
+              {role.organization.trim() ? (
+                <>
+                  <span className="role-canvas-company">{role.organization.trim()}</span>
+                  <span className="role-canvas-title-rule" aria-hidden="true" />
+                </>
+              ) : null}
+              <button
+                type="button"
+                className="role-canvas-title"
+                aria-expanded={titleOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  if (minimized) return;
+                  setTitleOpen((value) => !value);
+                }}
+              >
+                {role.title.trim()}
+              </button>
+              <span className="role-canvas-board-nav">
+                <button
+                  type="button"
+                  aria-label="Previous board"
+                  disabled={!previousBoard}
+                  onClick={() => {
+                    if (previousBoard) showHome(previousBoard.id);
+                  }}
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M8 2.2 4 6l4 3.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next board"
+                  disabled={!nextBoard}
+                  onClick={() => {
+                    if (nextBoard) showHome(nextBoard.id);
+                  }}
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M4 2.2 8 6 4 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <span className="role-canvas-title-rule" aria-hidden="true" />
+                <span className="role-canvas-board-menu-anchor">
+                  <button
+                    type="button"
+                    className="role-canvas-board-name"
+                    aria-expanded={boardOpen}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      if (minimized) return;
+                      setTitleOpen(false);
+                      setBoardOpen((value) => !value);
+                    }}
+                  >
+                    {canvas?.name}
+                  </button>
+                  {boardOpen ? (
+                    <div className="role-canvas-board-menu" role="menu">
+                      <p className="role-canvas-board-menu-label">Boards</p>
+                      <div className="role-canvas-board-menu-current">
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M3.5 8.2 6.4 11 12.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span>{canvas?.name}</span>
+                        <span className="count">{canvas?.nodes.length ?? 0}</span>
+                      </div>
+                      <div className="role-canvas-board-menu-rule" />
+                      <button type="button" role="menuitem" onClick={renameBoard}>
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M9.2 3.2 12.8 6.8 5.2 14.4H1.6v-3.6L9.2 3.2Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                        </svg>
+                        Rename
+                      </button>
+                      <button type="button" role="menuitem" onClick={duplicateBoard}>
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <rect x="6" y="6" width="8" height="8" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                          <path d="M10 6V3.4A1.4 1.4 0 0 0 8.6 2H3.4A1.4 1.4 0 0 0 2 3.4v5.2A1.4 1.4 0 0 0 3.4 10H6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                        </svg>
+                        Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="is-danger"
+                        disabled={canvas?.id === role.id}
+                        onClick={deleteBoard}
+                      >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M3.2 4.4h9.6M6.2 4.4V3h3.6v1.4M4.6 4.4l.4 8.2h6l.4-8.2" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </span>
+              </span>
+            </>
           ) : (
             <span className="role-canvas-title">Canvas</span>
           )}
@@ -2370,6 +2773,7 @@ export function RoleCanvasEntry({
             Save
           </button>
           {saveError ? <span className="role-canvas-save-error">{saveError}</span> : null}
+          {!draft && nodeError ? <span className="role-canvas-save-error">{nodeError}</span> : null}
           <button
             type="button"
             className="role-canvas-history"
@@ -2558,6 +2962,95 @@ export function RoleCanvasEntry({
               onChange={(event) => setDraft({ ...draft, url: event.target.value })}
             />
           </label>
+          {draft.kind === "Event" ? (
+            <>
+              <label>
+                Media
+                <input
+                  aria-label="Add media"
+                  type="file"
+                  multiple
+                  onChange={(event) => {
+                    const files = [...(event.target.files ?? [])];
+                    event.target.value = "";
+                    for (const file of files) void uploadDocument(file, draft.id, true);
+                  }}
+                />
+              </label>
+              {documents.length > 0 ? (
+                <label>
+                  Attach media
+                  <select
+                    aria-label="Attach media"
+                    value=""
+                    onChange={(event) => {
+                      const next = documents.find((item) => item.id === event.target.value);
+                      event.target.value = "";
+                      if (next) appendAsset(next, draft.id);
+                    }}
+                  >
+                    <option value="">Choose</option>
+                    {documents.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {(draft.assets ?? []).map((asset) => (
+                <p key={asset.id} className="role-canvas-document-name">
+                  {asset.name}
+                  <button type="button" onClick={() => removeAsset(asset.id, draft.id)}>
+                    Remove
+                  </button>
+                </p>
+              ))}
+            </>
+          ) : (
+            <>
+          <label>
+            Document
+            <input
+              aria-label="Upload a document"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void uploadDocument(file);
+              }}
+            />
+          </label>
+          {documents.length > 0 ? (
+            <label>
+              Attach a document
+              <select
+                aria-label="Attach a document"
+                value={draft.document?.id ?? ""}
+                onChange={(event) => {
+                  const next = documents.find((item) => item.id === event.target.value);
+                  applyDocument(next, draft.id);
+                }}
+              >
+                <option value="">None</option>
+                {documents.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {draft.document ? (
+            <p className="role-canvas-document-name">
+              {draft.document.name}
+              <button type="button" onClick={() => applyDocument(undefined, draft.id)}>
+                Remove document
+              </button>
+            </p>
+          ) : null}
+            </>
+          )}
           <div className="role-canvas-control-row">
             <button type="button" onClick={saveNode}>
               {draft.id ? "Save" : "Add node"}
@@ -2618,9 +3111,14 @@ export function RoleCanvasEntry({
                 </button>
               </>
             ) : null}
-            {selected?.url && (selected.kind === "Video" || selected.kind === "Photo") ? (
+            {selected && videoSource(selected) ? (
+              <button type="button" onClick={() => openVideo(selected)}>
+                Play
+              </button>
+            ) : null}
+            {selected?.url && selected.kind === "Photo" ? (
               <button type="button" onClick={() => openViewer(selected)}>
-                {selected.kind === "Video" ? "Play" : "Open"}
+                Open
               </button>
             ) : null}
           </div>
@@ -2630,9 +3128,9 @@ export function RoleCanvasEntry({
       ) : null}
       <div className="role-canvas-body">
       {railOpen ? (
-        <aside className="role-canvas-rail" aria-label="Boards">
+        <aside className="role-canvas-rail" aria-label={scope === "all" ? "Boards" : role.organization.trim() || "Boards"}>
           <div className="role-canvas-rail-head">
-            <strong>Boards</strong>
+            <strong>{scope === "all" ? "Boards" : role.organization.trim() || "Boards"}</strong>
           </div>
           <div className="role-canvas-rail-find">
             <input
@@ -2717,6 +3215,15 @@ export function RoleCanvasEntry({
           setNodeMenu(null);
           setWireMenu(null);
           setCanvasMenu({ x: event.clientX, y: event.clientY });
+        }}
+        onDragOver={(event) => {
+          if (!fileDrag(event)) return;
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!fileDrag(event)) return;
+          event.preventDefault();
+          setFileDropId(null);
         }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -2901,15 +3408,18 @@ export function RoleCanvasEntry({
             const faded =
               query.trim() &&
               !`${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase());
+            const video = videoSource(node);
             return (
               <article
                 key={node.id}
                 className={[
                   "role-canvas-node",
                   node.kind === "Page" ? "is-page" : "",
+                  node.document ? "has-document" : "",
                   node.w || node.h ? "is-sized" : "",
                   node.locked ? "is-locked" : "",
                   selection.includes(node.id) ? "is-selected" : "",
+                  fileDropId === node.id ? "is-file-drop" : "",
                   faded ? "is-filtered" : "",
                 ]
                   .filter(Boolean)
@@ -2917,6 +3427,36 @@ export function RoleCanvasEntry({
                 data-id={node.id}
                 style={{ left: node.x, top: node.y, width: node.w, height: node.h, zIndex: index + 1 }}
                 onPointerDown={(event) => dragNode(event, node)}
+                onDragEnter={(event) => {
+                  if (node.locked || !fileDrag(event)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setFileDropId(node.id);
+                }}
+                onDragOver={(event) => {
+                  if (node.locked || !fileDrag(event)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.dataTransfer.dropEffect = "copy";
+                  setFileDropId(node.id);
+                }}
+                onDragLeave={(event) => {
+                  const next = event.relatedTarget;
+                  if (next instanceof Node && event.currentTarget.contains(next)) return;
+                  setFileDropId((current) => (current === node.id ? null : current));
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setFileDropId(null);
+                  if (node.locked) return;
+                  const files = [...event.dataTransfer.files];
+                  if (node.kind === "Event") {
+                    for (const file of files) void uploadDocument(file, node.id, true);
+                    return;
+                  }
+                  if (files[0]) void uploadDocument(files[0], node.id);
+                }}
                 onContextMenu={(event) => {
                   if (openWireAt(event)) return;
                   event.preventDefault();
@@ -2940,25 +3480,104 @@ export function RoleCanvasEntry({
                   ) : null}
                 </p>
                 <h3 title={node.title || undefined}>{node.title || "Untitled"}</h3>
-                {node.kind === "Page" ? (
-                  pageSrc(node) ? (
+                {video ? (
+                  video.embed ? null : (
+                    <div className="role-canvas-video-preview">
+                      <video muted playsInline preload="metadata" tabIndex={-1} src={video.src} />
+                    </div>
+                  )
+                ) : node.document && canShowDocument(node.document.mediaType) ? (
+                  <div
+                    className={
+                      node.document.mediaType === "application/pdf"
+                        ? "role-canvas-document-preview is-sheet"
+                        : "role-canvas-document-preview"
+                    }
+                  >
+                    <iframe
+                      className="role-canvas-page"
+                      title={node.document.name}
+                      scrolling="no"
+                      tabIndex={-1}
+                      src={documentPreviewSrc(node.document)}
+                    />
+                  </div>
+                ) : node.kind === "Page" ? (
+                  <div className="role-canvas-page-preview">
                     <iframe
                       className="role-canvas-page"
                       title={node.title || "Embedded page"}
+                      scrolling="no"
+                      tabIndex={-1}
                       sandbox="allow-scripts allow-forms allow-popups"
                       referrerPolicy="no-referrer"
-                      src={pageSrc(node)}
+                      {...(pageSrc(node) ? { src: pageSrc(node) } : { srcDoc: pageDocument(node) })}
                     />
-                  ) : (
-                    <iframe
-                      className="role-canvas-page"
-                      title={node.title || "Embedded page"}
-                      sandbox="allow-scripts allow-forms allow-popups"
-                      srcDoc={pageDocument(node)}
-                    />
-                  )
+                  </div>
                 ) : node.body ? (
                   <p>{node.body}</p>
+                ) : null}
+                {video ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="Play video"
+                    onClick={() => openVideo(node)}
+                  >
+                    Play
+                  </button>
+                ) : node.document ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View document"
+                    onClick={() => openDocument(node)}
+                  >
+                    View
+                  </button>
+                ) : node.kind === "Page" ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View page"
+                    onClick={() => openPage(node)}
+                  >
+                    View
+                  </button>
+                ) : null}
+                {node.kind === "Event" && node.assets?.length ? (
+                  <div className="role-canvas-event-assets">
+                    {node.assets.map((asset) => {
+                      const videoFile = asset.mediaType.startsWith("video/");
+                      return (
+                        <div key={asset.id} className="role-canvas-event-asset">
+                          {videoFile ? (
+                            <div className="role-canvas-video-preview">
+                              <video muted playsInline preload="metadata" tabIndex={-1} src={`/api/documents/${encodeURIComponent(asset.id)}?inline=1`} />
+                            </div>
+                          ) : canShowDocument(asset.mediaType) ? (
+                            <div className={asset.mediaType === "application/pdf" ? "role-canvas-document-preview is-sheet" : "role-canvas-document-preview"}>
+                              <iframe
+                                className="role-canvas-page"
+                                title={node.title || "Event"}
+                                scrolling="no"
+                                tabIndex={-1}
+                                src={documentPreviewSrc(asset)}
+                              />
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="role-canvas-view"
+                            aria-label={videoFile ? "Play video" : "View document"}
+                            onClick={() => openAsset(asset)}
+                          >
+                            {videoFile ? "Play" : "View"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : null}
                 {node.notes.length > 0 ? <p>{node.notes.join(" ")}</p> : null}
                 {node.links.length > 0 ? (
@@ -2985,6 +3604,7 @@ export function RoleCanvasEntry({
                 className={[
                   "role-canvas-node",
                   "is-group",
+                  group.event ? "is-event" : "",
                   group.collapsed ? "" : "is-open",
                   selectedGroupId === group.id ? "is-selected" : "",
                 ]
@@ -3007,8 +3627,9 @@ export function RoleCanvasEntry({
               >
                 {group.collapsed ? (
                   <>
-                    <p className="kind">{group.name}</p>
-                    <h3>{group.members.length} cards</h3>
+                    <p className="kind">{group.event ? "Event" : group.name}</p>
+                    <h3>{group.event ? group.name : `${group.members.length} cards`}</h3>
+                    {group.event ? <p>{group.members.length} cards</p> : null}
                     {names.length > 0 ? <p>{names.join(", ")}</p> : null}
                   </>
                 ) : null}
@@ -3111,6 +3732,21 @@ export function RoleCanvasEntry({
       </div>
       </div>
       </div>
+      <input
+        ref={replaceInputRef}
+        className="role-canvas-replace-input"
+        type="file"
+        aria-label="Replace document"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          const nodeId = replaceNodeId.current;
+          const append = uploadMode.current === "asset";
+          event.currentTarget.value = "";
+          replaceNodeId.current = null;
+          uploadMode.current = "document";
+          if (file && nodeId) void uploadDocument(file, nodeId, append);
+        }}
+      />
       {nodeMenu && canvas ? (
         <CanvasContextMenu x={nodeMenu.x} y={nodeMenu.y}>
           {nodeMenu.kind === "group" ? (
@@ -3121,9 +3757,48 @@ export function RoleCanvasEntry({
           ) : (
             <>
               <MenuButton label="Edit" onClick={() => editNode(nodeMenu.id)} />
+              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.kind === "Event" ? (
+                <MenuButton label="Add media" onClick={() => startAddMedia(nodeMenu.id)} />
+              ) : null}
+              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.document ? (
+                <>
+                  <MenuButton
+                    label="Download"
+                    onClick={() => {
+                      const node = canvas.nodes.find((item) => item.id === nodeMenu.id);
+                      if (node) downloadDocument(node);
+                    }}
+                  />
+                  <MenuButton label="Replace" onClick={() => startReplace(nodeMenu.id)} />
+                  <MenuButton
+                    label="Remove"
+                    onClick={() => {
+                      applyDocument(undefined, nodeMenu.id);
+                      closeMenus();
+                    }}
+                  />
+                </>
+              ) : null}
+              {(() => {
+                const menuNode = canvas.nodes.find((node) => node.id === nodeMenu.id);
+                const video = menuNode ? videoSource(menuNode) : null;
+                if (!menuNode || !video || menuNode.document) return null;
+                return (
+                  <>
+                    {video.embed ? null : (
+                      <MenuButton label="Download" onClick={() => downloadLink(video.src, menuNode.title || "Video")} />
+                    )}
+                    <MenuButton label="Replace" onClick={() => startReplace(menuNode.id)} />
+                    <MenuButton label="Remove" onClick={() => clearVideoUrl(menuNode.id)} />
+                  </>
+                );
+              })()}
               <div className="role-canvas-context-rule" />
               {selection.includes(nodeMenu.id) && selection.length > 1 ? (
-                <MenuButton label="Group" onClick={makeGroup} />
+                <>
+                  <MenuButton label="Group" onClick={makeGroup} />
+                  <MenuButton label="Event group" onClick={makeEventGroup} />
+                </>
               ) : null}
               {canvas.groups
                 .filter((group) => !group.collapsed && group.members.includes(nodeMenu.id))
@@ -3240,36 +3915,53 @@ export function RoleCanvasEntry({
       {windowNode && windowHost ? createPortal(windowNode, windowHost) : null}
       {viewer
         ? createPortal(
+            viewer.kind === "Document" || viewer.kind === "Video" || viewer.kind === "Page" ? (
+              <div className="role-canvas-document-view" role="dialog" aria-label={viewer.title}>
+                <header>
+                  <h2>{viewer.title}</h2>
+                  <button type="button" onClick={() => setViewer(null)}>
+                    Close
+                  </button>
+                </header>
+                {viewer.kind === "Video" ? (
+                  filmEmbed(viewer.url) ? (
+                    <iframe
+                      className="role-canvas-document-frame"
+                      title={viewer.title}
+                      src={viewer.url}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video className="role-canvas-document-frame" controls src={viewer.url} />
+                  )
+                ) : viewer.kind === "Page" ? (
+                  <iframe
+                    className="role-canvas-document-frame"
+                    title={viewer.title}
+                    sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                    referrerPolicy="no-referrer"
+                    src={viewer.srcDoc ? undefined : viewer.url}
+                    srcDoc={viewer.srcDoc}
+                  />
+                ) : (
+                  <iframe className="role-canvas-document-frame" title={viewer.title} src={viewer.url} />
+                )}
+              </div>
+            ) : (
             <div className="role-canvas-viewer" role="dialog" aria-label={viewer.title}>
               <header>
                 <div>
                   <h2>{viewer.title}</h2>
-                  <p>
-                    {viewer.kind === "Video"
-                      ? "The player stays in this project. A real design film stands in for the foldable upload."
-                      : viewer.kind}
-                  </p>
+                  <p>{viewer.kind}</p>
                 </div>
                 <button type="button" onClick={() => setViewer(null)}>
                   Back to the canvas
                 </button>
               </header>
-              {viewer.kind === "Video" ? (
-                filmEmbed(viewer.url) ? (
-                  <iframe
-                    className="role-canvas-frame"
-                    title={viewer.title}
-                    src={viewer.url}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <video className="role-canvas-frame" controls src={viewer.url} />
-                )
-              ) : (
-                <img className="role-canvas-frame" alt="" src={viewer.url} />
-              )}
-            </div>,
+              <img className="role-canvas-frame" alt="" src={viewer.url} />
+            </div>
+            ),
             document.body,
           )
         : null}
@@ -3366,6 +4058,31 @@ function hiddenMemberIds(groups: CanvasGroup[]) {
   return ids;
 }
 
+function canShowDocument(mediaType: string) {
+  return mediaType.startsWith("image/") || mediaType.startsWith("text/") || mediaType === "application/pdf";
+}
+
+function videoSource(node: CanvasNode) {
+  if (node.document?.mediaType.startsWith("video/")) {
+    return {
+      src: `/api/documents/${encodeURIComponent(node.document.id)}?inline=1`,
+      name: node.document.name,
+      stored: true,
+      embed: false,
+    };
+  }
+  if (node.document) return null;
+  const url = node.kind === "Video" ? node.url.trim() : "";
+  if (!url) return null;
+  return { src: url, name: node.title || "Video", stored: false, embed: filmEmbed(url) };
+}
+
+function documentPreviewSrc(document: CanvasDocument) {
+  const src = `/api/documents/${encodeURIComponent(document.id)}?inline=1`;
+  if (document.mediaType !== "application/pdf") return src;
+  return `${src}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`;
+}
+
 function pageText(value: string) {
   return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
 }
@@ -3383,8 +4100,10 @@ function pageDocument(node: CanvasNode) {
 }
 
 const PAGE_MIN_W = 220;
+const PAGE_DEFAULT_W = 400;
 const PAGE_MAX_W = 480;
 const PAGE_MIN_H = 104;
+const PAGE_DEFAULT_H = 320;
 const PAGE_MAX_H = 360;
 
 function clampSize(value: number, min: number, max: number) {

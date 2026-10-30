@@ -1,5 +1,11 @@
 export type CanvasLink = { key: string; id: string; label: string; relation?: string };
 
+export type CanvasDocument = {
+  id: string;
+  name: string;
+  mediaType: string;
+};
+
 export type CanvasNode = {
   id: string;
   kind: string;
@@ -14,6 +20,8 @@ export type CanvasNode = {
   links: CanvasLink[];
   locked?: boolean;
   achievementId?: string;
+  document?: CanvasDocument;
+  assets?: CanvasDocument[];
 };
 
 export type CanvasGroup = {
@@ -23,6 +31,7 @@ export type CanvasGroup = {
   collapsed: boolean;
   x: number;
   y: number;
+  event?: boolean;
 };
 
 export type CanvasBoard = {
@@ -90,6 +99,28 @@ function readNode(value: unknown): CanvasNode | null {
       : [],
     locked: node.locked === true ? true : undefined,
     achievementId: typeof node.achievementId === "string" && node.achievementId ? node.achievementId : undefined,
+    ...(readDocument(node.document) ? { document: readDocument(node.document) } : {}),
+    ...(readAssets(node.assets).length ? { assets: readAssets(node.assets) } : {}),
+  };
+}
+
+function readAssets(value: unknown): CanvasDocument[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const asset = readDocument(entry);
+    return asset ? [asset] : [];
+  });
+}
+
+function readDocument(value: unknown): CanvasDocument | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const document = value as Partial<CanvasDocument>;
+  if (typeof document.id !== "string" || !document.id) return undefined;
+  if (typeof document.name !== "string" || !document.name) return undefined;
+  return {
+    id: document.id,
+    name: document.name,
+    mediaType: typeof document.mediaType === "string" ? document.mediaType : "",
   };
 }
 
@@ -120,6 +151,7 @@ function readGroup(value: unknown): CanvasGroup | null {
     collapsed: group.collapsed === true,
     x: Number.isFinite(x) ? x : 0,
     y: Number.isFinite(y) ? y : 0,
+    ...(group.event === true ? { event: true } : {}),
   };
 }
 

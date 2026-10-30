@@ -2079,9 +2079,10 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       c.req.param("id"),
     );
     if (!document) return c.json({ error: "Document not found." }, 404);
+    const disposition = c.req.query("inline") === "1" ? "inline" : "attachment";
     return c.body(Buffer.from(document.bytes), 200, {
       "content-type": document.row.mediaType,
-      "content-disposition": `attachment; filename="${encodeURIComponent(document.row.originalName)}"`,
+      "content-disposition": `${disposition}; filename="${encodeURIComponent(document.row.originalName)}"`,
     });
   });
 

@@ -41,6 +41,55 @@ describe("readCanvasBoards", () => {
     expect(readCanvasBoards(null)).toBeNull();
   });
 
+  it("keeps a document on a node and drops one with no id", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "north",
+            title: "North",
+            document: { id: "doc-1", name: "Service brief.txt", mediaType: "text/plain" },
+          },
+          { id: "east", title: "East", document: { name: "Missing" } },
+        ],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].document).toEqual({
+      id: "doc-1",
+      name: "Service brief.txt",
+      mediaType: "text/plain",
+    });
+    expect(boards?.[0].nodes[1].document).toBeUndefined();
+  });
+
+  it("keeps several assets on an event and an event group", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "launch",
+            kind: "Event",
+            title: "Launch",
+            assets: [
+              { id: "clip", name: "clip.webm", mediaType: "video/webm" },
+              { name: "missing" },
+            ],
+          },
+        ],
+        groups: [{ id: "event-1", name: "Event", members: ["launch", "north"], event: true, x: 8, y: 12 }],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].assets).toEqual([
+      { id: "clip", name: "clip.webm", mediaType: "video/webm" },
+    ]);
+    expect(boards?.[0].groups[0].event).toBe(true);
+  });
+
   it("drops a member that points at its own group and keeps the link", () => {
     const boards = readCanvasBoards([
       {
