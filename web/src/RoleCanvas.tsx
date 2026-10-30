@@ -501,6 +501,7 @@ export function RoleCanvasEntry({
   const [railOpen, setRailOpen] = useState(true);
   const [boardQuery, setBoardQuery] = useState("");
   const [titleOpen, setTitleOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -588,10 +589,11 @@ export function RoleCanvasEntry({
   const uploadMode = useRef<"document" | "asset">("document");
 
   useEffect(() => {
-    if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen) return;
+    if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen && !boardOpen) return;
     function onPointer(event: PointerEvent) {
       const target = event.target as HTMLElement | null;
       if (!target?.closest(".role-canvas-title-menu, .role-canvas-title")) setTitleOpen(false);
+      if (!target?.closest(".role-canvas-board-menu, .role-canvas-board-name")) setBoardOpen(false);
       if (!target?.closest(".role-canvas-history-panel, .role-canvas-history, .role-canvas-save")) {
         setHistoryOpen(false);
       }
@@ -604,7 +606,7 @@ export function RoleCanvasEntry({
     }
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, [historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt, titleOpen]);
+  }, [historyOpen, wireMenu, nodeMenu, canvasMenu, relationPrompt, titleOpen, boardOpen]);
 
   useEffect(() => {
     try {
@@ -772,6 +774,58 @@ export function RoleCanvasEntry({
     setCanvasMenu(null);
     setWireMenu(null);
     setTitleOpen(false);
+    setBoardOpen(false);
+  }
+
+  function renameBoard() {
+    if (!canvas) return;
+    setBoardOpen(false);
+    const entered = window.prompt("Name this board", canvas.name);
+    if (entered === null) return;
+    const next = entered.trim();
+    if (!next || next === canvas.name) return;
+    const id = canvas.id;
+    setBoards((current) => current.map((board) => (board.id === id ? { ...board, name: next } : board)));
+  }
+
+  function duplicateBoard() {
+    if (!canvas) return;
+    const stamp = Date.now();
+    const ids = new Map(canvas.nodes.map((node, index) => [node.id, `node-${stamp}-${index}`]));
+    const nodes = canvas.nodes.map((node, index) => ({
+      ...snapshotNode(node),
+      id: ids.get(node.id) ?? `node-${stamp}-${index}`,
+      links: node.links.map((link) => ({
+        ...link,
+        id: ids.get(link.id) ?? link.id,
+        key: ids.get(link.key) ?? link.key,
+      })),
+    }));
+    const groups = canvas.groups.map((group, index) => ({
+      ...group,
+      id: `group-${stamp}-${index}`,
+      members: group.members.map((member) => ids.get(member) ?? member),
+    }));
+    const copy: CanvasBoard = {
+      id: `board-${stamp}`,
+      name: `${canvas.name.trim() || "Board"} copy`,
+      nodes,
+      groups,
+    };
+    setBoardOpen(false);
+    setBoards((current) => [...current, copy]);
+    showHome(copy.id);
+  }
+
+  function deleteBoard() {
+    if (!canvas || canvas.id === role.id) return;
+    const id = canvas.id;
+    const order = boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+    const index = order.findIndex((board) => board.id === id);
+    const fallback = order[index - 1]?.id ?? order[index + 1]?.id ?? role.id;
+    setBoardOpen(false);
+    setBoards((current) => current.filter((board) => board.id !== id));
+    showHome(fallback);
   }
 
   function applyBoardSnap(snap: BoardSnap) {
@@ -850,6 +904,7 @@ export function RoleCanvasEntry({
     setSelectedId(null);
     setLinkOpen(false);
     setTitleOpen(false);
+    setBoardOpen(false);
   }
 
   function showRoleBoards(item: WorkMapRole) {
@@ -2511,6 +2566,13 @@ export function RoleCanvasEntry({
       ? undefined
       : { left: frame.left, top: frame.top, width: frame.width, height: frame.height };
 
+  const boardOrder =
+    scope === "all" ? [] : boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+  const boardIndex = boardOrder.findIndex((board) => board.id === canvas?.id);
+  const previousBoard = boardIndex > 0 ? boardOrder[boardIndex - 1] : null;
+  const nextBoard =
+    boardIndex >= 0 && boardIndex < boardOrder.length - 1 ? boardOrder[boardIndex + 1] : null;
+
   const roleFacts = [
     role.organization.trim(),
     formatHistoryPlace({
@@ -2571,18 +2633,106 @@ export function RoleCanvasEntry({
           {scope === "all" ? (
             <span className="role-canvas-title">Career history</span>
           ) : role.title.trim() ? (
-            <button
-              type="button"
-              className="role-canvas-title"
-              aria-expanded={titleOpen}
-              aria-haspopup="menu"
-              onClick={() => {
-                if (minimized) return;
-                setTitleOpen((value) => !value);
-              }}
-            >
-              {role.title.trim()}
-            </button>
+            <>
+              {role.organization.trim() ? (
+                <>
+                  <span className="role-canvas-company">{role.organization.trim()}</span>
+                  <span className="role-canvas-title-rule" aria-hidden="true" />
+                </>
+              ) : null}
+              <button
+                type="button"
+                className="role-canvas-title"
+                aria-expanded={titleOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  if (minimized) return;
+                  setTitleOpen((value) => !value);
+                }}
+              >
+                {role.title.trim()}
+              </button>
+              <span className="role-canvas-board-nav">
+                <button
+                  type="button"
+                  aria-label="Previous board"
+                  disabled={!previousBoard}
+                  onClick={() => {
+                    if (previousBoard) showHome(previousBoard.id);
+                  }}
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M8 2.2 4 6l4 3.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next board"
+                  disabled={!nextBoard}
+                  onClick={() => {
+                    if (nextBoard) showHome(nextBoard.id);
+                  }}
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M4 2.2 8 6 4 9.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <span className="role-canvas-title-rule" aria-hidden="true" />
+                <span className="role-canvas-board-menu-anchor">
+                  <button
+                    type="button"
+                    className="role-canvas-board-name"
+                    aria-expanded={boardOpen}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      if (minimized) return;
+                      setTitleOpen(false);
+                      setBoardOpen((value) => !value);
+                    }}
+                  >
+                    {canvas?.name}
+                  </button>
+                  {boardOpen ? (
+                    <div className="role-canvas-board-menu" role="menu">
+                      <p className="role-canvas-board-menu-label">Boards</p>
+                      <div className="role-canvas-board-menu-current">
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M3.5 8.2 6.4 11 12.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span>{canvas?.name}</span>
+                        <span className="count">{canvas?.nodes.length ?? 0}</span>
+                      </div>
+                      <div className="role-canvas-board-menu-rule" />
+                      <button type="button" role="menuitem" onClick={renameBoard}>
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M9.2 3.2 12.8 6.8 5.2 14.4H1.6v-3.6L9.2 3.2Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                        </svg>
+                        Rename
+                      </button>
+                      <button type="button" role="menuitem" onClick={duplicateBoard}>
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <rect x="6" y="6" width="8" height="8" rx="1.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                          <path d="M10 6V3.4A1.4 1.4 0 0 0 8.6 2H3.4A1.4 1.4 0 0 0 2 3.4v5.2A1.4 1.4 0 0 0 3.4 10H6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                        </svg>
+                        Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="is-danger"
+                        disabled={canvas?.id === role.id}
+                        onClick={deleteBoard}
+                      >
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M3.2 4.4h9.6M6.2 4.4V3h3.6v1.4M4.6 4.4l.4 8.2h6l.4-8.2" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </span>
+              </span>
+            </>
           ) : (
             <span className="role-canvas-title">Canvas</span>
           )}
@@ -2978,9 +3128,9 @@ export function RoleCanvasEntry({
       ) : null}
       <div className="role-canvas-body">
       {railOpen ? (
-        <aside className="role-canvas-rail" aria-label="Boards">
+        <aside className="role-canvas-rail" aria-label={scope === "all" ? "Boards" : role.organization.trim() || "Boards"}>
           <div className="role-canvas-rail-head">
-            <strong>Boards</strong>
+            <strong>{scope === "all" ? "Boards" : role.organization.trim() || "Boards"}</strong>
           </div>
           <div className="role-canvas-rail-find">
             <input

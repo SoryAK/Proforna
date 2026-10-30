@@ -356,11 +356,194 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.role-canvas-company,
+.role-canvas-board-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #f5f2ee;
+  font: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.role-canvas-board-menu-anchor {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+button.role-canvas-board-name {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-width: max-content;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  cursor: pointer;
+  text-align: left;
+}
+
+button.role-canvas-board-name:hover,
+button.role-canvas-board-name:focus-visible {
+  color: #e8d5b7;
+}
+
+.role-canvas-board-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  width: 14rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: #161616;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.role-canvas-board-menu-label {
+  margin: 0;
+  padding: 0.3rem 0.5rem 0.15rem;
+  color: #9a9186;
+  font: 500 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.role-canvas-board-menu-current {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  color: #f5f2ee;
+  font: 500 0.75rem/1.3 "Geist Variable", "Geist", system-ui, sans-serif;
+}
+
+.role-canvas-board-menu-current svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+}
+
+.role-canvas-board-menu-current > span:first-of-type {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.role-canvas-board-menu-current .count {
+  flex: 0 0 auto;
+  color: #9a9186;
+}
+
+.role-canvas-board-menu-rule {
+  height: 1px;
+  margin: 0.25rem 0.4rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.role-canvas-board-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #f5f2ee;
+  font: 500 0.75rem/1.3 "Geist Variable", "Geist", system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-canvas-board-menu button svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+}
+
+.role-canvas-board-menu button:hover,
+.role-canvas-board-menu button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.role-canvas-board-menu button.is-danger {
+  color: #ff8a80;
+}
+
+.role-canvas-board-menu button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.role-canvas.is-minimized .role-canvas-board-menu {
+  display: none;
+}
+
+.role-canvas-title-rule {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 0.9rem;
+  margin: 0 0.35rem;
+  background: rgba(232, 213, 183, 0.55);
+}
+
+.role-canvas-board-nav {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.role-canvas-board-nav > button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #e8d5b7;
+  cursor: pointer;
+}
+
+.role-canvas-board-nav > button:hover:not(:disabled),
+.role-canvas-board-nav > button:focus-visible:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.role-canvas-board-nav > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.role-canvas-board-nav svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.role-canvas.is-minimized .role-canvas-company,
+.role-canvas.is-minimized .role-canvas-title-rule,
+.role-canvas.is-minimized .role-canvas-board-nav {
+  display: none;
+}
+
 .role-canvas-title {
   display: block;
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 100%;
+  max-width: 16rem;
   padding: 0;
   border: 0;
   background: transparent;
