@@ -41,6 +41,30 @@ describe("readCanvasBoards", () => {
     expect(readCanvasBoards(null)).toBeNull();
   });
 
+  it("keeps a document on a node and drops one with no id", () => {
+    const boards = readCanvasBoards([
+      {
+        id: "demo",
+        name: "Demo",
+        nodes: [
+          {
+            id: "north",
+            title: "North",
+            document: { id: "doc-1", name: "Service brief.txt", mediaType: "text/plain" },
+          },
+          { id: "east", title: "East", document: { name: "Missing" } },
+        ],
+        groups: [],
+      },
+    ]);
+    expect(boards?.[0].nodes[0].document).toEqual({
+      id: "doc-1",
+      name: "Service brief.txt",
+      mediaType: "text/plain",
+    });
+    expect(boards?.[0].nodes[1].document).toBeUndefined();
+  });
+
   it("drops a member that points at its own group and keeps the link", () => {
     const boards = readCanvasBoards([
       {

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   CANVAS_NODE_KINDS,
@@ -22,6 +22,7 @@ import {
   type CanvasGroup,
   type CanvasLink,
   type CanvasNode,
+  type CanvasDocument,
 } from "@core/canvas-board";
 import { achievementStatement } from "@core/role-achievements";
 import type { WorkMapRole } from "@core/work-map";
@@ -395,6 +396,7 @@ function nodeDraft(node: CanvasNode): {
   body: string;
   url: string;
   achievementId?: string;
+  document?: CanvasDocument;
 } {
   return {
     id: node.id,
@@ -403,6 +405,7 @@ function nodeDraft(node: CanvasNode): {
     body: node.body,
     url: node.url,
     achievementId: node.achievementId,
+    ...(node.document ? { document: { ...node.document } } : {}),
   };
 }
 
@@ -436,7 +439,7 @@ function mapFrame(): Frame {
   };
 }
 
-type Viewer = { title: string; url: string; kind: string } | null;
+type Viewer = { title: string; url: string; kind: string; srcDoc?: string } | null;
 
 export function RoleCanvasEntry({
   role,
@@ -519,6 +522,7 @@ export function RoleCanvasEntry({
   } | null>(null);
   const [draftWire, setDraftWire] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [hotTarget, setHotTarget] = useState<string | null>(null);
+  const [fileDropId, setFileDropId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const chromeRef = useRef<Chrome>(EMPTY_CHROME);
   const pendingScroll = useRef<{ left: number; top: number } | null>(
@@ -537,14 +541,37 @@ export function RoleCanvasEntry({
     body: string;
     url: string;
     achievementId?: string;
+    document?: CanvasDocument;
   } | null>(null);
   const [panelPos, setPanelPos] = useState<{ left: number; top: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState(288);
   const [nodeError, setNodeError] = useState("");
+  const [documents, setDocuments] = useState<CanvasDocument[]>([]);
 
   useEffect(() => {
     if (!draft) setPanelPos(null);
   }, [draft]);
+
+  useEffect(() => {
+    if (!draft) return;
+    let cancel = false;
+    void fetch("/api/documents")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { documents?: Array<{ id: string; originalName: string; mediaType: string }> } | null) => {
+        if (cancel || !body?.documents) return;
+        setDocuments(
+          body.documents.map((item) => ({
+            id: item.id,
+            name: item.originalName,
+            mediaType: item.mediaType || "",
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [draft?.id, draft ? 1 : 0]);
   const windowRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const planeRef = useRef<HTMLDivElement>(null);
@@ -553,6 +580,8 @@ export function RoleCanvasEntry({
   const redoRef = useRef<BoardSnap[]>([]);
   const copiedRef = useRef<CanvasNode[]>([]);
   const commandRef = useRef<CanvasCommands | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const replaceNodeId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!historyOpen && !wireMenu && !nodeMenu && !canvasMenu && !relationPrompt && !titleOpen) return;
@@ -789,14 +818,6 @@ export function RoleCanvasEntry({
     setMenuEpoch((value) => value + 1);
   }
 
-  useEffect(() => {
-    if (!selectedId) return;
-    const node = boardsRef.current.flatMap((board) => board.nodes).find((item) => item.id === selectedId);
-    if (!node) return;
-    setDraft(nodeDraft(node));
-    setNodeError("");
-  }, [selectedId]);
-
   function patchNode(id: string, patch: Partial<CanvasNode>) {
     setBoards((current) =>
       current.map((board) => ({
@@ -874,6 +895,15 @@ export function RoleCanvasEntry({
   function openViewer(node: CanvasNode) {
     if (!node.url) return;
     setViewer({ title: node.title, url: node.url, kind: node.kind });
+  }
+
+  function openDocument(node: CanvasNode) {
+    if (!node.document) return;
+    setViewer({
+      title: node.document.name,
+      url: `/api/documents/${encodeURIComponent(node.document.id)}?inline=1`,
+      kind: "Document",
+    });
   }
 
   function onLinked(node: CanvasNode) {
@@ -1169,7 +1199,7 @@ export function RoleCanvasEntry({
 
   function dragNode(event: ReactPointerEvent<HTMLElement>, node: CanvasNode) {
     if (tool === "pan" || event.button !== 0) return;
-    if ((event.target as HTMLElement).closest("button, input, textarea")) return;
+    if ((event.target as HTMLElement).closest("button, input, textarea, a, label")) return;
     const board = boardsRef.current.find((item) => item.id === canvas?.id);
     if (!board) return;
     const boardId = board.id;
@@ -1248,17 +1278,15 @@ export function RoleCanvasEntry({
       if (event.shiftKey || event.metaKey || event.ctrlKey) {
         setSelection((current) => {
           const next = current.includes(node.id) ? current.filter((id) => id !== node.id) : [...current, node.id];
-          if (next.length === 1) setSelectedId(next[0]);
-          else {
-            setSelectedId(null);
-            setDraft(null);
-          }
+          setSelectedId(next.length === 1 ? next[0] : null);
+          setDraft(null);
           return next;
         });
         return;
       }
       setSelection([node.id]);
       setSelectedId(node.id);
+      setDraft(null);
     }
     card.addEventListener("pointermove", move);
     card.addEventListener("pointerup", up);
@@ -1403,16 +1431,24 @@ export function RoleCanvasEntry({
   }
 
   function makeGroup() {
+    gatherSelection(false);
+  }
+
+  function gatherSelection(eventGroup: boolean) {
     if (!canvas || selection.length < 2) return;
-    const name = window.prompt("Name this group", "Group");
-    if (name === null) return;
+    let name = eventGroup ? "Event" : "Group";
+    if (!eventGroup) {
+      const entered = window.prompt("Name this group", "Group");
+      if (entered === null) return;
+      name = entered.trim() || "Group";
+    }
     const members = [...selection];
     const cards = canvas.nodes.filter((node) => members.includes(node.id));
     if (cards.length < 2) return;
     remember();
     const group: CanvasGroup = {
       id: `group-${Date.now()}`,
-      name: name.trim() || "Group",
+      name,
       members,
       collapsed: true,
       x: Math.min(...cards.map((item) => item.x)),
@@ -1750,6 +1786,7 @@ export function RoleCanvasEntry({
       url: node.url,
       notes: [...node.notes],
       links: node.links.map((link) => ({ ...link })),
+      ...(node.document ? { document: { ...node.document } } : {}),
       ...(node.w ? { w: node.w } : {}),
       ...(node.h ? { h: node.h } : {}),
     };
@@ -1757,7 +1794,6 @@ export function RoleCanvasEntry({
 
   function placeCopies(copies: CanvasNode[]) {
     if (!canvas || copies.length === 0) return;
-    const editing = Boolean(selectedId);
     setBoards((current) =>
       current.map((board) =>
         board.id === canvas.id ? { ...board, nodes: [...board.nodes, ...copies] } : board,
@@ -1765,8 +1801,10 @@ export function RoleCanvasEntry({
     );
     setSelection(copies.map((copy) => copy.id));
     setSelectedGroupId(null);
-    if (editing && copies.length === 1) setSelectedId(copies[0].id);
-    else {
+    if (draft?.id && copies.length === 1) {
+      setSelectedId(copies[0].id);
+      setDraft(nodeDraft(copies[0]));
+    } else {
       setSelectedId(null);
       setDraft(null);
     }
@@ -1968,8 +2006,12 @@ export function RoleCanvasEntry({
   }
 
   function editNode(id: string) {
+    const node = canvas?.nodes.find((item) => item.id === id);
+    if (!node) return;
     setSelection([id]);
     setSelectedId(id);
+    setDraft(nodeDraft(node));
+    setNodeError("");
     closeMenus();
   }
 
@@ -2135,8 +2177,16 @@ export function RoleCanvasEntry({
     setNodeError("");
     remember();
     if (draft.id) {
-      patchNode(draft.id, prepared.value);
-      setDraft({ id: draft.id, ...prepared.value, achievementId: draft.achievementId });
+      patchNode(draft.id, {
+        ...prepared.value,
+        document: draft.document,
+      });
+      setDraft({
+        id: draft.id,
+        ...prepared.value,
+        achievementId: draft.achievementId,
+        document: draft.document,
+      });
       return;
     }
     const anchor = canvas.nodes[canvas.nodes.length - 1];
@@ -2147,14 +2197,102 @@ export function RoleCanvasEntry({
       y: anchor ? anchor.y + 36 : 48,
       notes: [],
       links: [],
+      ...(draft.document ? { document: draft.document } : {}),
     };
     setBoards((current) =>
       current.map((board) =>
         board.id === canvas.id ? { ...board, nodes: [...board.nodes, created] } : board,
       ),
     );
-    setDraft({ id: created.id, ...prepared.value });
+    setDraft({
+      id: created.id,
+      ...prepared.value,
+      ...(draft.document ? { document: draft.document } : {}),
+    });
     setSelectedId(created.id);
+  }
+
+  function applyDocument(document: CanvasDocument | undefined, nodeId: string | null) {
+    setDraft((current) => {
+      if (!current) return current;
+      if (nodeId && current.id !== nodeId) return current;
+      if (!nodeId && current.id) return current;
+      if (!document) {
+        const { document: _removed, ...rest } = current;
+        return rest;
+      }
+      return { ...current, document };
+    });
+    if (!nodeId) return;
+    remember();
+    setBoards((current) =>
+      current.map((board) => ({
+        ...board,
+        nodes: board.nodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          if (!document) {
+            const { document: _removed, ...rest } = node;
+            return rest;
+          }
+          return { ...node, document };
+        }),
+      })),
+    );
+  }
+
+  async function uploadDocument(file: File, nodeId: string | null = null) {
+    const targetId = nodeId ?? draft?.id ?? null;
+    const body = new FormData();
+    body.set("file", file);
+    body.set("category", "canvas");
+    let response: Response;
+    try {
+      response = await fetch("/api/documents", { method: "POST", body });
+    } catch {
+      setNodeError("That document could not be saved.");
+      return;
+    }
+    if (!response.ok) {
+      setNodeError("That document could not be saved.");
+      return;
+    }
+    const payload = (await response.json()) as {
+      document?: { id: string; originalName: string; mediaType: string };
+    };
+    const stored = payload.document;
+    if (!stored?.id || !stored.originalName) {
+      setNodeError("That document could not be saved.");
+      return;
+    }
+    const document = { id: stored.id, name: stored.originalName, mediaType: stored.mediaType || "" };
+    setNodeError("");
+    setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
+    applyDocument(document, targetId);
+  }
+
+  function fileDrag(event: ReactDragEvent) {
+    return [...event.dataTransfer.types].includes("Files");
+  }
+
+  function downloadDocument(node: CanvasNode) {
+    if (!node.document) return;
+    downloadLink(`/api/documents/${encodeURIComponent(node.document.id)}`, node.document.name);
+  }
+
+  function downloadLink(href: string, name: string) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    closeMenus();
+  }
+
+  function startReplace(nodeId: string) {
+    replaceNodeId.current = nodeId;
+    closeMenus();
+    replaceInputRef.current?.click();
   }
 
   function removeNode() {
@@ -2370,6 +2508,7 @@ export function RoleCanvasEntry({
             Save
           </button>
           {saveError ? <span className="role-canvas-save-error">{saveError}</span> : null}
+          {!draft && nodeError ? <span className="role-canvas-save-error">{nodeError}</span> : null}
           <button
             type="button"
             className="role-canvas-history"
@@ -2558,6 +2697,46 @@ export function RoleCanvasEntry({
               onChange={(event) => setDraft({ ...draft, url: event.target.value })}
             />
           </label>
+          <label>
+            Document
+            <input
+              aria-label="Upload a document"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void uploadDocument(file);
+              }}
+            />
+          </label>
+          {documents.length > 0 ? (
+            <label>
+              Attach a document
+              <select
+                aria-label="Attach a document"
+                value={draft.document?.id ?? ""}
+                onChange={(event) => {
+                  const next = documents.find((item) => item.id === event.target.value);
+                  applyDocument(next, draft.id);
+                }}
+              >
+                <option value="">None</option>
+                {documents.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {draft.document ? (
+            <p className="role-canvas-document-name">
+              {draft.document.name}
+              <button type="button" onClick={() => applyDocument(undefined, draft.id)}>
+                Remove document
+              </button>
+            </p>
+          ) : null}
           <div className="role-canvas-control-row">
             <button type="button" onClick={saveNode}>
               {draft.id ? "Save" : "Add node"}
@@ -2618,9 +2797,9 @@ export function RoleCanvasEntry({
                 </button>
               </>
             ) : null}
-            {selected?.url && (selected.kind === "Video" || selected.kind === "Photo") ? (
+            {selected?.url && selected.kind === "Photo" ? (
               <button type="button" onClick={() => openViewer(selected)}>
-                {selected.kind === "Video" ? "Play" : "Open"}
+                Open
               </button>
             ) : null}
           </div>
@@ -2717,6 +2896,15 @@ export function RoleCanvasEntry({
           setNodeMenu(null);
           setWireMenu(null);
           setCanvasMenu({ x: event.clientX, y: event.clientY });
+        }}
+        onDragOver={(event) => {
+          if (!fileDrag(event)) return;
+          event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!fileDrag(event)) return;
+          event.preventDefault();
+          setFileDropId(null);
         }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -2907,9 +3095,11 @@ export function RoleCanvasEntry({
                 className={[
                   "role-canvas-node",
                   node.kind === "Page" ? "is-page" : "",
+                  node.document ? "has-document" : "",
                   node.w || node.h ? "is-sized" : "",
                   node.locked ? "is-locked" : "",
                   selection.includes(node.id) ? "is-selected" : "",
+                  fileDropId === node.id ? "is-file-drop" : "",
                   faded ? "is-filtered" : "",
                 ]
                   .filter(Boolean)
@@ -2917,6 +3107,32 @@ export function RoleCanvasEntry({
                 data-id={node.id}
                 style={{ left: node.x, top: node.y, width: node.w, height: node.h, zIndex: index + 1 }}
                 onPointerDown={(event) => dragNode(event, node)}
+                onDragEnter={(event) => {
+                  if (node.locked || !fileDrag(event)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setFileDropId(node.id);
+                }}
+                onDragOver={(event) => {
+                  if (node.locked || !fileDrag(event)) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  event.dataTransfer.dropEffect = "copy";
+                  setFileDropId(node.id);
+                }}
+                onDragLeave={(event) => {
+                  const next = event.relatedTarget;
+                  if (next instanceof Node && event.currentTarget.contains(next)) return;
+                  setFileDropId((current) => (current === node.id ? null : current));
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setFileDropId(null);
+                  if (node.locked) return;
+                  const files = [...event.dataTransfer.files];
+                  if (files[0]) void uploadDocument(files[0], node.id);
+                }}
                 onContextMenu={(event) => {
                   if (openWireAt(event)) return;
                   event.preventDefault();
@@ -2940,7 +3156,23 @@ export function RoleCanvasEntry({
                   ) : null}
                 </p>
                 <h3 title={node.title || undefined}>{node.title || "Untitled"}</h3>
-                {node.kind === "Page" ? (
+                {node.document && canShowDocument(node.document.mediaType) ? (
+                  <div
+                    className={
+                      node.document.mediaType === "application/pdf"
+                        ? "role-canvas-document-preview is-sheet"
+                        : "role-canvas-document-preview"
+                    }
+                  >
+                    <iframe
+                      className="role-canvas-page"
+                      title={node.document.name}
+                      scrolling="no"
+                      tabIndex={-1}
+                      src={documentPreviewSrc(node.document)}
+                    />
+                  </div>
+                ) : node.kind === "Page" ? (
                   pageSrc(node) ? (
                     <iframe
                       className="role-canvas-page"
@@ -2959,6 +3191,16 @@ export function RoleCanvasEntry({
                   )
                 ) : node.body ? (
                   <p>{node.body}</p>
+                ) : null}
+                {node.document ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="View document"
+                    onClick={() => openDocument(node)}
+                  >
+                    View
+                  </button>
                 ) : null}
                 {node.notes.length > 0 ? <p>{node.notes.join(" ")}</p> : null}
                 {node.links.length > 0 ? (
@@ -3111,6 +3353,19 @@ export function RoleCanvasEntry({
       </div>
       </div>
       </div>
+      <input
+        ref={replaceInputRef}
+        className="role-canvas-replace-input"
+        type="file"
+        aria-label="Replace document"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          const nodeId = replaceNodeId.current;
+          event.currentTarget.value = "";
+          replaceNodeId.current = null;
+          if (file && nodeId) void uploadDocument(file, nodeId);
+        }}
+      />
       {nodeMenu && canvas ? (
         <CanvasContextMenu x={nodeMenu.x} y={nodeMenu.y}>
           {nodeMenu.kind === "group" ? (
@@ -3121,6 +3376,25 @@ export function RoleCanvasEntry({
           ) : (
             <>
               <MenuButton label="Edit" onClick={() => editNode(nodeMenu.id)} />
+              {canvas.nodes.find((node) => node.id === nodeMenu.id)?.document ? (
+                <>
+                  <MenuButton
+                    label="Download"
+                    onClick={() => {
+                      const node = canvas.nodes.find((item) => item.id === nodeMenu.id);
+                      if (node) downloadDocument(node);
+                    }}
+                  />
+                  <MenuButton label="Replace" onClick={() => startReplace(nodeMenu.id)} />
+                  <MenuButton
+                    label="Remove"
+                    onClick={() => {
+                      applyDocument(undefined, nodeMenu.id);
+                      closeMenus();
+                    }}
+                  />
+                </>
+              ) : null}
               <div className="role-canvas-context-rule" />
               {selection.includes(nodeMenu.id) && selection.length > 1 ? (
                 <MenuButton label="Group" onClick={makeGroup} />
@@ -3240,36 +3514,30 @@ export function RoleCanvasEntry({
       {windowNode && windowHost ? createPortal(windowNode, windowHost) : null}
       {viewer
         ? createPortal(
+            viewer.kind === "Document" ? (
+              <div className="role-canvas-document-view" role="dialog" aria-label={viewer.title}>
+                <header>
+                  <h2>{viewer.title}</h2>
+                  <button type="button" onClick={() => setViewer(null)}>
+                    Close
+                  </button>
+                </header>
+                <iframe className="role-canvas-document-frame" title={viewer.title} src={viewer.url} />
+              </div>
+            ) : (
             <div className="role-canvas-viewer" role="dialog" aria-label={viewer.title}>
               <header>
                 <div>
                   <h2>{viewer.title}</h2>
-                  <p>
-                    {viewer.kind === "Video"
-                      ? "The player stays in this project. A real design film stands in for the foldable upload."
-                      : viewer.kind}
-                  </p>
+                  <p>{viewer.kind}</p>
                 </div>
                 <button type="button" onClick={() => setViewer(null)}>
                   Back to the canvas
                 </button>
               </header>
-              {viewer.kind === "Video" ? (
-                filmEmbed(viewer.url) ? (
-                  <iframe
-                    className="role-canvas-frame"
-                    title={viewer.title}
-                    src={viewer.url}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <video className="role-canvas-frame" controls src={viewer.url} />
-                )
-              ) : (
-                <img className="role-canvas-frame" alt="" src={viewer.url} />
-              )}
-            </div>,
+              <img className="role-canvas-frame" alt="" src={viewer.url} />
+            </div>
+            ),
             document.body,
           )
         : null}
@@ -3366,12 +3634,18 @@ function hiddenMemberIds(groups: CanvasGroup[]) {
   return ids;
 }
 
-function pageText(value: string) {
-  return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+function canShowDocument(mediaType: string) {
+  return mediaType.startsWith("image/") || mediaType.startsWith("text/") || mediaType === "application/pdf";
 }
 
-function filmEmbed(url: string) {
-  return /youtube|youtu\.be|\/embed\//i.test(url);
+function documentPreviewSrc(document: CanvasDocument) {
+  const src = `/api/documents/${encodeURIComponent(document.id)}?inline=1`;
+  if (document.mediaType !== "application/pdf") return src;
+  return `${src}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`;
+}
+
+function pageText(value: string) {
+  return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
 }
 
 function pageSrc(node: CanvasNode) {
