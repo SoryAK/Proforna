@@ -1515,6 +1515,27 @@
   outline-offset: 3px;
 }
 
+.role-canvas-video-preview {
+  overflow: hidden;
+  height: 9rem;
+  margin-top: 0.45rem;
+  border-radius: 10px;
+  background: #1c1814;
+  pointer-events: none;
+}
+
+.role-canvas-video-preview video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.role-canvas-document-view video {
+  background: #000;
+}
+
 .role-canvas-replace-input {
   position: absolute;
   width: 1px;

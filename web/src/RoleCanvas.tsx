@@ -906,9 +906,19 @@ export function RoleCanvasEntry({
     });
   }
 
+  function openVideo(node: CanvasNode) {
+    const video = videoSource(node);
+    if (!video) return;
+    setViewer({ title: video.name, url: video.src, kind: "Video" });
+  }
+
   function onLinked(node: CanvasNode) {
     if (scope !== "all" && canvasId !== role.id) showHome(role.id);
-    if (node.kind === "Video" || node.kind === "Photo") {
+    if (node.kind === "Video") {
+      openVideo(node);
+      return;
+    }
+    if (node.kind === "Photo") {
       openViewer(node);
       return;
     }
@@ -2289,6 +2299,16 @@ export function RoleCanvasEntry({
     closeMenus();
   }
 
+  function clearVideoUrl(nodeId: string) {
+    setDraft((current) => {
+      if (!current || current.id !== nodeId) return current;
+      return { ...current, url: "" };
+    });
+    remember();
+    patchNode(nodeId, { url: "" });
+    closeMenus();
+  }
+
   function startReplace(nodeId: string) {
     replaceNodeId.current = nodeId;
     closeMenus();
@@ -2342,7 +2362,8 @@ export function RoleCanvasEntry({
     }
     setSelectedId(target.id);
     setLinkOpen(false);
-    if (target.kind === "Video" || target.kind === "Photo") openViewer(target);
+    if (target.kind === "Video") openVideo(target);
+    else if (target.kind === "Photo") openViewer(target);
   }
 
   function addNote() {
@@ -2797,6 +2818,11 @@ export function RoleCanvasEntry({
                 </button>
               </>
             ) : null}
+            {selected && videoSource(selected) ? (
+              <button type="button" onClick={() => openVideo(selected)}>
+                Play
+              </button>
+            ) : null}
             {selected?.url && selected.kind === "Photo" ? (
               <button type="button" onClick={() => openViewer(selected)}>
                 Open
@@ -3089,6 +3115,7 @@ export function RoleCanvasEntry({
             const faded =
               query.trim() &&
               !`${node.title} ${node.body} ${node.kind}`.toLowerCase().includes(query.trim().toLowerCase());
+            const video = videoSource(node);
             return (
               <article
                 key={node.id}
@@ -3156,7 +3183,13 @@ export function RoleCanvasEntry({
                   ) : null}
                 </p>
                 <h3 title={node.title || undefined}>{node.title || "Untitled"}</h3>
-                {node.document && canShowDocument(node.document.mediaType) ? (
+                {video ? (
+                  video.embed ? null : (
+                    <div className="role-canvas-video-preview">
+                      <video muted playsInline preload="metadata" tabIndex={-1} src={video.src} />
+                    </div>
+                  )
+                ) : node.document && canShowDocument(node.document.mediaType) ? (
                   <div
                     className={
                       node.document.mediaType === "application/pdf"
@@ -3192,7 +3225,16 @@ export function RoleCanvasEntry({
                 ) : node.body ? (
                   <p>{node.body}</p>
                 ) : null}
-                {node.document ? (
+                {video ? (
+                  <button
+                    type="button"
+                    className="role-canvas-view"
+                    aria-label="Play video"
+                    onClick={() => openVideo(node)}
+                  >
+                    Play
+                  </button>
+                ) : node.document ? (
                   <button
                     type="button"
                     className="role-canvas-view"
@@ -3395,6 +3437,20 @@ export function RoleCanvasEntry({
                   />
                 </>
               ) : null}
+              {(() => {
+                const menuNode = canvas.nodes.find((node) => node.id === nodeMenu.id);
+                const video = menuNode ? videoSource(menuNode) : null;
+                if (!menuNode || !video || menuNode.document) return null;
+                return (
+                  <>
+                    {video.embed ? null : (
+                      <MenuButton label="Download" onClick={() => downloadLink(video.src, menuNode.title || "Video")} />
+                    )}
+                    <MenuButton label="Replace" onClick={() => startReplace(menuNode.id)} />
+                    <MenuButton label="Remove" onClick={() => clearVideoUrl(menuNode.id)} />
+                  </>
+                );
+              })()}
               <div className="role-canvas-context-rule" />
               {selection.includes(nodeMenu.id) && selection.length > 1 ? (
                 <MenuButton label="Group" onClick={makeGroup} />
@@ -3514,7 +3570,7 @@ export function RoleCanvasEntry({
       {windowNode && windowHost ? createPortal(windowNode, windowHost) : null}
       {viewer
         ? createPortal(
-            viewer.kind === "Document" ? (
+            viewer.kind === "Document" || viewer.kind === "Video" ? (
               <div className="role-canvas-document-view" role="dialog" aria-label={viewer.title}>
                 <header>
                   <h2>{viewer.title}</h2>
@@ -3522,7 +3578,21 @@ export function RoleCanvasEntry({
                     Close
                   </button>
                 </header>
-                <iframe className="role-canvas-document-frame" title={viewer.title} src={viewer.url} />
+                {viewer.kind === "Video" ? (
+                  filmEmbed(viewer.url) ? (
+                    <iframe
+                      className="role-canvas-document-frame"
+                      title={viewer.title}
+                      src={viewer.url}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video className="role-canvas-document-frame" controls src={viewer.url} />
+                  )
+                ) : (
+                  <iframe className="role-canvas-document-frame" title={viewer.title} src={viewer.url} />
+                )}
               </div>
             ) : (
             <div className="role-canvas-viewer" role="dialog" aria-label={viewer.title}>
@@ -3638,6 +3708,21 @@ function canShowDocument(mediaType: string) {
   return mediaType.startsWith("image/") || mediaType.startsWith("text/") || mediaType === "application/pdf";
 }
 
+function videoSource(node: CanvasNode) {
+  if (node.document?.mediaType.startsWith("video/")) {
+    return {
+      src: `/api/documents/${encodeURIComponent(node.document.id)}?inline=1`,
+      name: node.document.name,
+      stored: true,
+      embed: false,
+    };
+  }
+  if (node.document) return null;
+  const url = node.kind === "Video" ? node.url.trim() : "";
+  if (!url) return null;
+  return { src: url, name: node.title || "Video", stored: false, embed: filmEmbed(url) };
+}
+
 function documentPreviewSrc(document: CanvasDocument) {
   const src = `/api/documents/${encodeURIComponent(document.id)}?inline=1`;
   if (document.mediaType !== "application/pdf") return src;
@@ -3646,6 +3731,10 @@ function documentPreviewSrc(document: CanvasDocument) {
 
 function pageText(value: string) {
   return value.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch);
+}
+
+function filmEmbed(url: string) {
+  return /youtube|youtu\.be|\/embed\//i.test(url);
 }
 
 function pageSrc(node: CanvasNode) {
