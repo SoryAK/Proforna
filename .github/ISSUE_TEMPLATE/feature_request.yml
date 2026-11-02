@@ -11,6 +11,14 @@ body:
         Use this for a focused feature request.
 
         A large or exploratory change starts with the problem. A UI change uses the UI design form and includes at least three detailed mocks.
+  - type: input
+    id: focus
+    attributes:
+      label: Focus
+      description: The part of the project this issue focuses on, such as onboarding, career history, nodes, boards, or connections.
+      placeholder: career history
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:

@@ -9,6 +9,14 @@ body:
     attributes:
       value: |
         Include a minimal reproduction and enough environment detail to verify the issue.
+  - type: input
+    id: focus
+    attributes:
+      label: Focus
+      description: The part of the project this issue focuses on, such as onboarding, career history, nodes, boards, or connections.
+      placeholder: career history
+    validations:
+      required: true
   - type: textarea
     id: summary
     attributes:
