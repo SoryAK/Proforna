@@ -18,6 +18,8 @@ The check name GitHub should require is **`test`**.
 - Hosting (Vercel or otherwise) is not wired
 - The standards-and-spec review. That review reads the issue and judges the
   diff. A test job cannot do it, so it stays on the pull request.
+  [`.github/workflows/pr-agent.yml`](../.github/workflows/pr-agent.yml) runs
+  The PR Agent on a pull request. That review is not the required `test` check.
 
 ## Review
 
