@@ -271,7 +271,14 @@ export function GoogleWorkMap({
         }
       }
     }
+    const frame = host
+      ? new ResizeObserver(() => {
+          maps.event.trigger(map, "resize");
+        })
+      : null;
+    frame?.observe(host);
     return () => {
+      frame?.disconnect();
       circle?.setMap(null);
       click?.remove();
       drawn.hideTip();
