@@ -1,61 +1,25 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import {
-  currentJob,
-  formatCareerSpan,
-  type CareerFile,
-  type CareerJob,
-} from "@core/career-file";
-import { HomeBar } from "./HomeBar";
+import { useEffect, useState } from "react";
+import type { CanvasBoard } from "@core/canvas-board";
+import type { WorkMapRole } from "@core/work-map";
+import { currentJob, type CareerFile } from "@core/career-file";
+import { HomeBar, type HomeBioMode } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
-import { HomeSearch } from "./HomeSearch";
+import { HomeSearch, type SearchPlace } from "./HomeSearch";
 import { HomeSettings } from "./HomeSettings";
 import type { DetailTab } from "./RoleDetailPanel";
 import { WorkHistory } from "./WorkHistory";
+import { CareerHistoryCard } from "./CareerHistoryCard";
 import { CareerWorkspace } from "./CareerWorkspace";
-import { HomeProforna } from "./HomeProforna";
+import { HomeCenter } from "./HomeCenter";
+import { HomeProforna, type ChatRole } from "./HomeProforna";
+import { RoleCanvasEntry } from "./RoleCanvas";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
 const NAV_COLLAPSED_KEY = "proforna.navCollapsed";
 const PANEL_OPEN_KEY = "proforna.panelOpen";
 const WORKBENCH = "(min-width: 760px)";
-const NAV_DEFAULT = 264;
-const CHAT_DEFAULT = 336;
-const NAV_MIN = 176;
-const CHAT_MIN = 260;
-const EDITOR_MIN = 280;
-const NAV_MAX = 480;
-const CHAT_MAX = 560;
-const SASH = 8;
-const NAV_RAIL = 68;
-
-type SideWidths = { nav: number; chat: number };
-type Rails = { nav: boolean; chat: boolean };
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function fitWidths(
-  preferred: SideWidths,
-  container: number,
-  rails: Rails,
-): SideWidths {
-  let nav = rails.nav ? NAV_RAIL : clamp(preferred.nav, NAV_MIN, NAV_MAX);
-  let chat = rails.chat ? 0 : clamp(preferred.chat, CHAT_MIN, CHAT_MAX);
-  const sashCount = (rails.nav ? 0 : 1) + (rails.chat ? 0 : 1);
-  let overflow = nav + chat + EDITOR_MIN + SASH * sashCount - container;
-  if (overflow > 0 && !rails.chat) {
-    const chatShrink = Math.min(overflow, chat - CHAT_MIN);
-    chat -= chatShrink;
-    overflow -= chatShrink;
-  }
-  if (overflow > 0 && !rails.nav) {
-    nav = Math.max(NAV_MIN, nav - overflow);
-  }
-  return { nav, chat };
-}
 
 export function Home({
   initialFocusJobId = null,
@@ -73,8 +37,17 @@ export function Home({
   onProfileSaved: (profile: OnboardingProfileValue) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [bioMode, setBioMode] = useState<HomeBioMode>("browse");
+  const [canvasFromNav, setCanvasFromNav] = useState(false);
+  const [chatRoles, setChatRoles] = useState<ChatRole[]>([]);
+  const [chatRelease, setChatRelease] = useState<{ id: string; nonce: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [centerView, setCenterView] = useState<{
+    id: number;
+    updates: boolean;
+    updateId: string | null;
+  } | null>(null);
   const [page, setPage] = useState<HomePage>(readPage);
   const [focusJobId, setFocusJobId] = useState<string | null>(initialFocusJobId);
   const [photoTick, setPhotoTick] = useState(0);
@@ -83,16 +56,7 @@ export function Home({
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
   const [desktop, setDesktop] = useState(readDesktop);
-  const [widths, setWidths] = useState<SideWidths>({
-    nav: NAV_DEFAULT,
-    chat: CHAT_DEFAULT,
-  });
-  const [dragging, setDragging] = useState<"nav" | "chat" | null>(null);
-  const preferred = useRef<SideWidths>({
-    nav: NAV_DEFAULT,
-    chat: CHAT_DEFAULT,
-  });
-  const shellRef = useRef<HTMLDivElement>(null);
+  const leftClosed = desktop && collapsed;
   const role = currentJob(career);
   const place = [
     profile.address,
@@ -104,12 +68,6 @@ export function Home({
   const photoSrc = profile.avatarUrl
     ? `${profile.avatarUrl}?v=${photoTick}`
     : null;
-  const recentJobs = career.jobs.filter((job) => job.id !== role?.id).slice(0, 4);
-  const skillTags = career.skills
-    .map((skill) => skill.trim())
-    .filter((skill) => skill.length > 0 && skill.length <= 36)
-    .slice(0, 8);
-  const next = nextCareerAction(career, role);
 
   useEffect(() => {
     const mq = window.matchMedia(WORKBENCH);
@@ -142,60 +100,6 @@ export function Home({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell || !desktop) return;
-    applyFit();
-    const observer = new ResizeObserver(() => applyFit());
-    observer.observe(shell);
-    return () => observer.disconnect();
-  }, [desktop, collapsed, profornaOpen]);
-
-  function applyFit() {
-    const container = shellRef.current?.clientWidth ?? 0;
-    if (container <= 0) return;
-    const next = fitWidths(preferred.current, container, {
-      nav: collapsed,
-      chat: !profornaOpen,
-    });
-    setWidths((current) =>
-      current.nav === next.nav && current.chat === next.chat ? current : next,
-    );
-  }
-
-  function dragSide(
-    side: "nav" | "chat",
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) {
-    if (!desktop || event.button !== 0) return;
-    event.preventDefault();
-    const startX = event.clientX;
-    const start = preferred.current[side];
-    const sign = side === "nav" ? 1 : -1;
-    const min = side === "nav" ? NAV_MIN : CHAT_MIN;
-    const max = side === "nav" ? NAV_MAX : CHAT_MAX;
-    setDragging(side);
-
-    function move(next: PointerEvent) {
-      preferred.current[side] = clamp(start + sign * (next.clientX - startX), min, max);
-      applyFit();
-    }
-    function up() {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      setDragging(null);
-    }
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  }
-
-  function nudge(side: "nav" | "chat", delta: number) {
-    const min = side === "nav" ? NAV_MIN : CHAT_MIN;
-    const max = side === "nav" ? NAV_MAX : CHAT_MAX;
-    preferred.current[side] = clamp(preferred.current[side] + delta, min, max);
-    applyFit();
-  }
-
   function toggleMenu() {
     if (desktop) {
       setCollapsed((value) => {
@@ -223,13 +127,15 @@ export function Home({
 
   function goPage(next: HomePage) {
     setPage(next);
-    const hash = next === "home" ? "" : `#/${next}`;
+    const hash =
+      next === "home" ? "" : next === "historyReserve" ? "#/history-reserve" : `#/${next}`;
     if (window.location.hash !== hash) {
       window.location.hash = hash;
     }
   }
 
   function goProfile() {
+    showLeft();
     if (page === "home") {
       setEditing(true);
       return;
@@ -238,44 +144,72 @@ export function Home({
     goHome();
   }
 
+  function showLeft() {
+    setMobileOpen(false);
+    if (collapsed) {
+      setCollapsed(false);
+      writeCollapsed(false);
+    }
+  }
+
+  function showCenter() {
+    if (page === "home" || page === "history") return;
+    setEditing(false);
+    goPage("home");
+  }
+
+  function openSearchPlace(id: SearchPlace) {
+    if (id === "profile") {
+      goProfile();
+      return;
+    }
+    if (id === "history") {
+      showLeft();
+      setEditing(false);
+      setFocusJobId(null);
+      goPage("history");
+      return;
+    }
+    if (id === "map") {
+      showCenter();
+      setCenterView({ id: Date.now(), updates: false, updateId: null });
+      return;
+    }
+    if (id === "updates") {
+      showCenter();
+      setFocusJobId(null);
+      setCenterView({ id: Date.now(), updates: true, updateId: null });
+      return;
+    }
+    if (id === "media") {
+      showCenter();
+      return;
+    }
+    setProfornaOpen(true);
+    writePanelOpen(true);
+  }
+
+  function openSearchRole(id: string) {
+    showLeft();
+    setEditing(false);
+    setFocusJobId(id);
+    goPage("history");
+  }
+
+  function openSearchUpdate(id: string) {
+    showCenter();
+    setFocusJobId(null);
+    setCenterView({ id: Date.now(), updates: true, updateId: id });
+  }
+
   return (
     <div className="home">
-      <HomeBar
-        name={profile.fullName}
-        headline={profile.headline}
-        photoSrc={photoSrc}
-        menuExpanded={desktop ? !collapsed : mobileOpen}
-        menuLabel={page === "history" ? "Home" : undefined}
-        onMenu={() => {
-          if (page === "history") {
-            setEditing(false);
-            goHome();
-            return;
-          }
-          toggleMenu();
-        }}
-        onProfile={goProfile}
-        onSettings={() => setSettingsOpen(true)}
-        onSearch={() => setSearchOpen(true)}
-        onProforna={togglePanel}
-        profornaOpen={profornaOpen}
-        onNotice={(href) => {
-          setEditing(false);
-          setMobileOpen(false);
-          goPage(href);
-        }}
-      />
       <HomeSearch
         open={searchOpen}
-        career={career}
-        onClose={() => setSearchOpen(false)}
-        onHome={() => {
-          setEditing(false);
-          setMobileOpen(false);
-          goHome();
-        }}
-        onProfile={goProfile}
-        onSettings={() => setSettingsOpen(true)}
+        onOpenChange={setSearchOpen}
+        onPlace={openSearchPlace}
+        onRole={openSearchRole}
+        onUpdate={openSearchUpdate}
       />
       <HomeSettings
         open={settingsOpen}
@@ -288,266 +222,235 @@ export function Home({
         onMapsSaved={() => setMapRevision((n) => n + 1)}
       />
       <div
-        className={dragging ? "home-shell is-resizing" : "home-shell"}
-        ref={shellRef}
+        className={[
+          "home-sheet",
+          leftClosed ? "is-left-closed" : "",
+          profornaOpen ? "is-right-open" : "",
+          page === "home" || page === "history" ? "" : "is-stage-full",
+          page === "history" && bioMode === "preview" ? "" : "is-bio-hidden",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
-        {page === "history" ? (
-          <WorkHistory
-            career={career}
-            careerError={careerError}
-            focusJobId={focusJobId}
-            focusTab={focusJobId === initialFocusJobId ? initialFocusTab : undefined}
-            mapRevision={mapRevision}
-            onHome={() => {
+        <HomeBar
+          name={profile.fullName}
+          headline={profile.headline}
+          photoSrc={photoSrc}
+          menuExpanded={desktop ? !collapsed : mobileOpen}
+          menuLabel={page === "history" ? "Home" : undefined}
+          onMenu={() => {
+            if (page === "history") {
               setEditing(false);
               goHome();
-            }}
-          />
-        ) : (
-          <>
-        <HomeNav
-          collapsed={desktop && collapsed}
-          mobileOpen={mobileOpen}
-          page={page}
-          width={desktop && !collapsed ? widths.nav : undefined}
-          onCloseMobile={() => setMobileOpen(false)}
-          onGoHome={() => {
-            goHome();
+              return;
+            }
+            toggleMenu();
           }}
-          onGoHistory={(jobId) => {
+          onProfile={goProfile}
+          onSettings={() => setSettingsOpen(true)}
+          onSearch={() => setSearchOpen(true)}
+          onProforna={togglePanel}
+          profornaOpen={profornaOpen}
+          bioMode={bioMode}
+          onBioMode={setBioMode}
+          onNotice={(href) => {
             setEditing(false);
-            goPage("history");
-            setFocusJobId(jobId ?? null);
-          }}
-          onGoPage={(next) => {
-            setEditing(false);
-            setFocusJobId(null);
-            goPage(next);
+            setMobileOpen(false);
+            if (href === "worklog") {
+              goHome();
+              return;
+            }
+            goPage(href);
           }}
         />
-        {desktop && !collapsed ? (
-          <WorkbenchSash
-            label="Resize Career"
-            value={widths.nav}
-            min={NAV_MIN}
-            max={NAV_MAX}
-            dragging={dragging === "nav"}
-            onDragStart={(event) => dragSide("nav", event)}
-            onNudge={(delta) => nudge("nav", delta)}
-            onReset={() => {
-              preferred.current.nav = NAV_DEFAULT;
-              applyFit();
-            }}
-          />
-        ) : null}
-      <main className="home-main">
-      {page !== "home" ? (
-        <CareerWorkspace page={page} />
-      ) : editing ? (
-        <div className="home-file home-edit">
-          <HomeProfileEdit
-            initial={profile}
-            onCancel={() => setEditing(false)}
-            onSaved={(saved) => {
-              setPhotoTick((n) => n + 1);
-              onProfileSaved(saved);
-              setEditing(false);
-            }}
-          />
-        </div>
-      ) : (
-        <article className="home-file">
-          <header className="home-file-identity">
-            {photoSrc ? (
-              <img
-                className="home-avatar"
-                src={photoSrc}
-                alt=""
-                width={96}
-                height={96}
-              />
-            ) : (
-              <div className="home-avatar home-avatar-fallback" aria-hidden="true">
-                {initials(profile.fullName)}
-              </div>
-            )}
-            <div className="home-file-identity-copy">
-              <h1>{profile.fullName}</h1>
-              {profile.headline ? (
-                <p className="home-headline">{profile.headline}</p>
-              ) : null}
-              {place || company ? (
-                <p className="home-meta">
-                  {place}
-                  {place && company ? " · " : null}
-                  {company ? <span className="home-span">{company}</span> : null}
-                </p>
-              ) : null}
-              <button
-                type="button"
-                className="home-file-edit"
-                onClick={() => setEditing(true)}
-              >
-                Edit profile
-              </button>
-            </div>
-          </header>
-
-          {careerError ? (
-            <p className="home-alert" role="alert">
-              {careerError}
-            </p>
-          ) : null}
-
-          <section className="home-file-section" aria-labelledby="home-file-now">
-            <h2 id="home-file-now">Now</h2>
-            {role ? (
-              <button
-                type="button"
-                className="home-file-role"
-                onClick={() => {
-                  setFocusJobId(role.id);
-                  goPage("history");
-                }}
-              >
-                <strong>
-                  {role.title}
-                  {role.company ? ` · ${role.company}` : ""}
-                </strong>
-                <span>
-                  {[
-                    formatCareerSpan(role.startDate, role.endDate, role.isCurrent),
-                    presentPlace(role.location),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-              </button>
-            ) : (
-              <p className="home-file-empty">
-                No current role yet. Add one in Career History so this file has a
-                present tense.
-              </p>
-            )}
-          </section>
-
-          {recentJobs.length > 0 ? (
-            <section
-              className="home-file-section"
-              aria-labelledby="home-file-recent"
-            >
-              <h2 id="home-file-recent">Recent</h2>
-              <ol className="home-file-ledger">
-                {recentJobs.map((job) => (
-                  <li key={job.id}>
+        {leftClosed ? null : (
+          <>
+            <section className="home-card home-bio" aria-label="Profile">
+              {editing ? (
+                <div className="home-file home-edit">
+                  <HomeProfileEdit
+                    initial={profile}
+                    onCancel={() => setEditing(false)}
+                    onSaved={(saved) => {
+                      setPhotoTick((n) => n + 1);
+                      onProfileSaved(saved);
+                      setEditing(false);
+                    }}
+                  />
+                </div>
+              ) : (
+                <header className="home-file-identity">
+                  {photoSrc ? (
+                    <img
+                      className="home-avatar"
+                      src={photoSrc}
+                      alt=""
+                      width={96}
+                      height={96}
+                    />
+                  ) : (
+                    <div className="home-avatar home-avatar-fallback" aria-hidden="true">
+                      {initials(profile.fullName)}
+                    </div>
+                  )}
+                  <div className="home-file-identity-copy">
+                    <h1>{profile.fullName}</h1>
+                    {profile.headline ? (
+                      <p className="home-headline">{profile.headline}</p>
+                    ) : null}
+                    {place || company ? (
+                      <p className="home-meta">
+                        {place}
+                        {place && company ? " · " : null}
+                        {company ? <span className="home-span">{company}</span> : null}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
-                      className="home-file-role"
-                      onClick={() => {
-                        setFocusJobId(job.id);
-                        goPage("history");
-                      }}
+                      className="home-file-edit"
+                      onClick={() => setEditing(true)}
                     >
-                      <strong>
-                        {job.title}
-                        {job.company ? ` · ${job.company}` : ""}
-                      </strong>
-                      <span>
-                        {[
-                          formatCareerSpan(
-                            job.startDate,
-                            job.endDate,
-                            job.isCurrent,
-                          ),
-                          presentPlace(job.location),
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
+                      Edit profile
                     </button>
-                  </li>
-                ))}
-              </ol>
+                  </div>
+                </header>
+              )}
             </section>
-          ) : null}
-
-          {skillTags.length > 0 ? (
-            <section
-              className="home-file-section"
-              aria-labelledby="home-file-skills"
-            >
-              <h2 id="home-file-skills">Skills</h2>
-              <ul className="home-file-skills">
-                {skillTags.map((skill) => (
-                  <li key={skill}>{skill}</li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <div className="home-file-next">
-            <button
-              type="button"
-              className="home-file-primary"
-              onClick={() => {
-                if (next.page === "history") {
-                  setFocusJobId(null);
-                  goPage("history");
-                  return;
-                }
-                setFocusJobId(null);
-                goPage(next.page);
-              }}
-            >
-              {next.label}
-            </button>
-            {next.secondary ? (
-              <button
-                type="button"
-                className="home-file-secondary"
-                onClick={() => {
-                  setFocusJobId(null);
-                  goPage(next.secondary!.page);
+            <section className="home-card home-history" aria-label="Career history">
+              <HomeNav
+                collapsed={false}
+                mobileOpen={mobileOpen}
+                page={page}
+                onCloseMobile={() => setMobileOpen(false)}
+                onGoHome={() => {
+                  goHome();
                 }}
-              >
-                {next.secondary.label}
-              </button>
-            ) : null}
-          </div>
-        </article>
-      )}
-      </main>
+                onGoHistory={(jobId) => {
+                  setEditing(false);
+                  goPage("history");
+                  setFocusJobId(jobId ?? null);
+                }}
+                onGoPage={(next) => {
+                  setEditing(false);
+                  setFocusJobId(null);
+                  goPage(next);
+                }}
+                onCanvas={setCanvasFromNav}
+                canvasOpen={canvasFromNav}
+                history={
+                  page === "history" ? (
+                    <CareerHistoryCard
+                      focusRoleId={focusJobId}
+                      onBack={() => {
+                        setFocusJobId(null);
+                        goHome();
+                      }}
+                      onOpenReserve={() => {
+                        const url = new URL(window.location.href);
+                        url.hash = "#/history-reserve";
+                        window.open(url.toString(), "_blank", "noopener");
+                      }}
+                      onAsk={() => {
+                        if (!profornaOpen) togglePanel();
+                      }}
+                      onSelectionChange={setChatRoles}
+                      release={chatRelease}
+                    />
+                  ) : null
+                }
+              />
+            </section>
           </>
         )}
-        {desktop && profornaOpen ? (
-          <WorkbenchSash
-            label="Resize Proforna"
-            value={widths.chat}
-            min={CHAT_MIN}
-            max={CHAT_MAX}
-            dragging={dragging === "chat"}
-            onDragStart={(event) => dragSide("chat", event)}
-            onNudge={(delta) => nudge("chat", -delta)}
-            onReset={() => {
-              preferred.current.chat = CHAT_DEFAULT;
-              applyFit();
+        {page === "historyReserve" ? (
+          <main className="home-card home-stage">
+            <WorkHistory
+              career={career}
+              careerError={careerError}
+              focusJobId={focusJobId}
+              focusTab={focusJobId === initialFocusJobId ? initialFocusTab : undefined}
+              mapRevision={mapRevision}
+              canvasFromNav={canvasFromNav}
+              onHome={() => {
+                setEditing(false);
+                goHome();
+              }}
+            />
+          </main>
+        ) : page !== "home" && page !== "history" ? (
+          <main className="home-card home-stage">
+            <CareerWorkspace page={page} />
+          </main>
+        ) : (
+          <HomeCenter
+            focusRoleId={focusJobId}
+            viewRequest={centerView}
+            onSelectRole={(id) => {
+              setEditing(false);
+              setFocusJobId(id);
+              goPage("history");
             }}
           />
+        )}
+        <HomeProforna
+          open={profornaOpen}
+          onToggle={togglePanel}
+          roles={chatRoles}
+          onReleaseRole={(id) => {
+            setChatRoles((current) => current.filter((role) => role.id !== id));
+            setChatRelease({ id, nonce: Date.now() });
+          }}
+        />
+        {canvasFromNav && page !== "historyReserve" ? (
+          <HomeCanvas onClose={() => setCanvasFromNav(false)} />
         ) : null}
-      <HomeProforna
-        open={profornaOpen}
-        onToggle={togglePanel}
-        width={desktop && profornaOpen ? widths.chat : undefined}
-      />
       </div>
     </div>
   );
 }
 
+function HomeCanvas({ onClose }: { onClose: () => void }) {
+  const [roles, setRoles] = useState<WorkMapRole[]>([]);
+  const [studyBoards, setStudyBoards] = useState<CanvasBoard[]>([]);
+
+  useEffect(() => {
+    void fetch("/api/work-map")
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as { roles?: WorkMapRole[]; studyBoards?: CanvasBoard[] };
+        setRoles(body.roles ?? []);
+        setStudyBoards(body.studyBoards ?? []);
+      })
+      .catch(() => {
+        setRoles([]);
+        setStudyBoards([]);
+      });
+  }, []);
+
+  const role = roles[0];
+  if (!role) return null;
+  return (
+    <RoleCanvasEntry
+      role={role}
+      roles={roles}
+      studyBoards={studyBoards}
+      scope="all"
+      minimized={false}
+      slot={null}
+      dockSlot={null}
+      onMinimizedChange={(minimized) => {
+        if (minimized) onClose();
+      }}
+      onShowRole={() => undefined}
+      onClose={onClose}
+    />
+  );
+}
+
 function readPage(): HomePage {
   const value = window.location.hash.replace(/^#\/?/, "");
-  return value === "worklog" ||
-    value === "history" ||
+  if (value === "history-reserve") return "historyReserve";
+  return value === "history" ||
     value === "resumes" ||
     value === "documents" ||
     value === "network" ||
@@ -591,87 +494,6 @@ function writePanelOpen(open: boolean) {
   } catch {
     /* ignore quota / private mode */
   }
-}
-
-function WorkbenchSash({
-  label,
-  value,
-  min,
-  max,
-  dragging,
-  onDragStart,
-  onNudge,
-  onReset,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  dragging: boolean;
-  onDragStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onNudge: (delta: number) => void;
-  onReset: () => void;
-}) {
-  return (
-    <div
-      className={dragging ? "home-sash is-dragging" : "home-sash"}
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={label}
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={Math.round(value)}
-      tabIndex={0}
-      onPointerDown={onDragStart}
-      onDoubleClick={onReset}
-      onKeyDown={(event) => {
-        const step = event.shiftKey ? 48 : 16;
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          onNudge(-step);
-        }
-        if (event.key === "ArrowRight") {
-          event.preventDefault();
-          onNudge(step);
-        }
-      }}
-    />
-  );
-}
-
-function presentPlace(value: string): string {
-  const place = value.trim();
-  if (!place || /^\d{1,5}$/.test(place)) return "";
-  return place;
-}
-
-function nextCareerAction(
-  career: CareerFile,
-  role: CareerJob | null,
-): {
-  label: string;
-  page: HomePage;
-  secondary?: { label: string; page: HomePage };
-} {
-  if (career.jobs.length === 0) {
-    return {
-      label: "Add a role",
-      page: "history",
-      secondary: { label: "Capture work", page: "worklog" },
-    };
-  }
-  if (!role) {
-    return {
-      label: "Set a current role",
-      page: "history",
-      secondary: { label: "Capture work", page: "worklog" },
-    };
-  }
-  return {
-    label: "Capture work",
-    page: "worklog",
-    secondary: { label: "Career History", page: "history" },
-  };
 }
 
 function initials(name: string): string {

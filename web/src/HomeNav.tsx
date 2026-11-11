@@ -1,12 +1,27 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { ChevronDown, Frame, House, Plug, Puzzle, Wrench } from "lucide-react";
 
 const NAV_ID = "home-nav";
 const RESOURCE_PAGES = new Set<HomePage>(["resumes", "documents", "network"]);
 
+const CUSTOMIZATIONS = [
+  { id: "overview", label: "Overview", icon: "home" },
+  { id: "canvas", label: "Canvas", icon: "canvas" },
+  { id: "plugins", label: "Plugins", icon: "plug" },
+  { id: "extensions", label: "Extensions", icon: "extensions" },
+  { id: "tools", label: "Tools", icon: "tools" },
+] as const;
+
+function CustomMark({ kind }: { kind: (typeof CUSTOMIZATIONS)[number]["icon"] }) {
+  const IconMark =
+    kind === "home" ? House : kind === "canvas" ? Frame : kind === "plug" ? Plug : kind === "extensions" ? Puzzle : Wrench;
+  return <IconMark className="home-custom-mark" size={16} aria-hidden="true" />;
+}
+
 export type HomePage =
   | "home"
-  | "worklog"
   | "history"
+  | "historyReserve"
   | "resumes"
   | "documents"
   | "network"
@@ -21,6 +36,9 @@ export function HomeNav({
   onGoHome,
   onGoHistory,
   onGoPage,
+  onCanvas,
+  canvasOpen = false,
+  history,
 }: {
   collapsed: boolean;
   mobileOpen: boolean;
@@ -30,11 +48,20 @@ export function HomeNav({
   onGoHome: () => void;
   onGoHistory: (jobId?: string) => void;
   onGoPage: (page: HomePage) => void;
+  onCanvas: (open: boolean) => void;
+  canvasOpen?: boolean;
+  history?: ReactNode;
 }) {
   const slim = collapsed && !mobileOpen;
   const [resourcesOpen, setResourcesOpen] = useState(() =>
     RESOURCE_PAGES.has(page),
   );
+  const [customOpen, setCustomOpen] = useState(true);
+  const [customId, setCustomId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canvasOpen && customId === "canvas") setCustomId(null);
+  }, [canvasOpen, customId]);
 
   useEffect(() => {
     if (RESOURCE_PAGES.has(page)) setResourcesOpen(true);
@@ -50,7 +77,20 @@ export function HomeNav({
   }, [mobileOpen, onCloseMobile]);
 
   function go(next: HomePage) {
+    setCustomId(null);
     onGoPage(next);
+    onCloseMobile();
+  }
+
+  function chooseCustom(id: string) {
+    if (id === "canvas") {
+      const next = customId !== "canvas";
+      setCustomId(next ? "canvas" : null);
+      onCanvas(next);
+      onCloseMobile();
+      return;
+    }
+    setCustomId(id);
     onCloseMobile();
   }
 
@@ -76,29 +116,29 @@ export function HomeNav({
         aria-label="Main"
         style={width ? { width } : undefined}
       >
+        <div className="home-nav-main">
+        {page === "history" && history ? (
+          history
+        ) : (
+        <>
         <NavRow
           icon="home"
           label="Home"
-          current={page === "home"}
+          current={customId ? false : page === "home"}
           slim={slim}
           onSelect={() => {
+            setCustomId(null);
             onGoHome();
             onCloseMobile();
           }}
         />
         <NavRow
-          icon="worklog"
-          label="Worklog"
-          current={page === "worklog"}
-          slim={slim}
-          onSelect={() => go("worklog")}
-        />
-        <NavRow
           icon="history"
           label="Career History"
-          current={page === "history"}
+          current={customId ? false : page === "history"}
           slim={slim}
           onSelect={() => {
+            setCustomId(null);
             onGoHistory();
             onCloseMobile();
           }}
@@ -106,7 +146,7 @@ export function HomeNav({
         <NavRow
           icon="search"
           label="Opportunities"
-          current={page === "opportunities"}
+          current={customId ? false : page === "opportunities"}
           slim={slim}
           onSelect={() => go("opportunities")}
         />
@@ -116,21 +156,21 @@ export function HomeNav({
             <NavRow
               icon="studio"
               label="Resume Studio"
-              current={page === "resumes"}
+              current={customId ? false : page === "resumes"}
               slim={slim}
               onSelect={() => go("resumes")}
             />
             <NavRow
               icon="docs"
               label="My Docs"
-              current={page === "documents"}
+              current={customId ? false : page === "documents"}
               slim={slim}
               onSelect={() => go("documents")}
             />
             <NavRow
               icon="network"
               label="My Network"
-              current={page === "network"}
+              current={customId ? false : page === "network"}
               slim={slim}
               onSelect={() => go("network")}
             />
@@ -170,21 +210,21 @@ export function HomeNav({
                 <NavRow
                   icon="studio"
                   label="Resume Studio"
-                  current={page === "resumes"}
+                  current={customId ? false : page === "resumes"}
                   slim={false}
                   onSelect={() => go("resumes")}
                 />
                 <NavRow
                   icon="docs"
                   label="My Docs"
-                  current={page === "documents"}
+                  current={customId ? false : page === "documents"}
                   slim={false}
                   onSelect={() => go("documents")}
                 />
                 <NavRow
                   icon="network"
                   label="My Network"
-                  current={page === "network"}
+                  current={customId ? false : page === "network"}
                   slim={false}
                   onSelect={() => go("network")}
                 />
@@ -192,6 +232,37 @@ export function HomeNav({
             ) : null}
           </div>
         )}
+        </>
+        )}
+        </div>
+        <div className={customOpen ? "home-custom" : "home-custom is-collapsed"}>
+          <button
+            type="button"
+            className="home-custom-head"
+            aria-expanded={customOpen}
+            onClick={() => setCustomOpen((open) => !open)}
+          >
+            {slim ? <span className="sr-only">Customizations</span> : "Customizations"}
+            <ChevronDown className="home-custom-chevron" size={16} aria-hidden="true" />
+          </button>
+          {customOpen ? (
+            <div className="home-custom-list">
+              {CUSTOMIZATIONS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="home-custom-item"
+                  aria-current={customId === item.id ? "page" : undefined}
+                  title={slim ? item.label : undefined}
+                  onClick={() => chooseCustom(item.id)}
+                >
+                  <CustomMark kind={item.icon} />
+                  {slim ? <span className="sr-only">{item.label}</span> : item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </nav>
     </>
   );
@@ -243,7 +314,6 @@ function NavRow({
 
 type IconName =
   | "home"
-  | "worklog"
   | "history"
   | "docs"
   | "studio"
@@ -262,12 +332,6 @@ export function Icon({ name }: { name: IconName }) {
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
       {name === "home" ? (
         <path d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" />
-      ) : null}
-      {name === "worklog" ? (
-        <>
-          <path d="M7 4.5h8.5A2.5 2.5 0 0 1 18 7v12.5H8.5A2.5 2.5 0 0 1 6 17V7A2.5 2.5 0 0 1 8.5 4.5" />
-          <path d="M9 9h6M9 13h6M9 17h3.5" />
-        </>
       ) : null}
       {name === "history" ? (
         <>

@@ -1,7 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@astryxdesign/core/Button";
+import { ButtonGroup } from "@astryxdesign/core/ButtonGroup";
 import type { OccupantNoticeHref } from "@core/notices";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
+
+export type HomeBioMode = "browse" | "preview" | "share";
 
 export function HomeBar({
   name,
@@ -15,6 +19,8 @@ export function HomeBar({
   onSearch,
   onProforna,
   profornaOpen,
+  bioMode,
+  onBioMode,
   onNotice,
 }: {
   name: string;
@@ -28,12 +34,35 @@ export function HomeBar({
   onSearch: () => void;
   onProforna?: () => void;
   profornaOpen?: boolean;
+  bioMode: HomeBioMode;
+  onBioMode: (mode: HomeBioMode) => void;
   onNotice: (href: OccupantNoticeHref) => void;
 }) {
-  const [menu, setMenu] = useState<"user" | "notices" | null>(null);
+  const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | null>(null);
+  const [searchMax, setSearchMax] = useState<number | null>(null);
+  const barRef = useRef<HTMLElement>(null);
+  const startRef = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const letters = initials(name);
+
+  useLayoutEffect(() => {
+    const header = barRef.current;
+    const brand = startRef.current;
+    const end = root.current;
+    if (!header || !brand || !end) return;
+    const fit = () => {
+      const side = Math.max(brand.offsetWidth, end.offsetWidth);
+      const room = Math.max(header.clientWidth - side * 2 - 24, 0);
+      setSearchMax((current) => (current === room ? current : room));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(header);
+    observer.observe(brand);
+    observer.observe(end);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!menu) return;
@@ -54,8 +83,12 @@ export function HomeBar({
   }, [menu]);
 
   return (
-    <header className="home-bar">
-      <div className="home-bar-start">
+    <header
+      className="home-bar"
+      ref={barRef}
+      style={searchMax == null ? undefined : { ["--home-search-max" as string]: `${searchMax}px` }}
+    >
+      <div className="home-bar-start" ref={startRef}>
         <button
           type="button"
           className="home-menu-btn"
@@ -91,6 +124,86 @@ export function HomeBar({
         </button>
       </div>
       <div className="home-bar-end" ref={root}>
+        <div className="home-pub">
+          <ButtonGroup label="Publication" size="sm">
+            <Button
+              label="Publish"
+              variant="primary"
+              size="sm"
+              aria-expanded={menu === "publish"}
+              aria-haspopup="menu"
+              onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
+            />
+            {bioMode === "preview" ? (
+              <Button
+                label="Exit preview"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  onBioMode("browse");
+                  setMenu(null);
+                }}
+              />
+            ) : (
+              <Button
+                label="Preview"
+                variant="secondary"
+                size="sm"
+                aria-expanded={menu === "preview"}
+                aria-pressed={bioMode !== "browse"}
+                aria-haspopup="menu"
+                onClick={() => setMenu((current) => (current === "preview" ? null : "preview"))}
+              />
+            )}
+          </ButtonGroup>
+          {menu === "publish" ? (
+            <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
+              <button type="button" role="menuitem" onClick={() => setMenu(null)}>
+                Confirm publish
+              </button>
+              <button type="button" role="menuitem" onClick={() => setMenu(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : null}
+          {menu === "preview" && bioMode !== "preview" ? (
+            <div className="home-pub-menu" role="menu" aria-label="Preview and share">
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={bioMode === "preview"}
+                onClick={() => {
+                  onBioMode("preview");
+                  setMenu(null);
+                }}
+              >
+                This window
+              </button>
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={bioMode === "share"}
+                onClick={() => {
+                  onBioMode("share");
+                  setMenu(null);
+                }}
+              >
+                Edit for sharing
+              </button>
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={bioMode === "browse"}
+                onClick={() => {
+                  onBioMode("browse");
+                  setMenu(null);
+                }}
+              >
+                Browsing
+              </button>
+            </div>
+          ) : null}
+        </div>
         {onProforna ? (
           <button
             type="button"

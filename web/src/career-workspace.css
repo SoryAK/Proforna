@@ -37,51 +37,9 @@
   white-space: nowrap;
 }
 
-.capture-form {
-  display: grid;
-  gap: 1rem;
-  margin-top: 2.5rem;
-  padding: 1.4rem;
-  border: 1px solid rgba(167, 139, 113, 0.2);
-  background: rgba(167, 139, 113, 0.045);
-}
-
-.capture-form label {
-  display: grid;
-  gap: 0.45rem;
-  color: var(--gold-hover);
-  font-size: 0.74rem;
-}
-
-.capture-form input,
-.capture-form textarea {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 0.75rem 0;
-  border: 0;
-  border-bottom: 1px solid rgba(167, 139, 113, 0.35);
-  border-radius: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  resize: vertical;
-}
-
-.capture-form input:focus,
-.capture-form textarea:focus {
-  border-bottom-color: var(--gold-hover);
-}
-
-.capture-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.capture-form > button,
 .proposal-review button {
   justify-self: start;
+  margin-top: 0.7rem;
   padding: 0.65rem 1rem;
   border: 1px solid var(--gold);
   border-radius: 999px;
@@ -90,33 +48,11 @@
   font-weight: 600;
 }
 
-.capture-form > button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.career-message {
-  color: var(--gold-hover);
-}
-
-.proposal-review,
-.entry-list {
-  margin-top: 2.6rem;
-}
-
 .proposal-review {
+  margin-top: 2.6rem;
   padding: 1.2rem 0;
   border-top: 1px solid rgba(167, 139, 113, 0.24);
   border-bottom: 1px solid rgba(167, 139, 113, 0.24);
-}
-
-.proposal-review h2,
-.entry-list h2 {
-  margin: 0 0 0.65rem;
-  color: var(--gold-hover);
-  font-family: var(--sans);
-  font-size: 1.25rem;
-  font-weight: 400;
 }
 
 .proposal-review p,
@@ -126,61 +62,8 @@
   line-height: 1.55;
 }
 
-.proposal-review button {
-  margin-top: 0.7rem;
-}
-
-.entry-list article {
-  padding: 1.15rem 0;
-  border-top: 1px solid rgba(167, 139, 113, 0.18);
-}
-
-.entry-list time,
-.entry-list article > span {
-  color: var(--gold);
-  font-size: 0.7rem;
-}
-
-.entry-list h3 {
-  margin: 0.35rem 0;
-  color: var(--text);
-  font-size: 1rem;
-}
-
-.entry-list article p {
-  margin: 0;
-  color: var(--gold-light);
-  line-height: 1.6;
-}
-
-.entry-list article > span {
-  display: inline-block;
-  margin-top: 0.65rem;
-}
-
-.entry-list .entry-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.entry-list .entry-actions button {
-  padding: 0.35rem 0.75rem;
-  border: 1px solid rgba(167, 139, 113, 0.4);
-  border-radius: 999px;
-  background: transparent;
+.career-message {
   color: var(--gold-hover);
-}
-
-.entry-list .entry-actions button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.agency-answer {
-  margin-top: 0.75rem;
-  color: var(--text);
 }
 
 .career-action {
