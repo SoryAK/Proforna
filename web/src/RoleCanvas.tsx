@@ -484,6 +484,7 @@ export function RoleCanvasEntry({
   onOpenRole,
   onClose,
   studyBoards = [],
+  host = null,
 }: {
   role: WorkMapRole;
   roles?: WorkMapRole[];
@@ -496,6 +497,7 @@ export function RoleCanvasEntry({
   onOpenRole?: (role: WorkMapRole) => void;
   onClose: () => void;
   studyBoards?: CanvasBoard[];
+  host?: HTMLElement | null;
 }) {
   const catalog = useMemo(
     () => (scope === "all" ? (roles ?? []) : [role]),
@@ -527,7 +529,7 @@ export function RoleCanvasEntry({
   const [guides, setGuides] = useState<GuideLine[]>([]);
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(openingViewport?.zoom ?? 1);
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(!host);
   const [boardQuery, setBoardQuery] = useState("");
   const [titleOpen, setTitleOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -1255,7 +1257,7 @@ export function RoleCanvasEntry({
   }
 
   function dragWindow(event: ReactPointerEvent<HTMLElement>) {
-    if (event.button !== 0 || maximized || minimized) return;
+    if (host || event.button !== 0 || maximized || minimized) return;
     if ((event.target as HTMLElement).closest("button, input, .role-canvas-history-panel")) return;
     event.preventDefault();
     const origin = readFrame();
@@ -1283,7 +1285,7 @@ export function RoleCanvasEntry({
   }
 
   function resizeWindow(event: ReactPointerEvent<HTMLElement>, edge: string) {
-    if (event.button !== 0 || maximized || minimized) return;
+    if (host || event.button !== 0 || maximized || minimized) return;
     event.preventDefault();
     event.stopPropagation();
     const origin = readFrame();
@@ -1323,6 +1325,7 @@ export function RoleCanvasEntry({
   }
 
   function toggleMinimize() {
+    if (host) return;
     if (!minimized) {
       rememberViewport();
       if (!maximized) {
@@ -1339,6 +1342,7 @@ export function RoleCanvasEntry({
   }
 
   function toggleMaximize() {
+    if (host) return;
     const current = readFrame();
     if (!maximized) {
       restoreFrame.current = current;
@@ -2826,7 +2830,7 @@ export function RoleCanvasEntry({
   };
 
   const geometry =
-    minimized || !frame
+    host || minimized || !frame
       ? undefined
       : { left: frame.left, top: frame.top, width: frame.width, height: frame.height };
 
@@ -2853,6 +2857,7 @@ export function RoleCanvasEntry({
     <div
       className={[
         "role-canvas",
+        host ? "is-embedded" : "",
         minimized ? "is-minimized" : "",
         draft ? "is-editing" : "",
         panelPos ? "is-panel-free" : "",
@@ -4482,7 +4487,7 @@ export function RoleCanvasEntry({
       </>
     ) : null;
 
-  const windowHost = minimized ? dockSlot : document.body;
+  const windowHost = host ?? (minimized ? dockSlot : document.body);
 
   return (
     <>

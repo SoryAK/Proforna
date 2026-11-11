@@ -107,6 +107,7 @@ export function WorkMap({
   focusTab,
   onHome,
   mapRevision = 0,
+  canvasFromNav = false,
 }: {
   fallbackCareer: CareerFile;
   error: string | null;
@@ -114,6 +115,7 @@ export function WorkMap({
   focusTab?: DetailTab;
   onHome: () => void;
   mapRevision?: number;
+  canvasFromNav?: boolean;
 }) {
   const [data, setData] = useState<WorkMapResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -122,6 +124,7 @@ export function WorkMap({
   const [canvasRoleId, setCanvasRoleId] = useState<string | null>(null);
   const [canvasAll, setCanvasAll] = useState(false);
   const [canvasMinimized, setCanvasMinimized] = useState(false);
+  const canvasNavSeen = useRef(false);
   const [canvasSlot, setCanvasSlot] = useState<HTMLDivElement | null>(null);
   const [canvasDock, setCanvasDock] = useState<HTMLDivElement | null>(null);
   const [search, setSearch] = useState("");
@@ -165,6 +168,19 @@ export function WorkMap({
   const [publications, setPublications] = useState<Publication[]>([]);
   const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (canvasNavSeen.current === canvasFromNav) return;
+    canvasNavSeen.current = canvasFromNav;
+    if (canvasFromNav) {
+      setCanvasAll(true);
+      setCanvasRoleId(null);
+      setCanvasMinimized(false);
+      return;
+    }
+    setCanvasAll(false);
+    setCanvasRoleId(null);
+    setCanvasMinimized(false);
+  }, [canvasFromNav]);
   useEffect(() => {
     if (!message) return;
     const life = message.length > 90 ? 5200 : 2800;
