@@ -497,6 +497,7 @@ export function AllResumesVerify({
   onForgetAside,
   onRows,
   onDone,
+  hideHeading = false,
 }: {
   bundles: ResumeBundle[];
   initialRows: OnboardingTimelineRow[] | null;
@@ -513,6 +514,7 @@ export function AllResumesVerify({
   onForgetAside: (id: string) => void;
   onRows: (rows: OnboardingTimelineRow[], declined: string[]) => void;
   onDone: (held: HeldRole[], skills: HeldSkill[]) => void;
+  hideHeading?: boolean;
 }) {
   const [rows, setRows] = useState<OnboardingTimelineRow[]>(
     () => initialRows ?? overlayFileEdits(buildTimeline(bundles), editedItems, editedFileIndex),
@@ -704,10 +706,14 @@ export function AllResumesVerify({
 
   return (
     <>
-      <p className="onboarding-kicker">Verify</p>
-      <h1>
-        Here's what was <em>extracted.</em>
-      </h1>
+      {hideHeading ? null : (
+        <>
+          <p className="onboarding-kicker">Verify</p>
+          <h1>
+            Here's what was <em>extracted.</em>
+          </h1>
+        </>
+      )}
       <p className="onboarding-meta">{summary}</p>
       <p className="onboarding-meta">
         {bundles.length > 1 || prior.length > 0

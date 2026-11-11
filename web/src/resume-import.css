@@ -1,0 +1,15 @@
+.resume-import-pick {
+  padding-top: 16px;
+}
+
+.resume-import-verify {
+  color: #f5f2ee;
+  background: #14110e;
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem 1.1rem;
+}
+
+.resume-import-verify .onboarding-meta,
+.resume-import-verify .onboarding-quiet {
+  color: #b9aa97;
+}

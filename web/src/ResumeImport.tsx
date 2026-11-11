@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import { FileInput } from "@astryxdesign/core/FileInput";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
+import { Text } from "@astryxdesign/core/Text";
+import { VStack } from "@astryxdesign/core/VStack";
 import type { CareerFile } from "@core/career-file";
 import { onboardingCheckItems } from "@core/onboarding-review";
 import type { ExtractedResume } from "@core/resume-extract";
@@ -13,6 +21,9 @@ import {
 } from "@core/resume-compare";
 import { AllResumesVerify, type ResumeBundle } from "./OnboardingCompare";
 import "./onboarding.css";
+import "./resume-import.css";
+
+const RESUME_ACCEPT = "application/pdf,text/plain,.pdf,.txt,.md";
 
 type QueuedFile = { file: File; digest: string };
 
@@ -25,17 +36,11 @@ export function ResumeImport({ onClose, onDone }: { onClose: () => void; onDone:
   const [asides, setAsides] = useState<SetAsideRole[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef(files);
   const addChain = useRef(Promise.resolve());
   filesRef.current = files;
   const ignoreRows = useCallback(() => undefined, []);
-
-  useEffect(() => {
-    const node = dialogRef.current;
-    if (!node?.open) node?.showModal();
-  }, [phase]);
+  const locked = phase === "read" || busy;
 
   function addResumes(picked: File[]) {
     if (phase === "read" || picked.length === 0) return;
@@ -219,120 +224,120 @@ export function ResumeImport({ onClose, onDone }: { onClose: () => void; onDone:
     }
   }
 
+  const title =
+    phase === "verify"
+      ? "Here's what was extracted"
+      : phase === "read"
+        ? `Reading ${readingName}`
+        : "Import your resumes";
+
   return (
-    <dialog
-      ref={dialogRef}
-      className="onboarding-review"
-      data-compare={phase === "verify" ? "true" : undefined}
-      aria-labelledby={phase === "verify" ? undefined : "resume-import-title"}
-      aria-label={phase === "verify" ? "Here's what was extracted" : undefined}
+    <Dialog
+      className="resume-import-dialog"
+      isOpen
+      onOpenChange={(next) => {
+        if (!next && !locked) onClose();
+      }}
+      purpose={locked ? "required" : "form"}
+      width={phase === "verify" ? "min(72rem, calc(100vw - 2.5rem))" : 640}
+      maxHeight={phase === "verify" ? "min(85vh, 44rem)" : "min(640px, calc(100dvh - 2rem))"}
+      padding={0}
+      style={phase === "verify" ? { height: "min(85vh, 44rem)" } : undefined}
     >
-      {phase === "verify" ? (
-        <AllResumesVerify
-          bundles={bundles}
-          initialRows={null}
-          initialDeclined={[]}
-          editedItems={[]}
-          editedFileIndex={0}
-          priorHeld={held}
-          asides={asides}
-          busy={busy}
-          error={error}
-          onBack={() => setPhase("pick")}
-          onSetAside={(item) => setAsides((current) => rememberSetAside(current, item))}
-          onForgetAside={(id) => setAsides((current) => current.filter((row) => row.id !== id))}
-          onRows={ignoreRows}
-          onDone={(nextHeld, skills) => void confirm(nextHeld, skills)}
-        />
-      ) : (
-        <>
-          <div className="onboarding-review-head">
-            <p className="onboarding-kicker">Resume</p>
-            <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onClose} disabled={phase === "read"}>
-              Close
-            </button>
-          </div>
-          <h2 id="resume-import-title">
-            {phase === "read" ? (
-              <>
-                Reading <em>{readingName}</em>
-              </>
-            ) : (
-              <>
-                Import your <em>resumes.</em>
-              </>
-            )}
-          </h2>
-          {phase === "read" ? <p className="onboarding-meta">The questions start after every file is read.</p> : null}
-          {phase === "pick" && files.length === 0 ? (
-            <label className="onboarding-file">
-              Drop resumes here, or click to choose
-              <input
-                type="file"
-                multiple
-                accept="application/pdf,text/plain,.pdf,.txt,.md"
-                onChange={(event) => {
-                  const picked = event.target.files ? [...event.target.files] : [];
-                  event.target.value = "";
+      <Layout
+        padding={4}
+        height={phase === "verify" ? "fill" : "auto"}
+        header={
+          <DialogHeader
+            title={title}
+            subtitle={phase === "read" ? "The questions start after every file is read." : undefined}
+            hasDivider
+            onOpenChange={locked ? undefined : () => onClose()}
+          />
+        }
+        content={
+          <LayoutContent isScrollable={phase === "verify"} label="Resume import">
+            {phase === "verify" ? (
+              <div className="resume-import-verify">
+                <AllResumesVerify
+                  bundles={bundles}
+                  initialRows={null}
+                  initialDeclined={[]}
+                  editedItems={[]}
+                  editedFileIndex={0}
+                  priorHeld={held}
+                  asides={asides}
+                  busy={busy}
+                  error={error}
+                  hideHeading
+                  onBack={() => setPhase("pick")}
+                  onSetAside={(item) => setAsides((current) => rememberSetAside(current, item))}
+                  onForgetAside={(id) => setAsides((current) => current.filter((row) => row.id !== id))}
+                  onRows={ignoreRows}
+                  onDone={(nextHeld, skills) => void confirm(nextHeld, skills)}
+                />
+              </div>
+            ) : phase === "pick" && files.length === 0 ? (
+              <VStack className="resume-import-pick">
+              <FileInput
+                label="Resumes"
+                isLabelHidden
+                mode="dropzone"
+                isMultiple
+                accept={RESUME_ACCEPT}
+                value={null}
+                placeholder="Drop resumes here, or click to choose"
+                width="100%"
+                statusVariant="detached"
+                onChange={(next) => {
+                  const picked = Array.isArray(next) ? next : next ? [next] : [];
                   addResumes(picked);
                 }}
               />
-            </label>
-          ) : null}
-          {phase === "pick" && files.length > 0 ? (
-            <>
-              <ul className="onboarding-file-list">
-                {files.map((row, index) => (
-                  <li key={row.digest}>
-                    <div className="onboarding-file onboarding-file-picked">
-                      <span className="onboarding-file-name" title={row.file.name}>
-                        {row.file.name}
-                      </span>
-                      <span className="onboarding-file-actions">
-                        <button
-                          type="button"
-                          className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
-                          onClick={() => removeFile(index)}
-                        >
-                          Remove
-                        </button>
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <button type="button" className="onboarding-btn onboarding-btn-ghost onboarding-file-add" onClick={() => fileInputRef.current?.click()}>
-                Add resumes
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                hidden
-                accept="application/pdf,text/plain,.pdf,.txt,.md"
-                onChange={(event) => {
-                  const picked = event.target.files ? [...event.target.files] : [];
-                  event.target.value = "";
-                  addResumes(picked);
-                }}
-              />
-            </>
-          ) : null}
-          {error ? (
-            <p className="onboarding-alert" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {phase === "pick" && files.length > 0 ? (
-            <div className="onboarding-actions">
-              <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={() => void readAll()}>
-                {files.length > 1 ? "Read the resumes" : "Read the resume"}
-              </button>
-            </div>
-          ) : null}
-        </>
-      )}
-    </dialog>
+              </VStack>
+            ) : phase === "pick" ? (
+              <VStack className="resume-import-pick" gap={2}>
+                <VStack as="ul" role="list" gap={1}>
+                  {files.map((row, index) => (
+                    <HStack key={row.digest} as="li" gap={2} align="center" justify="between">
+                      <Text>{row.file.name}</Text>
+                      <Button label="Remove" variant="ghost" size="sm" onClick={() => removeFile(index)} />
+                    </HStack>
+                  ))}
+                </VStack>
+                <FileInput
+                  label="Add resumes"
+                  mode="input"
+                  isMultiple
+                  accept={RESUME_ACCEPT}
+                  value={null}
+                  placeholder="Add resumes"
+                  width="100%"
+                  onChange={(next) => {
+                    const picked = Array.isArray(next) ? next : next ? [next] : [];
+                    addResumes(picked);
+                  }}
+                />
+                {error ? <Banner status="error" title={error} container="section" collapsible={false} role="alert" /> : null}
+              </VStack>
+            ) : null}
+          </LayoutContent>
+        }
+        footer={
+          phase === "pick" && files.length > 0 ? (
+            <LayoutFooter hasDivider>
+              <HStack justify="end">
+                <Button
+                  label={files.length > 1 ? "Read the resumes" : "Read the resume"}
+                  variant="primary"
+                  onClick={() => void readAll()}
+                />
+              </HStack>
+            </LayoutFooter>
+          ) : undefined
+        }
+      />
+    </Dialog>
   );
 }
 
