@@ -70,6 +70,7 @@ export function openDatabase(path: string): DatabaseSync {
       description TEXT NOT NULL DEFAULT '',
       achievements_json TEXT NOT NULL DEFAULT '[]',
       canvas_boards_json TEXT NOT NULL DEFAULT '[]',
+      canvas_revision INTEGER NOT NULL DEFAULT 0,
       degree TEXT NOT NULL DEFAULT '',
       field TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
@@ -78,7 +79,8 @@ export function openDatabase(path: string): DatabaseSync {
   db.exec(`
     CREATE TABLE IF NOT EXISTS canvas_library (
       occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
-      boards_json TEXT NOT NULL DEFAULT '[]'
+      boards_json TEXT NOT NULL DEFAULT '[]',
+      revision INTEGER NOT NULL DEFAULT 0
     )
   `);
   db.exec(`
@@ -579,6 +581,8 @@ export function openDatabase(path: string): DatabaseSync {
     "canvas_boards_json",
     "TEXT NOT NULL DEFAULT '[]'",
   );
+  addColumnIfMissing(db, "work_history", "canvas_revision", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(db, "canvas_library", "revision", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(
     db,
     "career_plans",

@@ -215,6 +215,7 @@ import {
   setWorkMapMediaPublic,
   saveWorkMapCanvasBoards,
   saveSharedCanvas,
+  saveCanvasAction,
   saveWorkMapDetails,
   saveWorkMapSettings,
   updateWorkMapLocation,
@@ -1087,15 +1088,36 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.put("/api/work-map/canvas", async (c) => {
     const occupant = ensureOccupant(db);
     try {
-      const boards = saveSharedCanvas(
+      const saved = saveSharedCanvas(
         db,
         occupant.id,
         (await c.req.json()) as Record<string, unknown>,
       );
-      return c.json({ boards });
+      return c.json(saved);
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
-        return c.json({ error: error.code }, 400);
+        return c.json({ error: error.code }, error.code === "revision-stale" ? 409 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/work-map/canvas/actions", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const result = saveCanvasAction(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      if (!result.ok) {
+        const status = result.error === "revision-stale" ? 409 : result.error === "role-missing" ? 404 : 400;
+        return c.json({ error: result.error, revision: result.revision }, status);
+      }
+      return c.json({ board: result.board, boards: result.boards, revision: result.revision });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, error.code === "revision-stale" ? 409 : error.code === "role-missing" ? 404 : 400);
       }
       throw error;
     }
@@ -1104,16 +1126,16 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.put("/api/work-map/roles/:id/canvas", async (c) => {
     const occupant = ensureOccupant(db);
     try {
-      const boards = saveWorkMapCanvasBoards(
+      const saved = saveWorkMapCanvasBoards(
         db,
         occupant.id,
         c.req.param("id"),
         (await c.req.json()) as Record<string, unknown>,
       );
-      return c.json({ boards });
+      return c.json(saved);
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
-        return c.json({ error: error.code }, error.code === "role-missing" ? 404 : 400);
+        return c.json({ error: error.code }, error.code === "revision-stale" ? 409 : error.code === "role-missing" ? 404 : 400);
       }
       throw error;
     }

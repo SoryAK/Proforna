@@ -816,8 +816,9 @@ describe("canvas arrangement", () => {
       expect(saved.status).toBe(200);
 
       const again = (await (await app.request("/api/work-map")).json()) as {
-        roles: Array<{ canvasBoards?: Array<{ nodes: Array<{ title: string }> }> }>;
+        roles: Array<{ canvasRevision?: number; canvasBoards?: Array<{ nodes: Array<{ title: string }> }> }>;
         studyBoards: Array<{ id: string; name: string; nodes: Array<{ title: string }> }>;
+        studyRevision: number;
       };
       expect(again.roles[0].canvasBoards?.[0].nodes).toEqual([
         expect.objectContaining({ title: "Hinge" }),
@@ -829,6 +830,91 @@ describe("canvas arrangement", () => {
           nodes: [expect.objectContaining({ title: "North" })],
         }),
       ]);
+      expect(again.studyRevision).toBe(1);
+      expect(again.roles[0].canvasRevision).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("saves one canvas action at the current revision and refuses a stale one", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; canvasRevision?: number }>;
+      };
+      const roleId = workMap.roles[0].id;
+      const seeded = await app.request(`/api/work-map/roles/${roleId}/canvas`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          boards: [
+            {
+              id: roleId,
+              name: "Lead",
+              nodes: [{ id: "hinge", kind: "Design", title: "Hinge", x: 10, y: 20 }],
+              groups: [],
+            },
+          ],
+        }),
+      });
+      expect(seeded.status).toBe(200);
+      const seededBody = (await seeded.json()) as { revision: number };
+      expect(seededBody.revision).toBe(1);
+
+      const moved = await app.request("/api/work-map/canvas/actions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          scope: "role",
+          roleId,
+          boardId: roleId,
+          revision: seededBody.revision,
+          action: { name: "move-node", input: { nodeId: "hinge", x: 80, y: 90 } },
+        }),
+      });
+      expect(moved.status).toBe(200);
+      const movedBody = (await moved.json()) as {
+        revision: number;
+        board: { nodes: Array<{ x: number; y: number }> };
+      };
+      expect(movedBody.revision).toBe(2);
+      expect(movedBody.board.nodes[0]).toMatchObject({ x: 80, y: 90 });
+
+      const stale = await app.request("/api/work-map/canvas/actions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          scope: "role",
+          roleId,
+          boardId: roleId,
+          revision: 1,
+          action: { name: "add-note", input: { nodeId: "hinge", text: "Late" } },
+        }),
+      });
+      expect(stale.status).toBe(409);
+      const after = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ canvasRevision?: number; canvasBoards?: Array<{ nodes: Array<{ notes: string[]; x: number }> }> }>;
+      };
+      expect(after.roles[0].canvasRevision).toBe(2);
+      expect(after.roles[0].canvasBoards?.[0].nodes[0]).toMatchObject({ x: 80, notes: [] });
     } finally {
       db.close();
     }
