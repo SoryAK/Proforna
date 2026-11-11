@@ -92,7 +92,7 @@ export function Home({
     function onKey(event: KeyboardEvent) {
       const mod = event.metaKey || event.ctrlKey;
       if (!mod || event.shiftKey || event.key.toLowerCase() !== "k") return;
-      if (document.querySelector("dialog.home-settings[open]")) return;
+      if (document.querySelector("dialog.home-settings-dialog[open]")) return;
       event.preventDefault();
       setSearchOpen((open) => !open);
     }
@@ -246,7 +246,6 @@ export function Home({
             }
             toggleMenu();
           }}
-          onProfile={goProfile}
           onSettings={() => setSettingsOpen(true)}
           onSearch={() => setSearchOpen(true)}
           onProforna={togglePanel}

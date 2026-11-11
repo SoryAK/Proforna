@@ -1406,7 +1406,10 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.get("/api/work-map/settings", (c) => {
     const occupant = ensureOccupant(db);
-    return c.json({ settings: readWorkMapSettings(db, occupant.id) });
+    return c.json({
+      settings: readWorkMapSettings(db, occupant.id),
+      relayOrigin: options.relayPublicOrigin ?? null,
+    });
   });
 
   app.put("/api/work-map/settings", async (c) => {

@@ -14,7 +14,6 @@ export function HomeBar({
   menuExpanded,
   menuLabel,
   onMenu,
-  onProfile,
   onSettings,
   onSearch,
   onProforna,
@@ -29,7 +28,6 @@ export function HomeBar({
   menuExpanded: boolean;
   menuLabel?: string;
   onMenu: () => void;
-  onProfile: () => void;
   onSettings: () => void;
   onSearch: () => void;
   onProforna?: () => void;
@@ -278,17 +276,6 @@ export function HomeBar({
                   {headline ? <p className="home-user-role">{headline}</p> : null}
                 </div>
               </div>
-              <button
-                type="button"
-                className="home-user-item"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  onProfile();
-                }}
-              >
-                Profile
-              </button>
               <button
                 type="button"
                 className="home-user-item"
