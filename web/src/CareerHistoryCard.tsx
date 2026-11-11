@@ -16,16 +16,18 @@ import { ArrowLeft, Plus, SquareCheck } from "lucide-react";
 import "./career-history-card.css";
 
 export function CareerHistoryCard({
+  revision = 0,
   focusRoleId,
   onBack,
-  onOpenReserve,
+  onImport,
   onAsk,
   onSelectionChange,
   release,
 }: {
+  revision?: number;
   focusRoleId?: string | null;
   onBack: () => void;
-  onOpenReserve: () => void;
+  onImport: () => void;
   onAsk: () => void;
   onSelectionChange?: (roles: WorkMapRole[]) => void;
   release?: { id: string; nonce: number } | null;
@@ -35,6 +37,7 @@ export function CareerHistoryCard({
   const [error, setError] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [sortOpen, setSortOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selecting, setSelecting] = useState(false);
@@ -44,6 +47,7 @@ export function CareerHistoryCard({
   const [focusId, setFocusId] = useState<string | null>(focusRoleId ?? null);
   const [note, setNote] = useState("");
   const sortRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
 
@@ -60,7 +64,7 @@ export function CareerHistoryCard({
 
   useEffect(() => {
     void load().finally(() => setReady(true));
-  }, []);
+  }, [revision]);
 
   useEffect(() => {
     if (focusRoleId) setFocusId(focusRoleId);
@@ -95,6 +99,22 @@ export function CareerHistoryCard({
       document.removeEventListener("keydown", onKey);
     };
   }, [sortOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onPointer(event: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) setMoreOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMoreOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   const ordered = useMemo(
     () =>
@@ -214,7 +234,44 @@ export function CareerHistoryCard({
             }
             endContent={
               <>
-                <Button label="Earlier view" variant="ghost" size="sm" onClick={onOpenReserve} />
+                <div className="pch-more" ref={moreRef}>
+                  <button
+                    className="pch-tool"
+                    type="button"
+                    aria-label="More"
+                    aria-haspopup="menu"
+                    aria-expanded={moreOpen}
+                    onClick={() => {
+                      setSortOpen(false);
+                      setMoreOpen((open) => !open);
+                    }}
+                  >
+                    <svg className="pch-more-mark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="6" cy="12" r="1.6" />
+                      <circle cx="12" cy="12" r="1.6" />
+                      <circle cx="18" cy="12" r="1.6" />
+                    </svg>
+                  </button>
+                  {moreOpen ? (
+                    <div className="pch-more-menu" role="menu" aria-label="More">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          onImport();
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 3.5v10" />
+                          <path d="m8 9.5 4 4 4-4" />
+                          <path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5" />
+                        </svg>
+                        Import
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <div className="pch-sort" ref={sortRef}>
                   <button
                     className="pch-tool"
@@ -222,7 +279,10 @@ export function CareerHistoryCard({
                     aria-label="Sort"
                     aria-haspopup="menu"
                     aria-expanded={sortOpen}
-                    onClick={() => setSortOpen((open) => !open)}
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setSortOpen((open) => !open);
+                    }}
                   >
                     <Icon className="pch-mark" icon="funnel" size="sm" />
                   </button>

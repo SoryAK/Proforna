@@ -11,10 +11,12 @@ import type { MapFitMode } from "./map-camera";
 import "./home-center.css";
 
 export function HomeCenter({
+  revision = 0,
   focusRoleId,
   onSelectRole,
   viewRequest = null,
 }: {
+  revision?: number;
   focusRoleId: string | null;
   onSelectRole: (id: string) => void;
   viewRequest?: { id: number; updates: boolean; updateId: string | null } | null;
@@ -50,7 +52,7 @@ export function HomeCenter({
         if (body.settings) setSettings(body.settings);
       })
       .catch(() => setSettings(null));
-  }, []);
+  }, [revision]);
 
   const focus = roles.find((role) => role.id === focusRoleId) ?? null;
   const updates = useMemo(

@@ -78,8 +78,63 @@
   background: #f3f3f4;
 }
 
+.pch-tool .pch-more-mark {
+  fill: currentColor;
+  stroke: none;
+}
+
+.pch-more,
 .pch-sort {
   position: relative;
+}
+
+.pch-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 9rem;
+  padding: 4px 0;
+  border: 1px solid #cecece;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.14);
+}
+
+.pch-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 28px;
+  margin: 0 4px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3b3b3b;
+  font: 400 13px/24px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pch-more-menu button svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pch-more-menu button:hover,
+.pch-more-menu button:focus-visible {
+  background: #005fb8;
+  color: #fff;
+  outline: none;
 }
 
 .pch-sort-menu {

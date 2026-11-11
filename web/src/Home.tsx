@@ -7,6 +7,7 @@ import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
 import { HomeSearch, type SearchPlace } from "./HomeSearch";
 import { HomeSettings } from "./HomeSettings";
+import { ResumeImport } from "./ResumeImport";
 import type { DetailTab } from "./RoleDetailPanel";
 import { WorkHistory } from "./WorkHistory";
 import { CareerHistoryCard } from "./CareerHistoryCard";
@@ -42,6 +43,8 @@ export function Home({
   const [chatRoles, setChatRoles] = useState<ChatRole[]>([]);
   const [chatRelease, setChatRelease] = useState<{ id: string; nonce: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [careerRevision, setCareerRevision] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [centerView, setCenterView] = useState<{
     id: number;
@@ -221,6 +224,15 @@ export function Home({
         }}
         onMapsSaved={() => setMapRevision((n) => n + 1)}
       />
+      {importOpen ? (
+        <ResumeImport
+          onClose={() => setImportOpen(false)}
+          onDone={() => {
+            setImportOpen(false);
+            setCareerRevision((n) => n + 1);
+          }}
+        />
+      ) : null}
       <div
         className={[
           "home-sheet",
@@ -339,16 +351,13 @@ export function Home({
                 history={
                   page === "history" ? (
                     <CareerHistoryCard
+                      revision={careerRevision}
                       focusRoleId={focusJobId}
                       onBack={() => {
                         setFocusJobId(null);
                         goHome();
                       }}
-                      onOpenReserve={() => {
-                        const url = new URL(window.location.href);
-                        url.hash = "#/history-reserve";
-                        window.open(url.toString(), "_blank", "noopener");
-                      }}
+                      onImport={() => setImportOpen(true)}
                       onAsk={() => {
                         if (!profornaOpen) togglePanel();
                       }}
@@ -369,6 +378,7 @@ export function Home({
               focusJobId={focusJobId}
               focusTab={focusJobId === initialFocusJobId ? initialFocusTab : undefined}
               mapRevision={mapRevision}
+              careerRevision={careerRevision}
               canvasFromNav={canvasFromNav}
               onHome={() => {
                 setEditing(false);
@@ -382,6 +392,7 @@ export function Home({
           </main>
         ) : (
           <HomeCenter
+            revision={careerRevision}
             focusRoleId={focusJobId}
             viewRequest={centerView}
             onSelectRole={(id) => {
