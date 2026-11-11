@@ -3,8 +3,51 @@
 // Bio sits top left. The map sits top right, and its menu also opens live updates.
 // Career history sits bottom left.
 // Media and events sit bottom right, in the smaller card.
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type SVGProps } from "react";
+import { Avatar } from "@astryxdesign/core/Avatar";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Button } from "@astryxdesign/core/Button";
+import { ButtonGroup } from "@astryxdesign/core/ButtonGroup";
+import { CommandPalette } from "@astryxdesign/core/CommandPalette";
+import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
+import { Icon, type IconType } from "@astryxdesign/core/Icon";
+import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
+import { Thumbnail } from "@astryxdesign/core/Thumbnail";
+import { Heading } from "@astryxdesign/core/Text";
+import { Toolbar } from "@astryxdesign/core/Toolbar";
 import {
+  ChatComposer,
+  ChatComposerDrawer,
+  ChatComposerInput,
+  ChatLayout,
+  ChatMessage,
+  ChatMessageBubble,
+  ChatMessageList,
+  type ChatComposerInputHandle,
+} from "@astryxdesign/core/Chat";
+import type { SearchableItem, SearchSource } from "@astryxdesign/core/Typeahead";
+import {
+  ArrowLeft,
+  AtSign,
+  Bell,
+  ChevronDown,
+  Folder,
+  Frame,
+  History,
+  House,
+  Library,
+  List,
+  Map as MapIcon,
+  MapPin,
+  Paperclip,
+  Plus,
+  Plug,
+  Puzzle,
+  SquareCheck,
+  Users,
+} from "lucide-react";
+import {
+  flagIdenticalRoles,
   formatHistoryGist,
   formatHistoryPeriod,
   formatHistoryPlace,
@@ -13,8 +56,10 @@ import {
 } from "@core/career-history";
 import type { MapSettings } from "@core/map-settings";
 import { prepareProfile } from "@core/profile";
+import type { CanvasBoard } from "@core/canvas-board";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import { CareerMap } from "../src/CareerMap";
+import { RoleCanvasEntry } from "../src/RoleCanvas";
 import type { MapFitMode } from "../src/map-camera";
 import "./card-board-mock.css";
 
@@ -34,6 +79,7 @@ type Profile = {
 type HistoryFile = {
   profile: Profile;
   roles: WorkMapRole[];
+  studyBoards?: CanvasBoard[];
 };
 
 type Sheet = "people" | "more" | "media" | "canvas" | "edit" | null;
@@ -60,11 +106,113 @@ const BOARD_PLACES = [
   { id: "proforna", label: "Proforna", detail: "The right panel" },
 ] as const;
 
+type PaletteHit = SearchableItem<{
+  group: string;
+  detail: string;
+  haystack: string;
+}>;
+
+function buildPalette(roles: WorkMapRole[]): SearchSource<PaletteHit> {
+  const places: PaletteHit[] = BOARD_PLACES.map((item) => ({
+    id: `place:${item.id}`,
+    label: item.label,
+    auxiliaryData: {
+      group: "Places",
+      detail: item.detail,
+      haystack: `${item.label} ${item.detail}`,
+    },
+  }));
+  const roleHits: PaletteHit[] = roles.map((role) => {
+    const label = role.organization || role.title || "Untitled";
+    const detail = [role.title, formatHistoryPlace(role)].filter(Boolean).join(" · ");
+    return {
+      id: `role:${role.id}`,
+      label,
+      auxiliaryData: {
+        group: "Roles",
+        detail,
+        haystack: `${label} ${detail} ${role.details.summary}`,
+      },
+    };
+  });
+  const updateHits: PaletteHit[] = liveUpdates(roles).map((item) => ({
+    id: `update:${item.id}`,
+    label: item.organization,
+    auxiliaryData: {
+      group: "Live updates",
+      detail: `${item.kind} · ${item.text}`,
+      haystack: `${item.organization} ${item.kind} ${item.text}`,
+    },
+  }));
+  const all = [...places, ...roleHits, ...updateHits];
+  return {
+    bootstrap: () => places,
+    search: (query) => {
+      const needle = query.trim().toLowerCase();
+      if (!needle) return places;
+      return all.filter((item) => (item.auxiliaryData?.haystack ?? item.label).toLowerCase().includes(needle));
+    },
+  };
+}
+
 const CHAT_SESSIONS = [
   { id: "board", label: "This board" },
   { id: "history", label: "Career history" },
   { id: "map", label: "Map notes" },
 ] as const;
+
+type RoleContext = {
+  id: string;
+  organization: string;
+  title: string;
+  kind: WorkMapRole["kind"];
+  locationLabel: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+};
+
+type SessionNote = {
+  sender: "user" | "assistant";
+  text: string;
+  roles: RoleContext[];
+};
+
+function roleContext(role: WorkMapRole): RoleContext {
+  return {
+    id: role.id,
+    organization: role.organization,
+    title: role.title,
+    kind: role.kind,
+    locationLabel: role.locationLabel,
+    startDate: role.startDate,
+    endDate: role.endDate,
+    isCurrent: role.isCurrent,
+  };
+}
+
+function roleContextLabel(role: Pick<RoleContext, "organization" | "title" | "startDate" | "endDate" | "isCurrent">): string {
+  const name = role.organization || role.title || "Untitled";
+  const title = role.organization && role.title ? role.title : "";
+  const period = formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent);
+  return [name, title, period].filter(Boolean).join(", ");
+}
+
+function contextLine(attached: RoleContext[]): string {
+  const names = attached.map((role) => role.organization || role.title || "Untitled");
+  const lead = names.slice(0, 3).join(", ");
+  const rest = names.length > 3 ? ` and ${names.length - 3} more` : "";
+  return attached.length === 1 ? `About 1 role: ${lead}` : `About ${attached.length} roles: ${lead}${rest}`;
+}
+
+function assistantReply(attached: RoleContext[]): string {
+  if (attached.length === 0) {
+    return "No roles are attached. Select roles on the career history, then ask again.";
+  }
+  const lines = attached.slice(0, 3).map((role) => roleContextLabel(role));
+  const more = attached.length > 3 ? `, and ${attached.length - 3} more` : "";
+  return `On the ledger for this question: ${lines.join("; ")}${more}.`;
+}
 
 const PANEL_BEFORE = [
   { id: "home", label: "Home", icon: "home" },
@@ -79,41 +227,61 @@ const PANEL_AFTER = [
 
 const CUSTOMIZATIONS = [
   { id: "overview", label: "Overview", icon: "home" },
+  { id: "canvas", label: "Canvas", icon: "canvas" },
   { id: "plugins", label: "Plugins", icon: "plug" },
   { id: "extensions", label: "Extensions", icon: "extensions" },
   { id: "tools", label: "Tools", icon: "tools" },
 ] as const;
 
-function PanelIcon({ side, open }: { side: "left" | "right"; open: boolean }) {
+function panelGlyph(side: "left" | "right", open: boolean): IconType {
   const edge = side === "left" ? "M9.5 4v16" : "M14.5 4v16";
   const fill = side === "left" ? "M4.2 5.2H9.5v13.6H4.2z" : "M14.5 5.2h5.3v13.6H14.5z";
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="16" rx="1.5" />
-      <path d={edge} />
-      {open ? <path className="cbm-panel-fill" d={fill} /> : null}
-    </svg>
-  );
+  function Glyph(props: SVGProps<SVGSVGElement>) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" {...props} fill="none">
+        <rect x="3" y="4" width="18" height="16" rx="1.5" />
+        <path d={edge} />
+        {open ? <path className="cbm-panel-fill" d={fill} /> : null}
+      </svg>
+    );
+  }
+  return Glyph;
 }
 
-const CUSTOM_ICONS = {
-  home: "M7.31299 1.26164C7.69849 0.897163 8.30151 0.897163 8.68701 1.26164L13.5305 5.84098C13.8302 6.12431 14 6.51853 14 6.93094V12.5002C14 13.3286 13.3284 14.0002 12.5 14.0002H10.5C9.67157 14.0002 9 13.3286 9 12.5002V10.0002C9 9.72407 8.77614 9.50021 8.5 9.50021H7.5C7.22386 9.50021 7 9.72407 7 10.0002V12.5002C7 13.3286 6.32843 14.0002 5.5 14.0002H3.5C2.67157 14.0002 2 13.3286 2 12.5002V6.93094C2 6.51853 2.1698 6.12431 2.46948 5.84098L7.31299 1.26164ZM8 1.98828L3.15649 6.56762C3.0566 6.66207 3 6.79347 3 6.93094V12.5002C3 12.7763 3.22386 13.0002 3.5 13.0002H5.5C5.77614 13.0002 6 12.7763 6 12.5002V10.0002C6 9.17179 6.67157 8.50022 7.5 8.50022H8.5C9.32843 8.50022 10 9.17179 10 10.0002V12.5002C10 12.7763 10.2239 13.0002 10.5 13.0002H12.5C12.7761 13.0002 13 12.7763 13 12.5002V6.93094C13 6.79347 12.9434 6.66207 12.8435 6.56762L8 1.98828Z",
-  history: "M7.99909 3C10.7605 3 12.9991 5.23858 12.9991 8C12.9991 10.7614 10.7605 13 7.99909 13C5.39117 13 3.2491 11.003 3.0195 8.45512C2.99471 8.1801 2.75167 7.97723 2.47664 8.00202C2.20161 8.0268 1.99875 8.26985 2.02353 8.54488C2.29916 11.6035 4.86898 14 7.99909 14C11.3128 14 13.9991 11.3137 13.9991 8C13.9991 4.68629 11.3128 2 7.99909 2C6.20656 2 4.59815 2.78613 3.49909 4.03138V2.5C3.49909 2.22386 3.27524 2 2.99909 2C2.72295 2 2.49909 2.22386 2.49909 2.5V5.5C2.49909 5.77614 2.72295 6 2.99909 6H3.08812C3.09498 6.00014 3.10184 6.00014 3.10868 6H5.99909C6.27524 6 6.49909 5.77614 6.49909 5.5C6.49909 5.22386 6.27524 5 5.99909 5H3.99863C4.91128 3.78495 6.36382 3 7.99909 3ZM7.99909 5.5C7.99909 5.22386 7.77524 5 7.49909 5C7.22295 5 6.99909 5.22386 6.99909 5.5V8.5C6.99909 8.77614 7.22295 9 7.49909 9H9.49909C9.77524 9 9.99909 8.77614 9.99909 8.5C9.99909 8.22386 9.77524 8 9.49909 8H7.99909V5.5Z",
-  search: "M10.0195 10.7266C9.06578 11.5217 7.83875 12 6.5 12C3.46243 12 1 9.53757 1 6.5C1 3.46243 3.46243 1 6.5 1C9.53757 1 12 3.46243 12 6.5C12 7.83875 11.5217 9.06578 10.7266 10.0195L13.8535 13.1464C14.0488 13.3417 14.0488 13.6583 13.8535 13.8536C13.6583 14.0488 13.3417 14.0488 13.1464 13.8536L10.0195 10.7266ZM11 6.5C11 4.01472 8.98528 2 6.5 2C4.01472 2 2 4.01472 2 6.5C2 8.98528 4.01472 11 6.5 11C8.98528 11 11 8.98528 11 6.5Z",
-  library: "M1 3.24941C1 2.55938 1.55917 2 2.24895 2H2.74852C3.4383 2 3.99747 2.55938 3.99747 3.24941V12.745C3.99747 13.435 3.4383 13.9944 2.74852 13.9944H2.24895C1.55917 13.9944 1 13.435 1 12.745V3.24941ZM2.24895 2.99953C2.11099 2.99953 1.99916 3.11141 1.99916 3.24941V12.745C1.99916 12.883 2.11099 12.9948 2.24895 12.9948H2.74852C2.88648 12.9948 2.99831 12.883 2.99831 12.745V3.24941C2.99831 3.11141 2.88648 2.99953 2.74852 2.99953H2.24895ZM4.99663 3.24941C4.99663 2.55938 5.5558 2 6.24557 2H6.74515C7.43492 2 7.9941 2.55938 7.9941 3.24941V12.745C7.9941 13.435 7.43492 13.9944 6.74515 13.9944H6.24557C5.5558 13.9944 4.99663 13.435 4.99663 12.745V3.24941ZM6.24557 2.99953C6.10762 2.99953 5.99578 3.11141 5.99578 3.24941V12.745C5.99578 12.883 6.10762 12.9948 6.24557 12.9948H6.74515C6.88311 12.9948 6.99494 12.883 6.99494 12.745V3.24941C6.99494 3.11141 6.88311 2.99953 6.74515 2.99953H6.24557ZM11.9723 4.77682C11.7231 4.15733 11.0311 3.84331 10.4011 4.06385L9.81888 4.26764C9.14658 4.50297 8.80684 5.25222 9.07268 5.91326L12.0098 13.2166C12.2589 13.8361 12.9509 14.1502 13.581 13.9296L14.1632 13.7258C14.8355 13.4904 15.1752 12.7412 14.9093 12.0802L11.9723 4.77682ZM10.7311 5.00729C10.8571 4.96318 10.9955 5.02598 11.0453 5.14988L13.9824 12.4532C14.0356 12.5854 13.9676 12.7353 13.8332 12.7823L13.251 12.9862C13.1249 13.0303 12.9865 12.9675 12.9367 12.8436L9.99964 5.5402C9.94647 5.40799 10.0144 5.25815 10.1489 5.21108L10.7311 5.00729Z",
-  folder: "M2 4.5V6H5.58579C5.71839 6 5.84557 5.94732 5.93934 5.85355L7.29289 4.5L5.93934 3.14645C5.84557 3.05268 5.71839 3 5.58579 3H3.5C2.67157 3 2 3.67157 2 4.5ZM1 4.5C1 3.11929 2.11929 2 3.5 2H5.58579C5.98361 2 6.36514 2.15804 6.64645 2.43934L8.20711 4H12.5C13.8807 4 15 5.11929 15 6.5V11.5C15 12.8807 13.8807 14 12.5 14H3.5C2.11929 14 1 12.8807 1 11.5V4.5ZM2 7V11.5C2 12.3284 2.67157 13 3.5 13H12.5C13.3284 13 14 12.3284 14 11.5V6.5C14 5.67157 13.3284 5 12.5 5H8.20711L6.64645 6.56066C6.36514 6.84197 5.98361 7 5.58579 7H2Z",
-  organization: "M6.00195 4.00002C6.00195 2.89655 6.89649 2.00201 7.99995 2.00201C9.10342 2.00201 9.99796 2.89655 9.99796 4.00002C9.99796 5.10348 9.10342 5.99802 7.99995 5.99802C6.89649 5.99802 6.00195 5.10348 6.00195 4.00002ZM7.99995 3.00201C7.44877 3.00201 7.00195 3.44883 7.00195 4.00002C7.00195 4.5512 7.44877 4.99802 7.99995 4.99802C8.55114 4.99802 8.99796 4.5512 8.99796 4.00002C8.99796 3.44883 8.55114 3.00201 7.99995 3.00201ZM11 4.5C11 3.67157 11.6716 3 12.5 3C13.3284 3 14 3.67157 14 4.5C14 5.32843 13.3284 6 12.5 6C11.6716 6 11 5.32843 11 4.5ZM12.5 4C12.2239 4 12 4.22386 12 4.5C12 4.77614 12.2239 5 12.5 5C12.7761 5 13 4.77614 13 4.5C13 4.22386 12.7761 4 12.5 4ZM3.5 3C2.67157 3 2 3.67157 2 4.5C2 5.32843 2.67157 6 3.5 6C4.32843 6 5 5.32843 5 4.5C5 3.67157 4.32843 3 3.5 3ZM3 4.5C3 4.22386 3.22386 4 3.5 4C3.77614 4 4 4.22386 4 4.5C4 4.77614 3.77614 5 3.5 5C3.22386 5 3 4.77614 3 4.5ZM4.26756 6.99969C4.09739 7.29387 4 7.63541 4 7.99969L2 7.99969V10.5C2 11.3285 2.67157 12 3.5 12C3.71194 12 3.91361 11.9561 4.09639 11.8768C4.1705 12.2082 4.28572 12.524 4.43643 12.8187C4.14721 12.9356 3.83112 13 3.5 13C2.11929 13 1 11.8807 1 10.5V7.99969C1 7.44741 1.44772 6.99969 2 6.99969H4.26756ZM11.5636 12.8187C11.8528 12.9356 12.1689 13 12.5 13C13.8807 13 15 11.8807 15 10.5V7.99969C15 7.44741 14.5523 6.99969 14 6.99969H11.7324C11.9026 7.29387 12 7.63541 12 7.9997L14 7.99969V10.5C14 11.3285 13.3284 12 12.5 12C12.2881 12 12.0864 11.9561 11.9036 11.8768C11.8295 12.2082 11.7143 12.524 11.5636 12.8187ZM6 6.99969C5.44772 6.99969 5 7.44741 5 7.99969V11C5 12.6569 6.34315 14 8 14C9.65685 14 11 12.6569 11 11V7.99969C11 7.44741 10.5523 6.99969 10 6.99969H6ZM6 7.99969L10 7.99969V11C10 12.1046 9.10457 13 8 13C6.89543 13 6 12.1046 6 11V7.99969Z",
-  plug: "M10.723 4H10V1.5C10 1.224 9.776 1 9.5 1C9.224 1 9 1.224 9 1.5V4H7V1.5C7 1.224 6.776 1 6.5 1C6.224 1 6 1.224 6 1.5V4H5.277C4.573 4 4 4.573 4 5.278V8C4 10.036 5.529 11.722 7.5 11.969V14.5C7.5 14.776 7.724 15 8 15C8.276 15 8.5 14.776 8.5 14.5V11.969C10.471 11.722 12 10.037 12 8V5.278C12 4.573 11.427 4 10.723 4ZM11 8C11 9.654 9.654 11 8 11C6.346 11 5 9.654 5 8V5.278C5 5.125 5.124 5 5.277 5H10.722C10.875 5 10.999 5.125 10.999 5.278V8H11Z",
-  extensions: "M15 4.95703C15 4.58711 14.8563 4.24054 14.5949 3.97992L12.0096 1.39234C11.4879 0.86922 10.5788 0.86922 10.0571 1.39234L8 3.45119V3.32321C8 2.55068 7.37187 1.922 6.6 1.922H2.4C1.62813 1.922 1 2.55068 1 3.32321V13.5988C1 14.3713 1.62813 15 2.4 15H12.6667C13.4385 15 14.0667 14.3713 14.0667 13.5988V9.39514C14.0667 8.62261 13.4385 7.99393 12.6667 7.99393H12.5379L14.5949 5.93508C14.8553 5.67445 15 5.32602 15 4.95703ZM2.4 2.85521H6.6C6.85667 2.85521 7.06667 3.06446 7.06667 3.32228V7.99299H1.93333V3.32228C1.93333 3.06446 2.14333 2.85521 2.4 2.85521ZM1.93333 13.5979V8.92714H7.06667V14.0649H2.4C2.14333 14.0649 1.93333 13.8547 1.93333 13.5979ZM13.1333 9.39421V13.5979C13.1333 13.8547 12.9233 14.0649 12.6667 14.0649H8V8.92714H12.6667C12.9233 8.92714 13.1333 9.13638 13.1333 9.39421ZM8 7.99299V6.46287L9.5288 7.99299H8ZM13.9351 5.2737L11.3488 7.86221C11.1789 8.03223 10.8859 8.03223 10.716 7.86221L8.12973 5.2737C8.0448 5.18963 7.99813 5.07753 7.99813 4.95796C7.99813 4.83839 8.0448 4.7263 8.12973 4.64129L10.716 2.05278C10.8009 1.96777 10.9129 1.92106 11.0324 1.92106C11.1519 1.92106 11.2639 1.96777 11.3488 2.05278L13.9351 4.64129C14.02 4.72536 14.0667 4.83746 14.0667 4.95703C14.0667 5.0766 14.02 5.1887 13.9351 5.2737Z",
-  tools: "M5.66901 0.999997C5.52101 0.945997 5.34701 0.968997 5.21401 1.062C5.08101 1.155 5.00201 1.308 5.00201 1.47V3.286C5.00201 3.561 4.77701 3.786 4.50201 3.786C4.22701 3.786 4.00201 3.561 4.00201 3.286V1.47C4.00201 1.308 3.92301 1.156 3.79001 1.062C3.65801 0.967997 3.48501 0.945997 3.33501 0.999997C1.93901 1.495 1.00201 2.816 1.00201 4.287C1.00201 5.646 1.79201 6.876 3.00201 7.449V13.5C3.00201 14.327 3.67501 15 4.50201 15C5.32901 15 6.00201 14.327 6.00201 13.5V7.449C7.21201 6.876 8.00201 5.646 8.00201 4.287C8.00201 2.816 7.06401 1.495 5.66901 0.999997ZM5.33601 6.644C5.13601 6.714 5.00201 6.904 5.00201 7.116V13.501C5.00201 13.776 4.77701 14.001 4.50201 14.001C4.22701 14.001 4.00201 13.776 4.00201 13.501V7.116C4.00201 6.904 3.86801 6.715 3.66801 6.644C2.67201 6.292 2.00201 5.345 2.00201 4.288C2.00201 3.496 2.38501 2.765 3.00201 2.301V3.288C3.00201 4.115 3.67501 4.788 4.50201 4.788C5.32901 4.788 6.00201 4.115 6.00201 3.288V2.301C6.61901 2.765 7.00201 3.496 7.00201 4.288C7.00201 5.346 6.33201 6.293 5.33601 6.644ZM13.5 8H13.002V4.118L13.449 3.223C13.509 3.105 13.518 2.967 13.476 2.841L12.976 1.341C12.908 1.137 12.716 0.998997 12.501 0.998997H10.501C10.286 0.998997 10.095 1.137 10.026 1.341L9.52601 2.841C9.48401 2.967 9.49401 3.105 9.55301 3.223L10 4.118V8H9.50001C9.22401 8 9.00001 8.224 9.00001 8.5V12.5C9.00001 13.879 10.121 15 11.5 15C12.879 15 14 13.879 14 12.5V8.5C14 8.224 13.776 8 13.5 8ZM10.862 2.001H12.141L12.461 2.963L12.054 3.777C12.02 3.846 12.001 3.923 12.001 4.001V8.001H11.001V4.001C11.001 3.924 10.983 3.847 10.949 3.777L10.542 2.963L10.862 2.001ZM13.002 12.5C13.002 13.327 12.329 14 11.502 14C10.675 14 10.002 13.327 10.002 12.5V9H13.002V12.5Z",
+const PANEL_GLYPH = {
+  leftOpen: panelGlyph("left", true),
+  leftClosed: panelGlyph("left", false),
+  rightOpen: panelGlyph("right", true),
+  rightClosed: panelGlyph("right", false),
 } as const;
 
-function CustomIcon({ kind }: { kind: keyof typeof CUSTOM_ICONS }) {
-  return (
-    <svg className="cbm-mark-icon" viewBox="0 0 16 16" aria-hidden="true">
-      <path d={CUSTOM_ICONS[kind]} />
-    </svg>
-  );
+function PanelIcon({ side, open }: { side: "left" | "right"; open: boolean }) {
+  const icon =
+    side === "left"
+      ? open
+        ? PANEL_GLYPH.leftOpen
+        : PANEL_GLYPH.leftClosed
+      : open
+        ? PANEL_GLYPH.rightOpen
+        : PANEL_GLYPH.rightClosed;
+  return <Icon icon={icon} size="sm" />;
+}
+
+const NAV_ICONS = {
+  home: House,
+  history: History,
+  search: "search",
+  library: Library,
+  folder: Folder,
+  organization: Users,
+  plug: Plug,
+  extensions: Puzzle,
+  tools: "wrench",
+  canvas: Frame,
+} as const;
+
+function CustomIcon({ kind }: { kind: keyof typeof NAV_ICONS }) {
+  return <Icon className="cbm-mark-icon" icon={NAV_ICONS[kind]} size="sm" />;
 }
 
 export function CardBoardMock() {
@@ -123,8 +291,11 @@ export function CardBoardMock() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [historyFindOpen, setHistoryFindOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [removeAsk, setRemoveAsk] = useState<{ ids: string[]; detail: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [globalQuery, setGlobalQuery] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [sheet, setSheet] = useState<Sheet>(null);
   const [message, setMessage] = useState("");
@@ -145,12 +316,18 @@ export function CardBoardMock() {
   const [panel, setPanel] = useState<"menu" | "history">("menu");
   const [customizationsOpen, setCustomizationsOpen] = useState(true);
   const [navId, setNavId] = useState("");
+  const [canvasOpen, setCanvasOpen] = useState(false);
   const [bioMode, setBioMode] = useState<"browse" | "preview" | "share">("browse");
   const [rightOpen, setRightOpen] = useState(false);
-  const [sideDraft, setSideDraft] = useState("");
   const [sessionId, setSessionId] = useState<(typeof CHAT_SESSIONS)[number]["id"]>("board");
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  const [sessionNotes, setSessionNotes] = useState<Record<string, string[]>>({});
+  const [sessionNotes, setSessionNotes] = useState<Record<string, SessionNote[]>>({});
+  const [composerMode, setComposerMode] = useState<"ask" | "edit">("ask");
+  const [pendingComposerFocus, setPendingComposerFocus] = useState(false);
+  const topBar = useRef<HTMLElement>(null);
+  const composerRef = useRef<ChatComposerInputHandle>(null);
+  const lastComposerPost = useRef<{ signature: string; at: number } | null>(null);
+  const brandWrap = useRef<HTMLDivElement>(null);
   const topEnd = useRef<HTMLDivElement>(null);
   const sessionsRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
@@ -161,6 +338,21 @@ export function CardBoardMock() {
     const body = (await response.json()) as HistoryFile;
     setFile({ ...body, roles: body.roles });
   }
+
+  useEffect(() => {
+    if (!file) return;
+    const live = new Set(file.roles.map((role) => role.id));
+    setCheckedIds((current) => {
+      const next = new Set([...current].filter((id) => live.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [file]);
+
+  useEffect(() => {
+    if (!pendingComposerFocus || !rightOpen) return;
+    composerRef.current?.focus();
+    setPendingComposerFocus(false);
+  }, [pendingComposerFocus, rightOpen]);
 
   useEffect(() => {
     void load().finally(() => setReady(true));
@@ -178,6 +370,24 @@ export function CardBoardMock() {
         if (Array.isArray(body.notices)) setNotices(body.notices);
       })
       .catch(() => setNotices([]));
+  }, []);
+
+  useLayoutEffect(() => {
+    const header = topBar.current;
+    const brand = brandWrap.current;
+    const end = topEnd.current;
+    if (!header || !brand || !end) return;
+    const fit = () => {
+      const side = Math.max(brand.offsetWidth, end.offsetWidth);
+      const room = header.clientWidth - side * 2 - 24;
+      header.style.setProperty("--cbm-search-max", `${Math.max(room, 0)}px`);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(header);
+    observer.observe(brand);
+    observer.observe(end);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -257,43 +467,34 @@ export function CardBoardMock() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    if (!searchOpen) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setSearchOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [searchOpen]);
-
   const profile = file?.profile ?? EMPTY_PROFILE;
-  const roles = [...(file?.roles ?? [])].sort((a, b) =>
-    sort === "newest" ? b.startDate.localeCompare(a.startDate) : a.startDate.localeCompare(b.startDate),
+  const roles = useMemo(
+    () =>
+      [...(file?.roles ?? [])].sort((a, b) =>
+        sort === "newest" ? b.startDate.localeCompare(a.startDate) : a.startDate.localeCompare(b.startDate),
+      ),
+    [file?.roles, sort],
   );
   const needle = historyQuery.trim().toLowerCase();
-  const globalNeedle = globalQuery.trim().toLowerCase();
-  const placeHits = BOARD_PLACES.filter((item) => {
-    if (!globalNeedle) return true;
-    return `${item.label} ${item.detail}`.toLowerCase().includes(globalNeedle);
-  });
-  const roleHits = globalNeedle
-    ? roles.filter((role) =>
-        `${role.organization} ${role.title} ${formatHistoryPlace(role)} ${role.details.summary}`
-          .toLowerCase()
-          .includes(globalNeedle),
-      )
-    : [];
-  const updateHits = globalNeedle
-    ? liveUpdates(roles).filter((item) =>
-        `${item.organization} ${item.kind} ${item.text}`.toLowerCase().includes(globalNeedle),
-      )
-    : [];
-  const searchEmpty = globalNeedle.length > 0 && placeHits.length === 0 && roleHits.length === 0 && updateHits.length === 0;
+  const palette = useMemo(() => buildPalette(roles), [roles]);
   const shown = roles.filter((role) => {
     if (!needle) return true;
     return `${role.organization} ${role.title} ${formatHistoryPlace(role)}`.toLowerCase().includes(needle);
   });
+  const shownIds = shown.map((role) => role.id);
+  const checkedRoles = useMemo(
+    () => roles.filter((role) => checkedIds.has(role.id)),
+    [roles, checkedIds],
+  );
+  const identicalExtraIds = useMemo(
+    () =>
+      [...flagIdenticalRoles(roles).entries()]
+        .filter(([, flag]) => flag.count > 1 && !flag.keeper)
+        .map(([id]) => id),
+    [roles],
+  );
   const focus = roles.find((role) => role.id === focusId) ?? null;
+  const canvasRole = focus ?? roles[0] ?? null;
   const mediaRoles = focus ? [focus] : roles;
   const covers = mediaRoles.flatMap((role) => {
     const photo = roleCoverPhoto(role.media);
@@ -319,6 +520,90 @@ export function CardBoardMock() {
     }
   }
 
+  function stopSelecting() {
+    setSelecting(false);
+    setCheckedIds(new Set());
+    setRemoveAsk(null);
+  }
+
+  function toggleChecked(id: string) {
+    setRemoveAsk(null);
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function askAboutSelection() {
+    if (checkedIds.size === 0) return;
+    setRightOpen(true);
+    setPendingComposerFocus(true);
+  }
+
+  function postComposerMessage(value: string) {
+    const text = value.trim();
+    if (!text) return;
+    const attached = checkedRoles.map(roleContext);
+    const signature = `${sessionId}|${composerMode}|${text}|${attached.map((role) => role.id).join(",")}`;
+    const now = Date.now();
+    const previous = lastComposerPost.current;
+    if (previous && previous.signature === signature && now - previous.at < 500) return;
+    lastComposerPost.current = { signature, at: now };
+    const next: SessionNote[] = [{ sender: "user", text, roles: attached }];
+    if (composerMode === "ask") {
+      next.push({ sender: "assistant", text: assistantReply(attached), roles: [] });
+    }
+    setSessionNotes((notes) => ({
+      ...notes,
+      [sessionId]: [...(notes[sessionId] ?? []), ...next],
+    }));
+  }
+
+  function selectShown(ids: string[]) {
+    setRemoveAsk(null);
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      const allOn = ids.length > 0 && ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allOn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function removeChecked(ids: string[]) {
+    setRemoving(true);
+    setMessage("");
+    const failed: string[] = [];
+    for (const id of ids) {
+      const response = await fetch(`/api/work-map/roles/${id}`, { method: "DELETE" });
+      if (!response.ok) failed.push(id);
+    }
+    setRemoving(false);
+    setRemoveAsk(null);
+    setCheckedIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (!failed.includes(id)) next.delete(id);
+      }
+      return next;
+    });
+    if (focusId && ids.includes(focusId) && !failed.includes(focusId)) setFocusId(null);
+    setMessage(
+      failed.length === 0
+        ? ids.length === 1
+          ? "Role removed."
+          : `${ids.length} roles removed.`
+        : failed.length === ids.length
+          ? "Could not remove those roles."
+          : `Removed ${ids.length - failed.length}. ${failed.length} could not be removed.`,
+    );
+    await load();
+  }
+
   function showMap() {
     setUpdatesOpen(false);
     setUpdateId(null);
@@ -329,9 +614,25 @@ export function CardBoardMock() {
     setUpdateId(null);
   }
 
+  function closeCanvas() {
+    setCanvasOpen(false);
+    setNavId((current) => (current === "canvas" ? "" : current));
+  }
+
   function closeSearch() {
     setSearchOpen(false);
-    setGlobalQuery("");
+  }
+
+  function pickPalette(value: string) {
+    const split = value.indexOf(":");
+    const kind = split === -1 ? "" : value.slice(0, split);
+    const target = split === -1 ? value : value.slice(split + 1);
+    if (kind === "place" && BOARD_PLACES.some((item) => item.id === target)) {
+      pickPlace(target as (typeof BOARD_PLACES)[number]["id"]);
+      return;
+    }
+    if (kind === "role") pickRole(target);
+    if (kind === "update") pickUpdate(target);
   }
 
   async function saveLinks() {
@@ -410,8 +711,8 @@ export function CardBoardMock() {
       <p className="cbm-banner">Prototype. Career history keeps its own actions.</p>
       <div className="cbm-board">
       <div className={["cbm-sheet", leftOpen ? "" : "is-left-closed", rightOpen ? "is-right-open" : "", bioMode === "browse" ? "is-bio-hidden" : ""].filter(Boolean).join(" ")}>
-      <header className="cbm-top">
-        <div className="cbm-brand-wrap">
+      <header className="cbm-top" ref={topBar}>
+        <div className="cbm-brand-wrap" ref={brandWrap}>
           <button
             type="button"
             className="cbm-panel-btn"
@@ -424,26 +725,44 @@ export function CardBoardMock() {
           <p className="cbm-brand">Proforna</p>
         </div>
         <button type="button" className="cbm-top-search" aria-label="Search" onClick={() => setSearchOpen(true)}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="6" />
-            <path d="m20 20-3.6-3.6" />
-          </svg>
-          <span>Search…</span>
+          <span>Type to search</span>
+          <Icon icon="search" size="sm" />
         </button>
         <div className="cbm-top-end" ref={topEnd}>
-          <div className="cbm-pub" role="group" aria-label="Publication">
-            <div className="cbm-pub-anchor">
-              <button
-                type="button"
-                className="cbm-pub-btn is-publish"
+          <div className="cbm-pub">
+            <ButtonGroup label="Publication" size="sm">
+              <Button
+                label="Publish"
+                variant="primary"
+                size="sm"
                 aria-expanded={topMenu === "publish"}
                 aria-haspopup="menu"
                 onClick={() => setTopMenu((current) => (current === "publish" ? null : "publish"))}
-              >
-                Publish
-              </button>
+              />
+              {bioMode === "preview" ? (
+                <Button
+                  label="Exit preview"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setBioMode("browse");
+                    setTopMenu(null);
+                  }}
+                />
+              ) : (
+              <Button
+                label="Preview"
+                variant="secondary"
+                size="sm"
+                aria-expanded={topMenu === "preview"}
+                aria-pressed={bioMode !== "browse"}
+                aria-haspopup="menu"
+                onClick={() => setTopMenu((current) => (current === "preview" ? null : "preview"))}
+              />
+              )}
+            </ButtonGroup>
               {topMenu === "publish" ? (
-                <div className="cbm-top-menu cbm-pub-menu" role="menu" aria-label="Publish">
+                <div className="cbm-top-menu cbm-pub-menu is-publish" role="menu" aria-label="Publish">
                   <button type="button" role="menuitem" onClick={() => setTopMenu(null)}>
                     Confirm publish
                   </button>
@@ -452,31 +771,6 @@ export function CardBoardMock() {
                   </button>
                 </div>
               ) : null}
-            </div>
-            <div className="cbm-pub-anchor">
-              {bioMode === "preview" ? (
-                <button
-                  type="button"
-                  className="cbm-pub-btn cbm-exit-preview"
-                  onClick={() => {
-                    setBioMode("browse");
-                    setTopMenu(null);
-                  }}
-                >
-                  Exit preview
-                </button>
-              ) : (
-              <button
-                type="button"
-                className="cbm-pub-btn"
-                aria-expanded={topMenu === "preview"}
-                aria-pressed={bioMode !== "browse"}
-                aria-haspopup="menu"
-                onClick={() => setTopMenu((current) => (current === "preview" ? null : "preview"))}
-              >
-                Preview
-              </button>
-              )}
               {topMenu === "preview" && bioMode !== "preview" ? (
                 <div className="cbm-top-menu cbm-pub-menu" role="menu" aria-label="Preview and share">
                   <button
@@ -514,7 +808,6 @@ export function CardBoardMock() {
                   </button>
                 </div>
               ) : null}
-            </div>
           </div>
           <div className="cbm-notice">
             <button
@@ -525,10 +818,7 @@ export function CardBoardMock() {
               aria-haspopup="menu"
               onClick={() => setTopMenu((current) => (current === "notices" ? null : "notices"))}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
+              <Icon icon={Bell} size="sm" />
               {notices.length > 0 ? <span>{notices.length > 9 ? "9+" : notices.length}</span> : null}
             </button>
             {topMenu === "notices" ? (
@@ -565,25 +855,17 @@ export function CardBoardMock() {
               aria-haspopup="menu"
               onClick={() => setTopMenu((current) => (current === "profile" ? null : "profile"))}
             >
-              {profile.avatarUrl ? (
-                <img src={profile.avatarUrl} alt="" />
-              ) : (
-                <span className="cbm-account-mark">{initials(profile.fullName)}</span>
-              )}
+              <Avatar
+                name={profile.fullName || "Career"}
+                src={profile.avatarUrl ?? undefined}
+                size={32}
+                tooltip={false}
+              />
               <span className="cbm-account-copy">
                 <strong>{profile.fullName || "Career"}</strong>
                 {accountRole ? <small>{accountRole}</small> : null}
               </span>
-              <svg className="cbm-account-caret" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <path
-                  d="M3 4.5 L6 7.5 L9 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.25"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Icon className="cbm-account-caret" icon={ChevronDown} size="xsm" />
             </button>
             {topMenu === "profile" ? (
               <div className="cbm-top-menu" role="menu" aria-label="Profile">
@@ -616,17 +898,19 @@ export function CardBoardMock() {
         {bioMode === "browse" ? null : (
         <section className="cbm-card cbm-bio" aria-label="Profile">
           <div className="cbm-bio-row">
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <span className="cbm-mark">SK</span>}
+            <Avatar
+              name={profile.fullName || "Career"}
+              src={profile.avatarUrl ?? undefined}
+              size={48}
+              tooltip={false}
+            />
             <div className="cbm-bio-id">
               <h2>{profile.fullName || "Career"}</h2>
               {accountRole ? <p>{accountRole}</p> : null}
             </div>
             <div className="cbm-socials">
               <button type="button" aria-label="Request location" onClick={() => setBioDialog("place")}>
-                <svg className="cbm-pin" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z" />
-                  <circle cx="12" cy="10" r="2.25" />
-                </svg>
+                <Icon className="cbm-pin" icon={MapPin} size="sm" />
               </button>
               {socialLinks(profile).map((item) =>
                 item.url ? (
@@ -642,12 +926,8 @@ export function CardBoardMock() {
             </div>
           </div>
           <div className="cbm-bio-actions">
-            <button type="button" className="cbm-know" onClick={() => { setNoteKept(false); setBioDialog("contact"); }}>
-              Contact
-            </button>
-            <button type="button" className="cbm-know" onClick={() => setBioDialog("know")}>
-              Get to know me
-            </button>
+            <Button label="Contact" variant="secondary" size="sm" onClick={() => { setNoteKept(false); setBioDialog("contact"); }} />
+            <Button label="Get to know me" variant="secondary" size="sm" onClick={() => setBioDialog("know")} />
           </div>
         </section>
         )}
@@ -655,15 +935,11 @@ export function CardBoardMock() {
         <section className="cbm-card cbm-live" aria-label={updatesOpen ? "Live update" : "Map"}>
           <div className="cbm-stage-bar" role="tablist" aria-label="Card views">
             <button type="button" role="tab" aria-selected={!updatesOpen} onClick={() => chooseStage(false)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M9 4.5 4 6.4v13.1l5-1.9 6 2.4 5-1.9V4.5l-5 1.9L9 4.5Zm0 1.8v11.2l-3 1.1V7.4l3-1.1Zm2 0 4 1.6v11.2l-4-1.6V6.3Zm6 1.1v11.2l-3 1.1V8.4l3-1.1Z" />
-              </svg>
+              <Icon icon={MapIcon} size="sm" />
               Map
             </button>
             <button type="button" role="tab" aria-selected={updatesOpen} onClick={() => chooseStage(true)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 6.2h16v1.7H4V6.2Zm0 5h12.5v1.7H4v-1.7Zm0 5h9v1.7H4v-1.7Z" />
-              </svg>
+              <Icon icon={List} size="sm" />
               Live updates
               {updates.length > 0 ? <span className="cbm-count">{updates.length}</span> : null}
             </button>
@@ -671,7 +947,7 @@ export function CardBoardMock() {
           <div className="cbm-stage">
             {updatesOpen ? (
               updates.length > 0 ? (
-                <div className={openUpdate ? "cbm-updates is-reading" : "cbm-updates"}>
+                <ScrollableArea className={openUpdate ? "cbm-updates is-reading" : "cbm-updates"} label="Live updates">
                   {openUpdate ? (
                     <article>
                       <button type="button" onClick={() => setUpdateId(null)}>
@@ -713,7 +989,7 @@ export function CardBoardMock() {
                       ))}
                     </ul>
                   )}
-                </div>
+                </ScrollableArea>
               ) : (
                 <p className="cbm-empty">
                   {focus ? "Nothing recorded for this role yet." : "Nothing new from the jobs you're in."}
@@ -744,13 +1020,10 @@ export function CardBoardMock() {
           <nav className="cbm-nav">
             <div className="cbm-nav-main">
             {panel === "history" ? (
-              <div className={focus ? "cbm-history-view is-role" : "cbm-history-view"}>
-                {focus ? (
-                  <>
+              focus ? (
+              <ScrollableArea className="cbm-history-view is-role" label="Role">
                     <div className="cbm-history-bar">
-                      <button className="cbm-back" type="button" onClick={() => chooseRole(null)}>
-                        History
-                      </button>
+                      <Button label="History" variant="secondary" size="sm" className="cbm-back" onClick={() => chooseRole(null)} />
                     </div>
                     <RoleCard
                       role={focus}
@@ -759,85 +1032,165 @@ export function CardBoardMock() {
                       onReload={load}
                       onMessage={setMessage}
                     />
-                  </>
-                ) : (
-                  <>
-                    <div className="cbm-history-bar">
-                      <button className="cbm-back-arrow" type="button" aria-label="Back" onClick={() => setPanel("menu")}>
-                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                          <path
-                            d="M13.2 8H3.2M7 4.2 3.2 8 7 11.8"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.4"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                      <span className="cbm-history-title">Career history</span>
-                      <div className="cbm-history-actions">
-                        <button className="cbm-new" type="button" aria-keyshortcuts="Control+N">
-                          New
-                          <kbd>Ctrl+N</kbd>
-                        </button>
-                        <div className="cbm-sort" ref={sortMenuRef}>
+              </ScrollableArea>
+              ) : (
+              <div className="cbm-history-view">
+                    <Toolbar
+                      className="cbm-history-toolbar"
+                      label="Career history"
+                      size="sm"
+                      dividers={["bottom"]}
+                      startContent={
+                        <>
+                          <button className="cbm-back-arrow" type="button" aria-label="Back" onClick={() => { stopSelecting(); setPanel("menu"); }}>
+                            <Icon icon={ArrowLeft} size="sm" />
+                          </button>
+                          <Heading level={4}>Career history</Heading>
+                        </>
+                      }
+                      endContent={
+                        <>
+                          <div className="cbm-sort" ref={sortMenuRef}>
+                            <button
+                              className="cbm-tool-btn"
+                              type="button"
+                              aria-label="Sort"
+                              aria-haspopup="menu"
+                              aria-expanded={sortMenuOpen}
+                              onClick={() => setSortMenuOpen((open) => !open)}
+                            >
+                              <Icon className="cbm-mark-icon" icon="funnel" size="sm" />
+                            </button>
+                            {sortMenuOpen ? (
+                              <div className="cbm-sort-menu" role="menu" aria-label="Sort">
+                                <button
+                                  type="button"
+                                  role="menuitemradio"
+                                  aria-checked={sort === "newest"}
+                                  onClick={() => {
+                                    setSort("newest");
+                                    setSortMenuOpen(false);
+                                  }}
+                                >
+                                  Newest
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitemradio"
+                                  aria-checked={sort === "oldest"}
+                                  onClick={() => {
+                                    setSort("oldest");
+                                    setSortMenuOpen(false);
+                                  }}
+                                >
+                                  Oldest
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
                           <button
                             className="cbm-tool-btn"
                             type="button"
-                            aria-label="Sort"
-                            aria-haspopup="menu"
-                            aria-expanded={sortMenuOpen}
-                            onClick={() => setSortMenuOpen((open) => !open)}
+                            aria-label="Search career history"
+                            aria-pressed={historyFindOpen}
+                            onClick={() => {
+                              setSortMenuOpen(false);
+                              setHistoryFindOpen((open) => {
+                                if (open) setHistoryQuery("");
+                                return !open;
+                              });
+                            }}
                           >
-                            <svg className="cbm-mark-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                              <path d="M9.5 14H6.5C6.224 14 6 13.776 6 13.5V9.329C6 8.928 5.844 8.552 5.561 8.268L1.561 4.268C1.205 3.911 1 3.418 1 2.914C1 1.858 1.858 1 2.914 1H13.086C14.142 1 15 1.858 15 2.914C15 3.417 14.796 3.911 14.439 4.267L10.439 8.267C10.156 8.551 10 8.927 10 9.328V13.499C10 13.775 9.776 13.999 9.5 13.999V14ZM7 13H9V9.329C9 8.661 9.26 8.033 9.732 7.561L13.732 3.561C13.902 3.391 14 3.155 14 2.915C14 2.411 13.59 2.001 13.086 2.001H2.914C2.41 2.001 2 2.411 2 2.915C2 3.155 2.098 3.391 2.268 3.562L6.268 7.562C6.741 8.034 7 8.662 7 9.33V13.001V13Z" />
-                            </svg>
+                            <CustomIcon kind="search" />
                           </button>
-                          {sortMenuOpen ? (
-                            <div className="cbm-sort-menu" role="menu" aria-label="Sort">
-                              <button
-                                type="button"
-                                role="menuitemradio"
-                                aria-checked={sort === "newest"}
+                          <button
+                            className="cbm-tool-btn"
+                            type="button"
+                            aria-label={selecting ? "Done selecting" : "Select"}
+                            aria-pressed={selecting}
+                            onClick={() => {
+                              setSortMenuOpen(false);
+                              if (selecting) stopSelecting();
+                              else setSelecting(true);
+                            }}
+                          >
+                            <Icon icon={SquareCheck} size="sm" />
+                          </button>
+                          <Button label="New" icon={<Icon icon={Plus} />} isIconOnly aria-keyshortcuts="Control+N" />
+                        </>
+                      }
+                    />
+                    {selecting ? (
+                      <Toolbar
+                        className="cbm-bulk-toolbar"
+                        label="Career history actions"
+                        size="sm"
+                        variant="muted"
+                        dividers={["bottom"]}
+                        startContent={
+                          removeAsk ? (
+                            <>
+                              <span className="cbm-bulk-note">{removeAsk.detail}</span>
+                              <Button
+                                label="Remove"
+                                variant="destructive"
+                                size="sm"
+                                isLoading={removing}
+                                onClick={() => void removeChecked(removeAsk.ids)}
+                              />
+                              <Button label="Keep" variant="ghost" size="sm" isDisabled={removing} onClick={() => setRemoveAsk(null)} />
+                            </>
+                          ) : (
+                            <>
+                              <Badge label={checkedIds.size === 0 ? "Select roles" : `${checkedIds.size} selected`} />
+                              <Button
+                                label={shownIds.length > 0 && shownIds.every((id) => checkedIds.has(id)) ? "Clear shown" : "Select shown"}
+                                variant="ghost"
+                                size="sm"
+                                isDisabled={shownIds.length === 0}
+                                onClick={() => selectShown(shownIds)}
+                              />
+                              {identicalExtraIds.length > 0 ? (
+                                <Button label="Select identical" variant="ghost" size="sm" onClick={() => selectShown(identicalExtraIds)} />
+                              ) : null}
+                              <Button
+                                label="Ask"
+                                variant="ghost"
+                                size="sm"
+                                isDisabled={checkedIds.size === 0}
+                                onClick={askAboutSelection}
+                              />
+                              <Button
+                                label="Edit"
+                                variant="ghost"
+                                size="sm"
+                                isDisabled={checkedIds.size !== 1}
                                 onClick={() => {
-                                  setSort("newest");
-                                  setSortMenuOpen(false);
+                                  const id = [...checkedIds][0];
+                                  if (id) chooseRole(id);
                                 }}
-                              >
-                                Newest
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitemradio"
-                                aria-checked={sort === "oldest"}
+                              />
+                              <Button
+                                label="Remove"
+                                variant="destructive"
+                                size="sm"
+                                isDisabled={checkedIds.size === 0}
                                 onClick={() => {
-                                  setSort("oldest");
-                                  setSortMenuOpen(false);
+                                  if (checkedIds.size === 0) return;
+                                  setRemoveAsk({
+                                    ids: [...checkedIds],
+                                    detail:
+                                      checkedIds.size === 1
+                                        ? "Remove this role? Its sites and photos on this machine go with it."
+                                        : `Remove ${checkedIds.size} roles? Their sites and photos on this machine go with them.`,
+                                  });
                                 }}
-                              >
-                                Oldest
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                        <button
-                          className="cbm-tool-btn"
-                          type="button"
-                          aria-label="Search career history"
-                          aria-pressed={historyFindOpen}
-                          onClick={() => {
-                            setSortMenuOpen(false);
-                            setHistoryFindOpen((open) => {
-                              if (open) setHistoryQuery("");
-                              return !open;
-                            });
-                          }}
-                        >
-                          <CustomIcon kind="search" />
-                        </button>
-                      </div>
-                    </div>
+                              />
+                            </>
+                          )
+                        }
+                      />
+                    ) : null}
                     {historyFindOpen ? (
                       <div className="cbm-history-find">
                         <input
@@ -856,7 +1209,7 @@ export function CardBoardMock() {
                         />
                       </div>
                     ) : null}
-                    <div className="cbm-groups cbm-roles-frame">
+                    <ScrollableArea className="cbm-groups cbm-roles-frame" label="Roles">
                       {groups(shown).map((group) => (
                         <section key={group.label}>
                           <h3>
@@ -865,6 +1218,28 @@ export function CardBoardMock() {
                           <ul>
                             {group.roles.map((role) => (
                               <li key={role.id}>
+                                {selecting ? (
+                                  <div className="cbm-role-entry">
+                                    <label className="cbm-role-check">
+                                      <input
+                                        type="checkbox"
+                                        checked={checkedIds.has(role.id)}
+                                        aria-label={`Select ${role.organization || role.title || "Untitled"}`}
+                                        onChange={() => toggleChecked(role.id)}
+                                      />
+                                    </label>
+                                    <button type="button" onClick={() => chooseRole(role.id)}>
+                                      <span>
+                                        <strong>
+                                          {role.organization || role.title || "Untitled"}
+                                          {role.isCurrent ? <mark>Current</mark> : null}
+                                        </strong>
+                                        {role.organization && role.title ? <b>{role.title}</b> : null}
+                                        {formatHistoryGist(role) ? <small>{formatHistoryGist(role)}</small> : null}
+                                      </span>
+                                    </button>
+                                  </div>
+                                ) : (
                                 <button type="button" onClick={() => chooseRole(role.id)}>
                                   <span>
                                     <strong>
@@ -875,18 +1250,18 @@ export function CardBoardMock() {
                                     {formatHistoryGist(role) ? <small>{formatHistoryGist(role)}</small> : null}
                                   </span>
                                 </button>
+                                )}
                               </li>
                             ))}
                           </ul>
                         </section>
                       ))}
                       {ready && shown.length === 0 ? <p className="cbm-empty">No roles match.</p> : null}
-                    </div>
-                  </>
-                )}
+                    </ScrollableArea>
               </div>
+              )
             ) : (
-              <>
+              <ScrollableArea className="cbm-nav-scroll" label="Main">
                 {PANEL_BEFORE.map((item) => (
                   <button
                     key={item.id}
@@ -924,7 +1299,7 @@ export function CardBoardMock() {
                     {item.label}
                   </button>
                 ))}
-              </>
+              </ScrollableArea>
             )}
             </div>
             <div className={customizationsOpen ? "cbm-custom" : "cbm-custom is-collapsed"}>
@@ -935,16 +1310,7 @@ export function CardBoardMock() {
                 onClick={() => setCustomizationsOpen((open) => !open)}
               >
                 Customizations
-                <svg className="cbm-custom-chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                  <path
-                    d="M8 3.2v10M4.2 9.4 8 13.2l3.8-3.8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <Icon className="cbm-custom-chevron" icon={ChevronDown} size="sm" />
               </button>
               {customizationsOpen ? (
               <div className="cbm-custom-list">
@@ -954,7 +1320,15 @@ export function CardBoardMock() {
                     type="button"
                     className="cbm-custom-item"
                     aria-current={navId === item.id ? "page" : undefined}
-                    onClick={() => setNavId(item.id)}
+                    onClick={() => {
+                      if (item.id === "canvas") {
+                        const next = !canvasOpen;
+                        setCanvasOpen(next);
+                        setNavId(next ? "canvas" : "");
+                        return;
+                      }
+                      setNavId(item.id);
+                    }}
                   >
                     <CustomIcon kind={item.icon} />
                     {item.label}
@@ -974,7 +1348,13 @@ export function CardBoardMock() {
           {covers.length > 0 ? (
             <div className="cbm-photos">
               {covers.map((item) => (
-                <img key={item.id} src={item.url} alt={item.organization || item.title || ""} />
+                <Thumbnail
+                  key={item.id}
+                  className="cbm-thumb"
+                  src={item.url}
+                  alt={item.organization || item.title || "Photo"}
+                  label={item.organization || item.title || "Photo"}
+                />
               ))}
             </div>
           ) : (
@@ -1003,16 +1383,7 @@ export function CardBoardMock() {
                 onClick={() => setSessionsOpen((open) => !open)}
               >
                 <span>{CHAT_SESSIONS.find((session) => session.id === sessionId)?.label ?? "This board"}</span>
-                <svg className="cbm-account-caret" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                  <path
-                    d="M3 4.5 L6 7.5 L9 4.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.25"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <Icon className="cbm-account-caret" icon={ChevronDown} size="xsm" />
               </button>
               {sessionsOpen ? (
                 <div className="cbm-sessions-menu" role="listbox" aria-label="Conversations">
@@ -1024,7 +1395,6 @@ export function CardBoardMock() {
                       aria-selected={session.id === sessionId}
                       onClick={() => {
                         setSessionId(session.id);
-                        setSideDraft("");
                         setSessionsOpen(false);
                       }}
                     >
@@ -1034,56 +1404,74 @@ export function CardBoardMock() {
                 </div>
               ) : null}
             </div>
-            <div className="cbm-side-body">
-              {(sessionNotes[sessionId] ?? []).length > 0 ? (
-                <ol>
-                  {(sessionNotes[sessionId] ?? []).map((note, index) => (
-                    <li key={`${index}-${note}`}>{note}</li>
-                  ))}
-                </ol>
-              ) : (
-                <p>No conversations yet.</p>
-              )}
-            </div>
-            <form
-              className="cbm-side-composer"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const text = sideDraft.trim();
-                if (!text) return;
-                setSessionNotes((notes) => ({
-                  ...notes,
-                  [sessionId]: [...(notes[sessionId] ?? []), text],
-                }));
-                setSideDraft("");
-              }}
-              onClick={(event) => {
-                if (event.target === event.currentTarget) {
-                  event.currentTarget.querySelector("textarea")?.focus();
-                }
-              }}
+            <ChatLayout
+              className="cbm-chat"
+              density="spacious"
+              emptyState={<p className="cbm-chat-empty">No conversations yet.</p>}
+              composer={
+                <ChatComposer
+                  onSubmit={postComposerMessage}
+                  placeholder={composerMode === "ask" ? "Ask anything..." : "Describe your edit..."}
+                  drawer={
+                    checkedRoles.length > 0 ? (
+                      <ChatComposerDrawer count={checkedRoles.length} label="roles">
+                        <div className="cbm-context-chips">
+                          {checkedRoles.map((role) => (
+                            <button
+                              key={role.id}
+                              type="button"
+                              className="cbm-context-chip"
+                              aria-label={`Remove ${roleContextLabel(role)} from this conversation`}
+                              onClick={() => toggleChecked(role.id)}
+                            >
+                              <span>{role.organization || role.title || "Untitled"}</span>
+                              <span aria-hidden="true">×</span>
+                            </button>
+                          ))}
+                        </div>
+                      </ChatComposerDrawer>
+                    ) : null
+                  }
+                  input={<ChatComposerInput handleRef={composerRef} />}
+                  headerActions={
+                    <>
+                      <Button label="Mention" variant="ghost" size="sm" icon={<Icon icon={AtSign} />} isIconOnly />
+                      <Button label="Attach" variant="ghost" size="sm" icon={<Icon icon={Paperclip} />} isIconOnly />
+                    </>
+                  }
+                  footerActions={
+                    <DropdownMenu
+                      button={{
+                        label: composerMode === "ask" ? "Ask" : "Edit",
+                        variant: "ghost",
+                        size: "sm",
+                      }}
+                      items={[
+                        { label: "Ask", onClick: () => setComposerMode("ask") },
+                        { label: "Edit", onClick: () => setComposerMode("edit") },
+                      ]}
+                    />
+                  }
+                />
+              }
             >
-              <textarea
-                value={sideDraft}
-                rows={1}
-                placeholder="Message Proforna"
-                aria-label="Message Proforna"
-                onChange={(event) => setSideDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter" || event.shiftKey) return;
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }}
-              />
-              <div className="cbm-side-composer-bar">
-                <button type="submit" aria-label="Send" disabled={!sideDraft.trim()}>
-                  <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M8 12.5V3.5" />
-                    <path d="M4.2 7.2 8 3.4l3.8 3.8" />
-                  </svg>
-                </button>
-              </div>
-            </form>
+              {(sessionNotes[sessionId] ?? []).length > 0 ? (
+                <ChatMessageList>
+                  {(sessionNotes[sessionId] ?? []).map((note, index) => (
+                    <ChatMessage
+                      key={`${sessionId}-${index}-${note.sender}`}
+                      sender={note.sender === "assistant" ? "assistant" : "user"}
+                      name={note.sender === "assistant" ? "Proforna" : undefined}
+                    >
+                      <ChatMessageBubble>{note.text}</ChatMessageBubble>
+                      {note.sender !== "assistant" && note.roles.length > 0 ? (
+                        <p className="cbm-chat-context">{contextLine(note.roles)}</p>
+                      ) : null}
+                    </ChatMessage>
+                  ))}
+                </ChatMessageList>
+              ) : null}
+            </ChatLayout>
           </aside>
         ) : null}
       </div>
@@ -1100,73 +1488,20 @@ export function CardBoardMock() {
           onMessage={setMessage}
         />
       ) : null}
-      {searchOpen ? (
-        <div
-          className="cbm-pop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Search"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeSearch();
-          }}
-        >
-          <div className="cbm-search-card">
-            <label className="cbm-search-field">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="6" />
-                <path d="m20 20-3.6-3.6" />
-              </svg>
-              <input
-                autoFocus
-                type="search"
-                value={globalQuery}
-                placeholder="Search…"
-                aria-label="Search"
-                onChange={(event) => setGlobalQuery(event.target.value)}
-              />
-            </label>
-            <div className="cbm-search-results">
-              {searchEmpty ? <p className="cbm-search-empty">Nothing matches that.</p> : null}
-              {placeHits.length > 0 ? (
-                <ul>
-                  {placeHits.map((item) => (
-                    <li key={item.id}>
-                      <button type="button" onClick={() => pickPlace(item.id)}>
-                        <strong>{item.label}</strong>
-                        <span>{item.detail}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {roleHits.length > 0 ? (
-                <ul>
-                  {roleHits.map((role) => (
-                    <li key={role.id}>
-                      <button type="button" onClick={() => pickRole(role.id)}>
-                        <strong>{role.organization || role.title || "Untitled"}</strong>
-                        <span>{[role.title, formatHistoryPlace(role)].filter(Boolean).join(" · ")}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {updateHits.length > 0 ? (
-                <ul>
-                  {updateHits.map((item) => (
-                    <li key={item.id}>
-                      <button type="button" onClick={() => pickUpdate(item.id)}>
-                        <strong>{item.organization}</strong>
-                        <span>{item.kind} · {item.text}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <CommandPalette
+        isOpen={searchOpen}
+        onOpenChange={setSearchOpen}
+        searchSource={palette}
+        label="Search"
+        emptySearchText="Nothing matches that."
+        onValueChange={pickPalette}
+        renderItem={(item) => (
+          <span className="cbm-palette-hit">
+            <strong>{item.label}</strong>
+            {item.auxiliaryData?.detail ? <span>{item.auxiliaryData.detail}</span> : null}
+          </span>
+        )}
+      />
       {settingsOpen ? (
         <div
           className="cbm-pop"
@@ -1177,12 +1512,10 @@ export function CardBoardMock() {
             if (event.target === event.currentTarget) setSettingsOpen(false);
           }}
         >
-          <div className="cbm-pop-card cbm-settings-card">
+          <ScrollableArea className="cbm-pop-card cbm-settings-card" label="Settings">
             <header>
               <h2>Settings</h2>
-              <button type="button" onClick={() => setSettingsOpen(false)}>
-                Close
-              </button>
+              <Button label="Close" variant="ghost" size="sm" onClick={() => setSettingsOpen(false)} />
             </header>
             <p>LinkedIn, GitHub, and Site show as the icons beside your name.</p>
             <form
@@ -1220,11 +1553,9 @@ export function CardBoardMock() {
                 />
               </label>
               {settingsError ? <p className="cbm-settings-error">{settingsError}</p> : null}
-              <button type="submit" disabled={settingsBusy}>
-                {settingsBusy ? "Saving…" : "Save"}
-              </button>
+              <Button type="submit" label="Save" variant="primary" size="sm" isLoading={settingsBusy} />
             </form>
-          </div>
+          </ScrollableArea>
         </div>
       ) : null}
       {bioDialog ? (
@@ -1237,12 +1568,10 @@ export function CardBoardMock() {
             if (event.target === event.currentTarget) setBioDialog(null);
           }}
         >
-          <div className="cbm-pop-card">
+          <ScrollableArea className="cbm-pop-card" label={bioDialog === "know" ? "Get to know me" : bioDialog === "place" ? "Location" : "Contact"}>
             <header>
               <h2>{bioDialog === "know" ? "Get to know me" : bioDialog === "place" ? "Location" : "Contact"}</h2>
-              <button type="button" onClick={() => setBioDialog(null)}>
-                Close
-              </button>
+              <Button label="Close" variant="ghost" size="sm" onClick={() => setBioDialog(null)} />
             </header>
             {bioDialog === "know" ? (
               <p>{profile.bio.trim() || "Nothing written yet."}</p>
@@ -1267,11 +1596,26 @@ export function CardBoardMock() {
                   Message
                   <textarea rows={3} value={noteBody} onChange={(event) => setNoteBody(event.target.value)} required />
                 </label>
-                <button type="submit">Leave a note</button>
+                <Button type="submit" label="Leave a note" variant="primary" size="sm" />
               </form>
             )}
-          </div>
+          </ScrollableArea>
         </div>
+      ) : null}
+      {canvasOpen && canvasRole ? (
+        <RoleCanvasEntry
+          key={focus ? focus.id : "all"}
+          role={canvasRole}
+          roles={focus ? undefined : roles}
+          scope={focus ? "role" : "all"}
+          studyBoards={file?.studyBoards ?? []}
+          minimized={false}
+          slot={null}
+          dockSlot={null}
+          onMinimizedChange={() => undefined}
+          onShowRole={() => undefined}
+          onClose={closeCanvas}
+        />
       ) : null}
     </div>
   );
@@ -1338,18 +1682,14 @@ function RoleCard({
               />
             </label>
             {cover ? (
-              <button type="button" onClick={() => void removePhoto()}>
-                Remove
-              </button>
+              <Button label="Remove" variant="secondary" size="sm" onClick={() => void removePhoto()} />
             ) : null}
           </div>
         </div>
         <div className="cbm-job-body">
           <div className="cbm-title-row">
             <h2>{role.organization || "Untitled"}</h2>
-            <button type="button" onClick={() => onOpen("edit")}>
-              Edit
-            </button>
+            <Button label="Edit" variant="secondary" size="sm" onClick={() => onOpen("edit")} />
           </div>
           {role.title ? <p className="cbm-job-title">{role.title}</p> : null}
           {place || period ? (
@@ -1363,6 +1703,7 @@ function RoleCard({
           ) : null}
           {gist ? <p className="cbm-gist">{gist}</p> : null}
         </div>
+        <ScrollableArea className="cbm-pills-scroll" label="Role actions">
         <div className="cbm-pills">
           {role.details.website ? (
             <a className="cbm-site" href={role.details.website} target="_blank" rel="noreferrer">
@@ -1374,16 +1715,11 @@ function RoleCard({
               <span>LinkedIn</span>
             </a>
           ) : null}
-          <button type="button" onClick={() => onOpen("people")}>
-            Worked with
-          </button>
-          <button type="button" onClick={() => onOpen("more")}>
-            More about this role
-          </button>
-          <button type="button" onClick={() => onOpen("canvas")}>
-            Show on canvas
-          </button>
+          <Button label="Worked with" variant="secondary" size="sm" onClick={() => onOpen("people")} />
+          <Button label="More about this role" variant="secondary" size="sm" onClick={() => onOpen("more")} />
+          <Button label="Show on canvas" variant="secondary" size="sm" onClick={() => onOpen("canvas")} />
         </div>
+        </ScrollableArea>
       </article>
       <button type="button" className="cbm-gallery" onClick={() => onOpen("media")}>
         <GalleryStrip role={role} />
@@ -1468,12 +1804,10 @@ function RoleSheet({
 
   return (
     <div className="cbm-pop" role="dialog" aria-label={title}>
-      <div className="cbm-pop-card">
+      <ScrollableArea className="cbm-pop-card" label={title}>
         <header>
           <h2>{title}</h2>
-          <button type="button" onClick={onClose}>
-            Close
-          </button>
+          <Button label="Close" variant="ghost" size="sm" onClick={onClose} />
         </header>
         {sheet === "people" ? (
           role.details.colleagues.length === 0 ? (
@@ -1593,10 +1927,10 @@ function RoleSheet({
               LinkedIn
               <input name="linkedin" defaultValue={role.details.linkedin} />
             </label>
-            <button type="submit">Save</button>
+            <Button type="submit" label="Save" variant="primary" size="sm" />
           </form>
         ) : null}
-      </div>
+      </ScrollableArea>
     </div>
   );
 }
@@ -1623,16 +1957,6 @@ type LiveUpdate = {
   frame: string;
   ownDate: boolean;
 };
-
-function initials(name: string): string {
-  const letters = name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-  return letters || "SK";
-}
 
 function httpUrl(value: string): string | null {
   const url = value.trim();
