@@ -23,10 +23,11 @@
   display: grid;
   grid-column: 1 / -1;
   grid-row: 1;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 13rem) minmax(max-content, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   column-gap: 0.75rem;
   align-items: center;
   min-height: 2.75rem;
+  margin-bottom: -0.5rem;
 }
 
 .cbm-brand-wrap {
@@ -47,45 +48,56 @@
 }
 
 .cbm-top-search {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
   display: flex;
-  grid-column: 2;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: space-between;
+  gap: 6px;
   box-sizing: border-box;
-  width: 100%;
+  width: min(38vw, 600px, max(10rem, calc(100% - 42rem)));
+  max-width: calc(100vw - 2rem);
   min-width: 0;
-  height: 1.85rem;
-  padding: 0 0.7rem;
-  border: 1px solid #e4e4e7;
-  border-radius: 999px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid #cecece;
+  border-radius: 8px;
   background: #fff;
-  color: #6b6b70;
-  font: inherit;
+  box-shadow: none;
+  color: #767676;
+  font: 13px/18px system-ui, sans-serif;
   text-align: left;
   cursor: pointer;
+  transform: translate(-50%, -50%);
 }
 
-.cbm-top-search:hover,
+.cbm-top-search:hover {
+  border-color: #b5b5b5;
+}
+
+.cbm-top-search:focus,
 .cbm-top-search:focus-visible {
-  border-color: #c9c9ce;
-  color: #171717;
+  border-color: #0090f1;
+  outline: 1px solid #0090f1;
+  outline-offset: -1px;
+  color: #3b3b3b;
 }
 
 .cbm-top-search svg {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 16px;
+  height: 16px;
   flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  fill: currentColor;
+  color: #616161;
 }
 
 .cbm-top-search span {
   overflow: hidden;
-  font-size: 0.88rem;
+  font-size: 13px;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .cbm-top-end {
