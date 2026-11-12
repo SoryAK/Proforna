@@ -75,11 +75,19 @@
   stroke-linejoin: round;
 }
 
+.home-bar-mark {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 calc(8px - 0.2rem) 0 0.2rem;
+  object-fit: contain;
+}
+
 .home-bar-brand {
   margin: 0;
   color: #171717;
   font-family: var(--sans);
-  font-size: 1rem;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.02em;
 }

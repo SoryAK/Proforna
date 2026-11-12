@@ -4,6 +4,7 @@ import { ButtonGroup } from "@astryxdesign/core/ButtonGroup";
 import type { OccupantNoticeHref } from "@core/notices";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
+import mark from "./proforna-mark.svg";
 
 export type HomeBioMode = "browse" | "preview" | "share";
 
@@ -99,6 +100,7 @@ export function HomeBar({
         >
           <Icon name={menuExpanded ? "rail" : "railOff"} />
         </button>
+        <img className="home-bar-mark" src={mark} alt="" />
         <p className="home-bar-brand">Proforna</p>
       </div>
       <div className="home-bar-search">
