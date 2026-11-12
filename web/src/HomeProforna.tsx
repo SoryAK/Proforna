@@ -113,6 +113,7 @@ export function HomeProforna({
 
   async function openSession(sessionId: string) {
     const load = ++sessionLoad.current;
+    abortRef.current?.abort();
     picked.current = true;
     setSelectedId(sessionId);
     setStatus("");
@@ -159,6 +160,8 @@ export function HomeProforna({
     }
     const abort = new AbortController();
     abortRef.current = abort;
+    const generation = sessionLoad.current;
+    const left = () => sessionLoad.current !== generation || abort.signal.aborted;
     setBusy(true);
     setStatus("");
     try {
@@ -168,12 +171,14 @@ export function HomeProforna({
           method: "POST",
           signal: abort.signal,
         });
+        if (left()) return;
         if (!opened.ok) {
           setDraft(body);
           setStatus("Could not start a conversation.");
           return;
         }
         const created = (await opened.json()) as { session: SessionSummary };
+        if (left()) return;
         const createdId = created.session.id;
         sessionId = createdId;
         setSelectedId(createdId);
@@ -195,6 +200,7 @@ export function HomeProforna({
         }),
         signal: abort.signal,
       });
+      if (left()) return;
       if (response.status === 403) {
         setAllowRemote(false);
         setDraft(body);
@@ -215,18 +221,20 @@ export function HomeProforna({
         session: SessionSummary;
         messages: SessionMessage[];
       };
+      setSessions((current) => {
+        const rest = current.filter((session) => session.id !== thread.session.id);
+        return [thread.session, ...rest];
+      });
+      if (left()) return;
       setDraft("");
       setMessages(thread.messages);
       if (attached.length > 0) {
         const match = [...thread.messages].reverse().find((message) => message.speaker === "occupant" && message.body === body);
         if (match) setNotes((current) => ({ ...current, [match.id]: attached }));
       }
-      setSessions((current) => {
-        const rest = current.filter((session) => session.id !== thread.session.id);
-        return [thread.session, ...rest];
-      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
+      if (left()) return;
       setDraft(body);
       setStatus("Could not reach Proforna.");
     } finally {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { openDatabase } from "./db";
+import { settingsRevision } from "./work-map";
 
 describe("Work Map career-fact HTTP seam", () => {
   it("attaches subject-linked facts on read and writes them when a role is saved", async () => {
@@ -871,6 +872,64 @@ describe("canvas arrangement", () => {
     }
   });
 
+  it("refuses a study save that still carries a deleted role board", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; canvasRevision?: number }>;
+        studyRevision: number;
+      };
+      const roleId = workMap.roles[0].id;
+      const removed = await app.request(`/api/work-map/roles/${roleId}`, { method: "DELETE" });
+      expect(removed.status).toBe(200);
+
+      const stale = await app.request("/api/work-map/canvas", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          revision: workMap.studyRevision,
+          roleRevisions: { [roleId]: workMap.roles[0].canvasRevision ?? 0 },
+          boards: [
+            {
+              id: roleId,
+              name: "Lead",
+              nodes: [{ id: "node-1", kind: "Design", title: "Gone", x: 1, y: 1 }],
+              groups: [],
+            },
+          ],
+        }),
+      });
+      expect(stale.status).toBe(409);
+      expect(await stale.json()).toEqual({ error: "revision-stale" });
+
+      const after = (await (await app.request("/api/work-map")).json()) as {
+        studyBoards: unknown[];
+        studyRevision: number;
+      };
+      expect(after.studyBoards).toEqual([]);
+      expect(after.studyRevision).toBe(workMap.studyRevision);
+    } finally {
+      db.close();
+    }
+  });
+
   it("saves one canvas action at the current revision and refuses a stale one", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db, {
@@ -1013,8 +1072,31 @@ describe("canvas arrangement", () => {
       };
       expect(current.settings.slug).toBe("newer-slug");
       expect(current.updatedAt).toBe(savedBody.updatedAt);
+
+      const again = await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...current.settings,
+          slug: "later-slug",
+          updatedAt: current.updatedAt,
+        }),
+      });
+      expect(again.status).toBe(200);
+      const againBody = (await again.json()) as { updatedAt: string; settings: { slug: string } };
+      expect(againBody.settings.slug).toBe("later-slug");
+      expect(againBody.updatedAt).not.toBe(current.updatedAt);
     } finally {
       db.close();
     }
+  });
+
+  it("moves a settings revision off a timestamp that would otherwise repeat", () => {
+    const stamp = "2026-11-12T00:00:00.000Z";
+    expect(settingsRevision(stamp, stamp)).toBe("2026-11-12T00:00:00.001Z");
+    expect(settingsRevision("2026-11-12T00:00:00.000Z", "2026-11-12T00:00:00.004Z")).toBe(
+      "2026-11-12T00:00:00.004Z",
+    );
+    expect(settingsRevision(null, stamp)).toBe(stamp);
   });
 });

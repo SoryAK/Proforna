@@ -930,6 +930,12 @@ function parsePin(value: unknown): LinkedEvidence["pin"] {
   }
 }
 
+export function settingsRevision(stored: string | null, now = new Date().toISOString()): string {
+  if (stored !== now) return now;
+  const bumped = new Date(Date.parse(now) + 1).toISOString();
+  return bumped === now ? `${now}.1` : bumped;
+}
+
 export function readWorkMapSettingsUpdatedAt(
   db: DatabaseSync,
   occupantId: string,
@@ -1032,7 +1038,7 @@ export async function saveWorkMapSettings(
     current,
     next: settings,
   });
-  const now = new Date().toISOString();
+  const now = settingsRevision(storedUpdatedAt);
   if (operations.length === 0) return settings;
   const minted = await mintOccupantApproval(occupantId, {
     purpose: "Update Work Map publication settings",
@@ -1235,6 +1241,9 @@ export function saveSharedCanvas(db: DatabaseSync, occupantId: string, input: Js
   const incoming = new Set(boards.map((board) => board.id));
   for (const board of owned) {
     if (!roleRevisions.has(board.id)) throw new WorkMapStoreError("revision-stale");
+  }
+  for (const roleId of roleRevisions.keys()) {
+    if (!roleIds.has(roleId)) throw new WorkMapStoreError("revision-stale");
   }
   db.exec("BEGIN");
   try {

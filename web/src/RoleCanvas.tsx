@@ -369,7 +369,23 @@ function scheduleSharedSave(boards: CanvasBoard[], roleIds: string[]) {
   return sharedSaveTail;
 }
 
-async function flushSharedSave() {
+async function refreshSharedRevisions() {
+  const response = await fetch("/api/work-map");
+  if (!response.ok) return false;
+  const body = (await response.json()) as {
+    studyRevision?: number;
+    roles?: Array<{ id: string; canvasRevision?: number }>;
+  };
+  if (typeof body.studyRevision === "number") sharedStudyRevision = body.studyRevision;
+  for (const role of body.roles ?? []) {
+    if (typeof role.canvasRevision === "number") {
+      sharedRoleRevisions.set(role.id, role.canvasRevision);
+    }
+  }
+  return true;
+}
+
+async function flushSharedSave(retry = true): Promise<void> {
   const job = sharedPending;
   if (!job) return;
   sharedPending = null;
@@ -390,7 +406,14 @@ async function flushSharedSave() {
     if (!sharedPending) sharedPending = job;
     throw new Error("save failed");
   }
-  if (response.status === 409) throw new Error("save stale");
+  if (response.status === 409) {
+    if (!retry || !(await refreshSharedRevisions())) {
+      if (!sharedPending) sharedPending = job;
+      throw new Error("save stale");
+    }
+    if (!sharedPending) sharedPending = job;
+    return flushSharedSave(false);
+  }
   if (!response.ok) {
     if (!sharedPending) sharedPending = job;
     throw new Error("save failed");
