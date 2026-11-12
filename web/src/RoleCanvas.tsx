@@ -18,6 +18,7 @@ import {
   addToSequence,
   pointsAtGroup,
   readCanvasBoards,
+  reconcileSharedBoards,
   releasePointingMembers,
   removeFromSequence,
   sequenceWithoutNodes,
@@ -350,6 +351,13 @@ let sharedSaveTail: Promise<void> = Promise.resolve();
 let sharedPending: { boards: CanvasBoard[]; roleIds: string[] } | null = null;
 let sharedStudyRevision: number | null = null;
 const sharedRoleRevisions = new Map<string, number>();
+const sharedBoardSinks = new Set<(boards: CanvasBoard[]) => void>();
+
+type SharedMap = {
+  studyRevision: number;
+  studyBoards: CanvasBoard[];
+  roles: Array<{ id: string; canvasRevision?: number; canvasBoards?: CanvasBoard[] }>;
+};
 
 function rememberSharedRevisions(
   studyRevision: number,
@@ -369,20 +377,74 @@ function scheduleSharedSave(boards: CanvasBoard[], roleIds: string[]) {
   return sharedSaveTail;
 }
 
-async function refreshSharedRevisions() {
-  const response = await fetch("/api/work-map");
-  if (!response.ok) return false;
-  const body = (await response.json()) as {
-    studyRevision?: number;
-    roles?: Array<{ id: string; canvasRevision?: number }>;
-  };
-  if (typeof body.studyRevision === "number") sharedStudyRevision = body.studyRevision;
-  for (const role of body.roles ?? []) {
+function sameBoards(left: readonly CanvasBoard[], right: readonly CanvasBoard[]) {
+  if (left.length !== right.length) return false;
+  const rightById = new Map(right.map((board) => [board.id, JSON.stringify(board)]));
+  return left.every((board) => rightById.get(board.id) === JSON.stringify(board));
+}
+
+function storeSharedBoards(boards: CanvasBoard[], roleIds: readonly string[]) {
+  const ids = new Set(roleIds);
+  sharedBoardsCache = boards.filter((board) => !ids.has(board.id));
+  const sent = new Set(boards.map((board) => board.id));
+  for (const roleId of ids) {
+    const own = boards.find((board) => board.id === roleId);
+    if (!own) continue;
+    const existing = vaultBoards.get(roleId) ?? [];
+    const kept = existing.filter((board) => board.id !== roleId && !sent.has(board.id));
+    const next = [own, ...kept];
+    vaultBoards.set(roleId, next);
+    savedBoardJson.set(roleId, JSON.stringify(next));
+  }
+}
+
+function baseSharedBoards(roleIds: readonly string[]): CanvasBoard[] | null {
+  if (!sharedBoardsCache) return null;
+  const boards = [...sharedBoardsCache];
+  for (const roleId of roleIds) {
+    const own = (vaultBoards.get(roleId) ?? []).find((board) => board.id === roleId);
+    if (own) boards.push(own);
+  }
+  return boards;
+}
+
+function remoteSharedBoards(loaded: SharedMap, roleIds: readonly string[]) {
+  const wanted = new Set(roleIds);
+  const owned = loaded.roles.flatMap((role) => {
+    if (!wanted.has(role.id)) return [];
+    const own = role.canvasBoards?.find((board) => board.id === role.id);
+    return own ? [own] : [];
+  });
+  return [...loaded.studyBoards, ...owned];
+}
+
+function adoptSharedRevisions(loaded: SharedMap) {
+  sharedStudyRevision = loaded.studyRevision;
+  for (const role of loaded.roles) {
     if (typeof role.canvasRevision === "number") {
       sharedRoleRevisions.set(role.id, role.canvasRevision);
     }
   }
-  return true;
+}
+
+async function loadSharedMap(): Promise<SharedMap | null> {
+  const response = await fetch("/api/work-map");
+  if (!response.ok) return null;
+  const body = (await response.json()) as {
+    studyRevision?: number;
+    studyBoards?: CanvasBoard[];
+    roles?: SharedMap["roles"];
+  };
+  if (typeof body.studyRevision !== "number") return null;
+  return {
+    studyRevision: body.studyRevision,
+    studyBoards: body.studyBoards ?? [],
+    roles: body.roles ?? [],
+  };
+}
+
+function keepPendingSave(job: { boards: CanvasBoard[]; roleIds: string[] }) {
+  if (!sharedPending) sharedPending = job;
 }
 
 async function flushSharedSave(retry = true): Promise<void> {
@@ -403,19 +465,50 @@ async function flushSharedSave(retry = true): Promise<void> {
       }),
     });
   } catch {
-    if (!sharedPending) sharedPending = job;
+    keepPendingSave(job);
     throw new Error("save failed");
   }
   if (response.status === 409) {
-    if (!retry || !(await refreshSharedRevisions())) {
-      if (!sharedPending) sharedPending = job;
+    if (!retry) {
+      keepPendingSave(job);
       throw new Error("save stale");
     }
-    if (!sharedPending) sharedPending = job;
+    let loaded: SharedMap | null = null;
+    try {
+      loaded = await loadSharedMap();
+    } catch {
+      loaded = null;
+    }
+    if (!loaded) {
+      keepPendingSave(job);
+      throw new Error("save stale");
+    }
+    const remote = remoteSharedBoards(loaded, job.roleIds);
+    const merged = reconcileSharedBoards(job.boards, remote, baseSharedBoards(job.roleIds));
+    if (!merged || sharedPending) {
+      keepPendingSave(job);
+      throw new Error("save stale");
+    }
+    const matchesLocal = sameBoards(merged, job.boards);
+    if (!matchesLocal && sharedBoardSinks.size === 0) {
+      keepPendingSave(job);
+      throw new Error("save stale");
+    }
+    adoptSharedRevisions(loaded);
+    if (!matchesLocal) {
+      if (sameBoards(merged, remote)) storeSharedBoards(merged, job.roleIds);
+      for (const sink of sharedBoardSinks) sink(merged);
+      return;
+    }
+    if (sameBoards(merged, remote)) {
+      storeSharedBoards(merged, job.roleIds);
+      return;
+    }
+    sharedPending = { boards: merged, roleIds: job.roleIds };
     return flushSharedSave(false);
   }
   if (!response.ok) {
-    if (!sharedPending) sharedPending = job;
+    keepPendingSave(job);
     throw new Error("save failed");
   }
   const saved = (await response.json()) as {
@@ -426,18 +519,7 @@ async function flushSharedSave(retry = true): Promise<void> {
   for (const [id, revision] of Object.entries(saved.roleRevisions ?? {})) {
     sharedRoleRevisions.set(id, revision);
   }
-  const roleIds = new Set(job.roleIds);
-  sharedBoardsCache = job.boards.filter((board) => !roleIds.has(board.id));
-  const sent = new Set(job.boards.map((board) => board.id));
-  for (const roleId of roleIds) {
-    const own = job.boards.find((board) => board.id === roleId);
-    if (!own) continue;
-    const existing = vaultBoards.get(roleId) ?? [];
-    const kept = existing.filter((board) => board.id !== roleId && !sent.has(board.id));
-    const next = [own, ...kept];
-    vaultBoards.set(roleId, next);
-    savedBoardJson.set(roleId, JSON.stringify(next));
-  }
+  storeSharedBoards(job.boards, job.roleIds);
 }
 
 function storedStudies(fromServer: CanvasBoard[]) {
@@ -776,6 +858,14 @@ export function RoleCanvasEntry({
   const boardsRef = useRef(boards);
   boardsRef.current = boards;
   rememberSharedRevisions(studyRevision, catalog);
+
+  useEffect(() => {
+    const sink = (next: CanvasBoard[]) => setBoards(next);
+    sharedBoardSinks.add(sink);
+    return () => {
+      sharedBoardSinks.delete(sink);
+    };
+  }, []);
 
   useEffect(() => {
     const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
