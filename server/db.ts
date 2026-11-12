@@ -78,6 +78,16 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS resume_import_markers (
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      evidence_id TEXT NOT NULL,
+      item_key TEXT NOT NULL,
+      work_history_id TEXT,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (occupant_id, evidence_id, item_key)
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS canvas_library (
       occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
       boards_json TEXT NOT NULL DEFAULT '[]',
@@ -586,6 +596,7 @@ export function openDatabase(path: string): DatabaseSync {
     "TEXT NOT NULL DEFAULT '[]'",
   );
   addColumnIfMissing(db, "work_history", "canvas_revision", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(db, "resume_import_markers", "work_history_id", "TEXT");
   addColumnIfMissing(db, "canvas_library", "revision", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(
     db,

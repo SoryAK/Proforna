@@ -4,6 +4,7 @@ import {
   finishSignature,
   parseFinishReceipt,
   receiptMatchesDraft,
+  recoverPendingFinish,
   releaseFinishDraft,
   reuseSavedHistory,
   type OnboardingFinishReceipt,
@@ -64,6 +65,28 @@ describe("onboarding finish receipt", () => {
       receiptMatchesDraft(saved, { ...draft, history: { ...history, skills: ["Go"] } }),
     ).toBe(false);
     expect(receiptMatchesDraft({ ...saved, awaitingComplete: false }, draft)).toBe(false);
+  });
+
+  it("retries recovery when the draft cannot be reloaded", async () => {
+    const draft = {
+      history,
+      fileDigests: ["resume-a"],
+      asideIds: [] as string[],
+    };
+    await expect(
+      recoverPendingFinish(saved, () => Promise.reject(new Error("IndexedDB unavailable"))),
+    ).resolves.toEqual({
+      action: "retry",
+      error: "Could not reload the saved onboarding. Try again.",
+    });
+    await expect(recoverPendingFinish(saved, async () => draft)).resolves.toEqual({ action: "complete" });
+    await expect(recoverPendingFinish(saved, async () => null)).resolves.toEqual({ action: "complete" });
+    await expect(
+      recoverPendingFinish(saved, async () => ({ ...draft, fileDigests: ["resume-b"] })),
+    ).resolves.toEqual({ action: "hold" });
+    await expect(recoverPendingFinish({ ...saved, awaitingComplete: false }, async () => draft)).resolves.toEqual({
+      action: "hold",
+    });
   });
 
   it("still finishes when deleting the draft fails", async () => {

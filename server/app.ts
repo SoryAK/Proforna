@@ -12,7 +12,7 @@ import {
   parseHistoryResumeId,
   type ExtractedResume,
 } from "../core/resume-extract";
-import { evidenceLinksFit, parseHistoryEvidence } from "../core/resume-compare";
+import { evidenceLinksFit, parseHistoryEvidence, parseHistoryRoleIds } from "../core/resume-compare";
 import {
   listOpenAiCompatModels,
   type CompleteFn,
@@ -746,7 +746,13 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const extracted = parseExtractedResume(body);
     const resumeLink = parseHistoryResumeId(body);
     const evidenceParse = parseHistoryEvidence(body);
-    if (!extracted || !resumeLink.ok || !evidenceParse.ok) {
+    const roleIds = extracted
+      ? parseHistoryRoleIds(body, {
+          experience: extracted.experience.length,
+          education: extracted.education.length,
+        })
+      : { ok: false as const };
+    if (!extracted || !resumeLink.ok || !evidenceParse.ok || !roleIds.ok) {
       return c.json({ error: "Could not read that extract." }, 400);
     }
     if (evidenceParse.links && !evidenceLinksFit(extracted, evidenceParse.links)) {
@@ -771,6 +777,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       extracted,
       evidenceId,
       imports,
+      { experience: roleIds.experience, education: roleIds.education },
     );
     return c.json({ ok: true, ...saved }, 201);
   });

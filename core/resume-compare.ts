@@ -53,6 +53,10 @@ export type HeldHistory = {
   experience: ExtractedJob[];
   education: ExtractedSchool[];
   skills: string[];
+  /** Parallel to experience. The held role id from the first save. */
+  experienceRoleIds: string[];
+  /** Parallel to education. The held role id from the first save. */
+  educationRoleIds: string[];
   experienceEvidence: Array<{ files: number[]; achievements: number[] }>;
   educationEvidence: Array<{ files: number[] }>;
   skillFiles: number[];
@@ -365,6 +369,8 @@ export function skillLines(skills: readonly HeldSkill[]): string {
 export function historyFromHeld(roles: readonly HeldRole[], skills: readonly HeldSkill[]): HeldHistory {
   const experience: ExtractedJob[] = [];
   const education: ExtractedSchool[] = [];
+  const experienceRoleIds: string[] = [];
+  const educationRoleIds: string[] = [];
   const experienceEvidence: HeldHistory["experienceEvidence"] = [];
   const educationEvidence: HeldHistory["educationEvidence"] = [];
   for (const role of roles) {
@@ -388,6 +394,7 @@ export function historyFromHeld(roles: readonly HeldRole[], skills: readonly Hel
         description: role.item.description.trim(),
         site,
       });
+      educationRoleIds.push(role.id);
       educationEvidence.push({ files: role.evidenceFiles.length > 0 ? [...role.evidenceFiles] : [0] });
       continue;
     }
@@ -402,6 +409,7 @@ export function historyFromHeld(roles: readonly HeldRole[], skills: readonly Hel
       achievements: achievements.map((row) => row.line),
       site,
     });
+    experienceRoleIds.push(role.id);
     experienceEvidence.push({
       files: role.evidenceFiles.length > 0 ? [...role.evidenceFiles] : [0],
       achievements: achievements.map((row) => row.file),
@@ -411,10 +419,41 @@ export function historyFromHeld(roles: readonly HeldRole[], skills: readonly Hel
     experience,
     education,
     skills: skills.map((skill) => skill.name),
+    experienceRoleIds,
+    educationRoleIds,
     experienceEvidence,
     educationEvidence,
     skillFiles: skills.map((skill) => skill.sourceFile),
   };
+}
+
+/**
+ * Role ids that tie a retry to the row from the first save.
+ * Absent lists mean this request has no stored identity and is matched another way.
+ */
+export function parseHistoryRoleIds(
+  raw: unknown,
+  counts: { experience: number; education: number },
+): { ok: true; experience: string[]; education: string[] } | { ok: false } {
+  if (!raw || typeof raw !== "object") return { ok: false };
+  const body = raw as Record<string, unknown>;
+  const experience = readRoleIdList(body.roleIds, counts.experience);
+  const education = readRoleIdList(body.educationRoleIds, counts.education);
+  if (!experience || !education) return { ok: false };
+  return { ok: true, experience, education };
+}
+
+function readRoleIdList(value: unknown, count: number): string[] | null {
+  if (value == null) return Array.from({ length: count }, () => "");
+  if (!Array.isArray(value) || value.length !== count) return null;
+  const ids: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") return null;
+    const id = item.trim();
+    if (id.includes("\n")) return null;
+    ids.push(id);
+  }
+  return ids;
 }
 
 /** Absent `evidence` keeps the single-resume save. A present block must be well formed. */

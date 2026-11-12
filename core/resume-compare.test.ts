@@ -13,6 +13,7 @@ import {
   hintSetAside,
   holdVerifiedRoles,
   parseHistoryEvidence,
+  parseHistoryRoleIds,
   queuedResumeDuplicate,
   resumesToQueue,
   rememberSetAside,
@@ -255,6 +256,7 @@ describe("historyFromHeld", () => {
       achievements: ["First duty", "Second duty"],
       site: { latitude: 39.95, longitude: -75.16 },
     });
+    expect(history.experienceRoleIds).toEqual([merged.id]);
     expect(history.experienceEvidence[0]).toEqual({
       files: [0],
       achievements: [0, 1],
@@ -345,5 +347,26 @@ describe("parseHistoryEvidence", () => {
       evidence: { experience: [], education: [], skills: [""] },
     });
     expect(parsed).toEqual({ ok: true, links: { experience: [], education: [], skills: [""] } });
+  });
+
+  it("reads the role ids that tie a retry to the first saved row", () => {
+    expect(parseHistoryRoleIds({ experience: [{}] }, { experience: 1, education: 0 })).toEqual({
+      ok: true,
+      experience: [""],
+      education: [],
+    });
+    expect(
+      parseHistoryRoleIds(
+        { roleIds: ["file-0-job-0"], educationRoleIds: ["file-0-school-0"] },
+        { experience: 1, education: 1 },
+      ),
+    ).toEqual({
+      ok: true,
+      experience: ["file-0-job-0"],
+      education: ["file-0-school-0"],
+    });
+    expect(parseHistoryRoleIds({ roleIds: ["file-0-job-0", "extra"] }, { experience: 1, education: 0 })).toEqual({
+      ok: false,
+    });
   });
 });

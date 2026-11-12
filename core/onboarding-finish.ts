@@ -45,6 +45,37 @@ export function finishDraftStamp(input: {
   });
 }
 
+export type PendingFinishRecovery =
+  | { action: "complete" }
+  | { action: "hold" }
+  | { action: "retry"; error: string };
+
+const RECOVERY_DRAFT_ERROR = "Could not reload the saved onboarding. Try again.";
+
+/**
+ * Decide whether a pending finish can complete.
+ * A failed draft read is not a validated draft, so the receipt stays and the visit can retry.
+ * A draft that is missing after a successful read can still complete.
+ */
+export async function recoverPendingFinish(
+  receipt: OnboardingFinishReceipt | null,
+  loadDraft: () => Promise<{
+    history: FinishHistory;
+    fileDigests: readonly string[];
+    asideIds: readonly string[];
+  } | null>,
+): Promise<PendingFinishRecovery> {
+  if (!receipt?.awaitingComplete) return { action: "hold" };
+  let draft: Awaited<ReturnType<typeof loadDraft>>;
+  try {
+    draft = await loadDraft();
+  } catch {
+    return { action: "retry", error: RECOVERY_DRAFT_ERROR };
+  }
+  if (draft && !receiptMatchesDraft(receipt, draft)) return { action: "hold" };
+  return { action: "complete" };
+}
+
 /**
  * True when a restored draft is still the one this receipt finished.
  * A newer resume or a changed role must not complete the older receipt.

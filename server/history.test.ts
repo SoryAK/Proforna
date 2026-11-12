@@ -557,4 +557,370 @@ describe("POST /api/history retry", () => {
       ctx.close();
     }
   });
+
+  it("keeps one job when that job's evidence is the second resume", async () => {
+    const ctx = setupUploads();
+    try {
+      const upload = async (name: string) => {
+        const form = new FormData();
+        form.append("file", new File([`%PDF-1.4 ${name}`], name, { type: "application/pdf" }));
+        const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+        expect(uploaded.status).toBe(201);
+        return ((await uploaded.json()) as { resume: { id: string } }).resume.id;
+      };
+      const first = await upload("first.pdf");
+      const second = await upload("second.pdf");
+      const payload = {
+        experience: [
+          {
+            company: "Northwind",
+            title: "Engineer",
+            location: "Boston",
+            startDate: "2020-01-01",
+            endDate: "2023-12-01",
+            isCurrent: false,
+            description: "Built the line.",
+            achievements: [],
+          },
+        ],
+        education: [],
+        skills: [],
+        resumeId: first,
+        evidence: {
+          experience: [{ resumeIds: [second], achievements: [] }],
+          education: [],
+          skills: [],
+        },
+      };
+      const saved = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(saved.status).toBe(201);
+      const replay = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(replay.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: unknown[] };
+      expect(career.jobs).toHaveLength(1);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("does not insert a second job after the career fact is gone", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 marker"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const payload = {
+        experience: [
+          {
+            company: "Acme",
+            title: "Lead",
+            location: "NYC",
+            startDate: "2024-01-01",
+            isCurrent: true,
+            description: "Ran the shop.",
+            achievements: [],
+          },
+        ],
+        education: [],
+        skills: [],
+        resumeId: stored.resume.id,
+      };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(first.status).toBe(201);
+      ctx.db.exec("DELETE FROM career_facts");
+      const second = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(second.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: unknown[] };
+      expect(career.jobs).toHaveLength(1);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("keeps the original role when its title was edited before a replay", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 edited"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const payload = {
+        experience: [
+          {
+            company: "Acme",
+            title: "Lead",
+            location: "NYC",
+            startDate: "2024-01-01",
+            isCurrent: true,
+            description: "Ran the shop.",
+            achievements: [],
+          },
+        ],
+        education: [],
+        skills: [],
+        resumeId: stored.resume.id,
+      };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(first.status).toBe(201);
+      ctx.db.prepare("UPDATE work_history SET title = ?").run("Director");
+      const facts = ctx.db
+        .prepare("SELECT id, value_json AS valueJson FROM career_facts WHERE fact_type = 'role' AND status = 'canonical'")
+        .all() as Array<{ id: string; valueJson: string }>;
+      for (const fact of facts) {
+        const value = JSON.parse(fact.valueJson) as { title?: string };
+        value.title = "Director";
+        ctx.db.prepare("UPDATE career_facts SET value_json = ? WHERE id = ?").run(JSON.stringify(value), fact.id);
+      }
+      const replay = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(replay.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: Array<{ title: string }> };
+      expect(career.jobs.map((job) => job.title)).toEqual(["Director"]);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("inserts a role when a career fact has no history row", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 fact"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const saved = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            {
+              company: "Acme",
+              title: "Lead",
+              location: "NYC",
+              startDate: "2024-01-01",
+              isCurrent: true,
+              description: "Ran the shop.",
+              achievements: [],
+            },
+          ],
+          education: [],
+          skills: [],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(saved.status).toBe(201);
+      const sample = ctx.db
+        .prepare(
+          `SELECT occupant_id AS occupantId, evidence_ids_json AS evidenceIdsJson, sensitivity
+           FROM career_facts WHERE fact_type = 'role' LIMIT 1`,
+        )
+        .get() as { occupantId: string; evidenceIdsJson: string; sensitivity: string };
+      ctx.db.prepare(
+        `INSERT INTO career_facts
+          (id, occupant_id, fact_type, subject_id, value_json, evidence_ids_json,
+           sensitivity, version, status, supersedes_id, created_at)
+         VALUES (?, ?, 'role', ?, ?, ?, ?, 1, 'canonical', NULL, ?)`,
+      ).run(
+        "fact-without-row",
+        sample.occupantId,
+        "missing-history-row",
+        JSON.stringify({
+          title: "Engineer",
+          company: "Northwind",
+          organization: "Northwind",
+          location: "Boston",
+          startDate: "2020-01-01",
+          endDate: "2023-12-01",
+          isCurrent: false,
+          description: "Built the line.",
+        }),
+        sample.evidenceIdsJson,
+        sample.sensitivity,
+        new Date().toISOString(),
+      );
+      const added = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            {
+              company: "Northwind",
+              title: "Engineer",
+              location: "Boston",
+              startDate: "2020-01-01",
+              endDate: "2023-12-01",
+              isCurrent: false,
+              description: "Built the line.",
+              achievements: [],
+            },
+          ],
+          education: [],
+          skills: [],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(added.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: Array<{ title: string }> };
+      expect(career.jobs.map((job) => job.title).sort()).toEqual(["Engineer", "Lead"]);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("updates the saved role when a retry changes its title, organization, or dates", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 retry-title"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            {
+              company: "Acme",
+              title: "Lead",
+              location: "NYC",
+              startDate: "2024-01-01",
+              isCurrent: true,
+              description: "Ran the shop.",
+              achievements: ["Cut overtime"],
+            },
+          ],
+          education: [],
+          skills: [],
+          roleIds: ["file-0-job-0"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(first.status).toBe(201);
+      const revised = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            {
+              company: "Northwind",
+              title: "Director",
+              location: "Boston",
+              startDate: "2022-03-01",
+              endDate: "2024-11-01",
+              isCurrent: false,
+              description: "Ran the shop.",
+              achievements: ["Cut overtime"],
+            },
+          ],
+          education: [],
+          skills: [],
+          roleIds: ["file-0-job-0"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(revised.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as {
+        jobs: Array<{ title: string; company: string; startDate: string; endDate: string }>;
+      };
+      expect(career.jobs).toEqual([
+        expect.objectContaining({
+          title: "Director",
+          company: "Northwind",
+          startDate: "2022-03-01",
+          endDate: "2024-11-01",
+        }),
+      ]);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("saves an edited description and achievements on the role from the first save", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 retry-copy"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const role = {
+        company: "Acme",
+        title: "Lead",
+        location: "NYC",
+        startDate: "2024-01-01",
+        isCurrent: true,
+      };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ ...role, description: "Ran the shop.", achievements: ["Cut overtime"] }],
+          education: [],
+          skills: [],
+          roleIds: ["file-0-job-0"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(first.status).toBe(201);
+      const revised = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            { ...role, description: "Led the floor.", achievements: ["Cut overtime", "Hired the crew"] },
+          ],
+          education: [],
+          skills: [],
+          roleIds: ["file-0-job-0"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(revised.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as {
+        jobs: Array<{ title: string; description: string; achievements: string[] }>;
+      };
+      expect(career.jobs).toHaveLength(1);
+      expect(career.jobs[0]).toMatchObject({
+        title: "Lead",
+        description: "Led the floor.",
+        achievements: ["Cut overtime", "Hired the crew"],
+      });
+    } finally {
+      ctx.close();
+    }
+  });
 });

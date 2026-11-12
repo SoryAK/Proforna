@@ -21,7 +21,7 @@ import {
 import {
   finishSignature,
   finishDraftStamp,
-  receiptMatchesDraft,
+  recoverPendingFinish,
   releaseFinishDraft,
   reuseSavedHistory,
   type OnboardingFinishReceipt,
@@ -164,6 +164,8 @@ export function Onboarding({
   const [extracting, setExtracting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
   const [readDigests, setReadDigests] = useState<string[]>([]);
   const [timeline, setTimeline] = useState<OnboardingTimelineRow[] | null>(null);
   const [declinedPairs, setDeclinedPairs] = useState<string[]>([]);
@@ -259,18 +261,22 @@ export function Onboarding({
     if (!receipt?.awaitingComplete) return;
     let cancel = false;
     void (async () => {
-      const draft = await loadOnboardingDraft();
-      if (cancel) return;
-      if (
-        draft &&
-        !receiptMatchesDraft(receipt, {
+      const decision = await recoverPendingFinish(receipt, async () => {
+        const draft = await loadOnboardingDraft();
+        if (!draft) return null;
+        return {
           history: historyFromHeld(draft.held, draft.heldSkills),
           fileDigests: draft.files.map((row) => row.digest),
           asideIds: draft.asides.map((aside) => aside.id),
-        })
-      ) {
+        };
+      });
+      if (cancel) return;
+      if (decision.action === "retry") {
+        setRecoveryError(decision.error);
         return;
       }
+      setRecoveryError(null);
+      if (decision.action !== "complete") return;
       const completed = await requestOnboardingComplete();
       if (cancel) return;
       if (!completed.ok) {
@@ -282,7 +288,7 @@ export function Onboarding({
     return () => {
       cancel = true;
     };
-  }, [draftReady]);
+  }, [draftReady, recoveryAttempt]);
 
   useEffect(() => {
     if (!draftReady || (files.length === 0 && held.length === 0)) return;
@@ -808,6 +814,8 @@ export function Onboarding({
                 education: history.education,
                 skills: history.skills,
                 resumeId: resumeIds[0],
+                roleIds: history.experienceRoleIds,
+                educationRoleIds: history.educationRoleIds,
                 evidence: {
                   experience: history.experienceEvidence.map((source) => ({
                     resumeIds: source.files.map((index) => resumeIds[index]),
@@ -916,6 +924,19 @@ export function Onboarding({
           data-wide={step === "name" || step === "check" || step === "integrations" ? "true" : undefined}
         >
         <section className="onboarding-card">
+          {recoveryError ? (
+            <>
+              <Banner status="error" title={recoveryError} container="section" collapsible={false} role="alert" />
+              <div className="onboarding-actions" data-end="true">
+                <Button
+                  className="onboarding-nav"
+                  label="Try again"
+                  variant="primary"
+                  onClick={() => setRecoveryAttempt((attempt) => attempt + 1)}
+                />
+              </div>
+            </>
+          ) : null}
           {step === "name" ? (
             <ProfileStep
               firstName={firstName}
