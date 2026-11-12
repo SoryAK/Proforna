@@ -63,7 +63,7 @@ import {
   type MapSettings,
   type MapThemeId,
 } from "@core/map-settings";
-import { prepareProfile } from "@core/profile";
+import { prepareProfile, profileNameForSave } from "@core/profile";
 import {
   JUDGMENT_SECTIONS,
   type CompanySiteSource,
@@ -228,7 +228,10 @@ export function ProfileSettingsPanel({
   }, [photo]);
 
   async function save() {
+    const name = profileNameForSave({ ...profile, editedFullName: fullName });
     const fields = {
+      firstName: name.firstName,
+      lastName: name.lastName,
       fullName,
       headline,
       address,

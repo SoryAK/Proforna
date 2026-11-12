@@ -11,7 +11,10 @@ export {
 } from "./onboarding";
 export {
   finishSignature,
+  finishDraftStamp,
   parseFinishReceipt,
+  receiptMatchesDraft,
+  releaseFinishDraft,
   reuseSavedHistory,
   type OnboardingFinishReceipt,
 } from "./onboarding-finish";

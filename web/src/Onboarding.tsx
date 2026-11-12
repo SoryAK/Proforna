@@ -20,6 +20,9 @@ import {
 } from "@core/model-onboarding";
 import {
   finishSignature,
+  finishDraftStamp,
+  receiptMatchesDraft,
+  releaseFinishDraft,
   reuseSavedHistory,
   type OnboardingFinishReceipt,
 } from "@core/onboarding-finish";
@@ -38,9 +41,9 @@ import {
 import {
   isAvatarType,
   joinPersonName,
+  personNameParts,
   prepareProfile,
   PROFILE_AVATAR_MAX_BYTES,
-  splitPersonName,
   type ProfileFields,
 } from "@core/profile";
 import { splitResidence, type ExtractedProfile, type ExtractedResume } from "@core/resume-extract";
@@ -115,11 +118,9 @@ export function Onboarding({
   initialProfile: OnboardingProfileValue;
   onFinished: (me: Me, next: OnboardingExit) => void;
 }) {
-  const openedName = splitPersonName(initialProfile.fullName);
-  const [firstName, setFirstName] = useState(initialProfile.firstName || openedName.firstName);
-  const [lastName, setLastName] = useState(
-    initialProfile.lastName || (initialProfile.firstName ? "" : openedName.lastName),
-  );
+  const openedName = personNameParts(initialProfile);
+  const [firstName, setFirstName] = useState(openedName.firstName);
+  const [lastName, setLastName] = useState(openedName.lastName);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialProfile.avatarUrl);
   const [place, setPlace] = useState<OnboardingPlaceAnswer>({
@@ -258,6 +259,18 @@ export function Onboarding({
     if (!receipt?.awaitingComplete) return;
     let cancel = false;
     void (async () => {
+      const draft = await loadOnboardingDraft();
+      if (cancel) return;
+      if (
+        draft &&
+        !receiptMatchesDraft(receipt, {
+          history: historyFromHeld(draft.held, draft.heldSkills),
+          fileDigests: draft.files.map((row) => row.digest),
+          asideIds: draft.asides.map((aside) => aside.id),
+        })
+      ) {
+        return;
+      }
       const completed = await requestOnboardingComplete();
       if (cancel) return;
       if (!completed.ok) {
@@ -683,7 +696,7 @@ export function Onboarding({
     if (concluded.current) return;
     concluded.current = true;
     clearFinishReceipt();
-    await clearOnboardingDraft();
+    await releaseFinishDraft(() => clearOnboardingDraft());
     if (!receipt.historySaved) {
       onFinished(me, { page: "home" });
       return;
@@ -778,11 +791,11 @@ export function Onboarding({
         setError("Could not save the roles you set aside.");
         return;
       }
-      const signature = finishSignature(roles.map((role) => role.id));
+      const history = historyFromHeld(roles, skills);
+      const signature = finishSignature(history);
       const reused = includeHistory ? reuseSavedHistory(readFinishReceipt(), signature) : null;
       let keptHistory: { jobs: number; schools: number; skills: number } | null = null;
       if (includeHistory) {
-        const history = historyFromHeld(roles, skills);
         if (history.experience.length > 0 || history.education.length > 0) {
           if (reused) {
             keptHistory = { jobs: reused.jobs, schools: reused.schools, skills: reused.skills };
@@ -824,6 +837,10 @@ export function Onboarding({
         skills: keptHistory?.skills ?? 0,
         resumes: resumeIds.length,
         setAside: setAsides.length,
+        draft: finishDraftStamp({
+          fileDigests: files.map((row) => row.digest),
+          asideIds: setAsides.map((aside) => aside.id),
+        }),
       };
       writeFinishReceipt(receipt);
       const completed = await requestOnboardingComplete();
@@ -1582,6 +1599,10 @@ function DoneStep({
   }, []);
 
   async function leave(next: OnboardingExit) {
+    const stop = (message: string) => {
+      setOpening(false);
+      setError(message);
+    };
     const changed =
       fields.headline !== profile.headline ||
       fields.city !== profile.city ||
@@ -1596,20 +1617,24 @@ function DoneStep({
     }
     const prepared = prepareProfile(fields);
     if (!prepared.ok) {
-      setError(prepared.error === "url-invalid" ? "Use an http(s) URL for a link." : "A name is required.");
+      stop(prepared.error === "url-invalid" ? "Use an http(s) URL for a link." : "A name is required.");
       return;
     }
-    const saved = await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(prepared.value),
-    });
-    const body = (await saved.json()) as { profile?: Me["profile"]; error?: string };
-    if (!saved.ok || !body.profile) {
-      setError("Could not save those profile changes.");
-      return;
+    try {
+      const saved = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(prepared.value),
+      });
+      const body = (await saved.json()) as { profile?: Me["profile"]; error?: string };
+      if (!saved.ok || !body.profile) {
+        stop("Could not save those profile changes.");
+        return;
+      }
+      onGo(next, body.profile);
+    } catch {
+      stop("Could not save those profile changes.");
     }
-    onGo(next, body.profile);
   }
 
   return (
@@ -1872,12 +1897,12 @@ function ProfileStep({
           className="onboarding-nav"
           label="Continue"
           variant="primary"
-          isDisabled={!firstName.trim() || !lastName.trim()}
+          isDisabled={!joinPersonName(firstName, lastName)}
           onClick={onContinue}
         />
       </div>
-      {firstName.trim() && lastName.trim() ? null : (
-        <p className="onboarding-why">Add your first and last name to continue.</p>
+      {joinPersonName(firstName, lastName) ? null : (
+        <p className="onboarding-why">Add your name to continue.</p>
       )}
     </>
   );

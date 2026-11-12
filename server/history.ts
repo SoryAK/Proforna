@@ -34,10 +34,7 @@ export async function saveExtractedResume(
   evidenceId?: string | null,
   imports?: ImportEvidence | null,
 ): Promise<{ jobs: number; schools: number; skills: number }> {
-  if (evidenceId) {
-    const prior = countsForImportedEvidence(db, occupantId, evidenceId);
-    if (prior) return prior;
-  }
+  const imported = evidenceId ? importedItemKeys(db, occupantId, evidenceId) : new Set<string>();
   const now = new Date().toISOString();
   let jobs = 0;
   let schools = 0;
@@ -52,9 +49,19 @@ export async function saveExtractedResume(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
-  for (const job of extracted.experience) {
+  for (const [index, job] of extracted.experience.entries()) {
+    const key = historyItemKey("role", {
+      title: job.title,
+      organization: job.company,
+      startDate: job.startDate,
+      endDate: job.endDate,
+    });
+    if (imported.has(key)) {
+      jobs += 1;
+      continue;
+    }
     const jobId = randomUUID();
-    const jobEvidence = imports?.experience[jobs];
+    const jobEvidence = imports?.experience[index];
     const paired = job.achievements
       .map((line, index) => ({
         line: line.trim(),
@@ -98,7 +105,17 @@ export async function saveExtractedResume(
     jobs += 1;
   }
 
-  for (const school of extracted.education) {
+  for (const [index, school] of extracted.education.entries()) {
+    const key = historyItemKey("education", {
+      title: school.degree || "Education",
+      organization: school.institution,
+      startDate: school.startDate,
+      endDate: school.endDate,
+    });
+    if (imported.has(key)) {
+      schools += 1;
+      continue;
+    }
     const schoolId = randomUUID();
     insertHistory.run(
       schoolId,
@@ -119,7 +136,7 @@ export async function saveExtractedResume(
     if (school.site) {
       persistExtractedSite(db, occupantId, schoolId, school.site);
     }
-    const schoolEvidence = imports?.education[schools];
+    const schoolEvidence = imports?.education[index];
     roles.push({
       id: schoolId,
       kind: "school",
@@ -145,7 +162,10 @@ export async function saveExtractedResume(
   const seen = new Set(existing.map((row) => row.name.toLowerCase()));
   for (const name of extracted.skills) {
     const key = name.toLowerCase();
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      if (imported.has(historyItemKey("skill", { name }))) skills += 1;
+      continue;
+    }
     seen.add(key);
     insertSkill.run(randomUUID(), occupantId, name, now);
     newSkills.push(name);
@@ -206,37 +226,59 @@ export function resolveImportEvidence(
   return { experience, education, skillEvidenceIds };
 }
 
-function countsForImportedEvidence(
-  db: DatabaseSync,
-  occupantId: string,
-  evidenceId: string,
-): { jobs: number; schools: number; skills: number } | null {
+/** Identity of one requested job, school, or skill already stored for this resume. */
+function historyItemKey(
+  kind: "role" | "education" | "skill",
+  item: { title?: string; organization?: string; name?: string; startDate?: string; endDate?: string },
+): string {
+  if (kind === "skill") return `skill\n${(item.name ?? "").trim().toLowerCase()}`;
+  return [
+    kind,
+    (item.organization ?? "").trim().toLowerCase(),
+    (item.title ?? "").trim().toLowerCase(),
+    (item.startDate ?? "").trim(),
+    (item.endDate ?? "").trim(),
+  ].join("\n");
+}
+
+function importedItemKeys(db: DatabaseSync, occupantId: string, evidenceId: string): Set<string> {
   const rows = db
     .prepare(
-      `SELECT fact_type AS factType, evidence_ids_json AS evidenceIdsJson
+      `SELECT fact_type AS factType, value_json AS valueJson, evidence_ids_json AS evidenceIdsJson
        FROM career_facts
        WHERE occupant_id = ? AND status = 'canonical'
          AND fact_type IN ('role', 'education', 'skill')`,
     )
-    .all(occupantId) as Array<{ factType: string; evidenceIdsJson: string }>;
-  let jobs = 0;
-  let schools = 0;
-  let skills = 0;
-  let matched = false;
+    .all(occupantId) as Array<{ factType: string; valueJson: string; evidenceIdsJson: string }>;
+  const keys = new Set<string>();
   for (const row of rows) {
     let ids: unknown;
+    let value: unknown;
     try {
       ids = JSON.parse(row.evidenceIdsJson);
+      value = JSON.parse(row.valueJson);
     } catch {
       continue;
     }
     if (!Array.isArray(ids) || !ids.includes(evidenceId)) continue;
-    matched = true;
-    if (row.factType === "role") jobs += 1;
-    else if (row.factType === "education") schools += 1;
-    else skills += 1;
+    if (!value || typeof value !== "object") continue;
+    const fields = value as Record<string, unknown>;
+    const text = (key: string) => (typeof fields[key] === "string" ? fields[key] : "");
+    if (row.factType === "skill") {
+      keys.add(historyItemKey("skill", { name: text("name") }));
+      continue;
+    }
+    if (row.factType !== "role" && row.factType !== "education") continue;
+    keys.add(
+      historyItemKey(row.factType, {
+        organization: text("organization") || text("company"),
+        title: text("title"),
+        startDate: text("startDate"),
+        endDate: text("endDate"),
+      }),
+    );
   }
-  return matched ? { jobs, schools, skills } : null;
+  return keys;
 }
 
 function resolveResumeEvidence(

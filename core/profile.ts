@@ -55,6 +55,32 @@ export function joinPersonName(firstName: string, lastName: string): string {
   return [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
 }
 
+/** Keep stored parts, including an explicit blank. Split the full name only when both parts are blank. */
+export function personNameParts(input: {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+}): { firstName: string; lastName: string } {
+  const firstName = input.firstName ?? "";
+  const lastName = input.lastName ?? "";
+  if (firstName.trim() || lastName.trim()) return { firstName, lastName };
+  return splitPersonName(input.fullName ?? "");
+}
+
+/** Keep stored parts when the full name is unchanged. Split an edited full name before save. */
+export function profileNameForSave(input: {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  editedFullName: string;
+}): { firstName: string; lastName: string } {
+  const stored = personNameParts(input);
+  if (input.editedFullName.trim() === joinPersonName(stored.firstName, stored.lastName)) {
+    return stored;
+  }
+  return splitPersonName(input.editedFullName);
+}
+
 function optionalHttpUrl(value: unknown): string | null {
   const url = text(value);
   if (!url) return "";

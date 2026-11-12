@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { joinPersonName, prepareProfile, splitPersonName, type ProfileFields } from "@core/profile";
+import { joinPersonName, personNameParts, prepareProfile, type ProfileFields } from "@core/profile";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./onboarding.css";
 
@@ -12,11 +12,9 @@ export function HomeProfileEdit({
   onCancel: () => void;
   onSaved: (profile: OnboardingProfileValue) => void;
 }) {
-  const openedName = splitPersonName(initial.fullName);
-  const [firstName, setFirstName] = useState(initial.firstName || openedName.firstName);
-  const [lastName, setLastName] = useState(
-    initial.lastName || (initial.firstName ? "" : openedName.lastName),
-  );
+  const openedName = personNameParts(initial);
+  const [firstName, setFirstName] = useState(openedName.firstName);
+  const [lastName, setLastName] = useState(openedName.lastName);
   const [headline, setHeadline] = useState(initial.headline);
   const [address, setAddress] = useState(initial.address);
   const [city, setCity] = useState(initial.city);
@@ -129,7 +127,6 @@ export function HomeProfileEdit({
           autoComplete="given-name"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
-          required
         />
       </label>
 
@@ -140,7 +137,6 @@ export function HomeProfileEdit({
           autoComplete="family-name"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          required
         />
       </label>
 

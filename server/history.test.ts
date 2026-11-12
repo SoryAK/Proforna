@@ -483,10 +483,76 @@ describe("POST /api/history retry", () => {
         body: JSON.stringify(payload),
       });
       expect(second.status).toBe(201);
+      const again = (await second.json()) as { jobs: number; skills: number };
+      expect(again.jobs).toBe(1);
+      expect(again.skills).toBe(1);
       const history = await ctx.app.request("/api/history");
       const career = (await history.json()) as { jobs: unknown[]; skills: string[] };
       expect(career.jobs).toHaveLength(1);
       expect(career.skills).toEqual(["TypeScript"]);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("inserts a role the resume has not imported yet", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 more"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const lead = {
+        company: "Acme",
+        title: "Lead",
+        location: "NYC",
+        startDate: "2024-01-01",
+        isCurrent: true,
+        description: "Ran the shop.",
+        achievements: ["Cut overtime"],
+      };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [lead],
+          education: [],
+          skills: ["TypeScript"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(first.status).toBe(201);
+      const second = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [
+            lead,
+            {
+              company: "Northwind",
+              title: "Engineer",
+              location: "Boston",
+              startDate: "2020-01-01",
+              endDate: "2023-12-01",
+              isCurrent: false,
+              description: "Built the line.",
+              achievements: [],
+            },
+          ],
+          education: [],
+          skills: ["TypeScript", "Go"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(second.status).toBe(201);
+      const added = (await second.json()) as { jobs: number; skills: number };
+      expect(added.jobs).toBe(2);
+      expect(added.skills).toBe(2);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: Array<{ title: string }>; skills: string[] };
+      expect(career.jobs.map((job) => job.title).sort()).toEqual(["Engineer", "Lead"]);
+      expect(career.skills).toEqual(["TypeScript", "Go"]);
     } finally {
       ctx.close();
     }

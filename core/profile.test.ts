@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   avatarExtension,
   isAvatarType,
+  personNameParts,
   prepareProfile,
+  profileNameForSave,
 } from "./profile";
 
 describe("prepareProfile", () => {
@@ -81,6 +83,45 @@ describe("prepareProfile", () => {
     });
   });
 
+  it("accepts one nonempty name part and rejects both blank", () => {
+    expect(prepareProfile({ firstName: "Ada", lastName: "" })).toEqual({
+      ok: true,
+      value: {
+        firstName: "Ada",
+        lastName: "",
+        fullName: "Ada",
+        headline: "",
+        address: "",
+        city: "",
+        state: "",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+    });
+    expect(prepareProfile({ firstName: "  ", lastName: "Ng" })).toEqual({
+      ok: true,
+      value: {
+        firstName: "",
+        lastName: "Ng",
+        fullName: "Ng",
+        headline: "",
+        address: "",
+        city: "",
+        state: "",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+    });
+    expect(prepareProfile({ firstName: "  ", lastName: "   " })).toEqual({
+      ok: false,
+      error: "name-required",
+    });
+  });
+
   it("rejects a link that is not http(s)", () => {
     expect(
       prepareProfile({
@@ -88,6 +129,50 @@ describe("prepareProfile", () => {
         githubUrl: "javascript:alert(1)",
       }),
     ).toEqual({ ok: false, error: "url-invalid" });
+  });
+});
+
+describe("personNameParts", () => {
+  it("keeps an explicit empty first name when the last name is stored", () => {
+    expect(personNameParts({ firstName: "", lastName: "Ng", fullName: "Ng" })).toEqual({
+      firstName: "",
+      lastName: "Ng",
+    });
+  });
+
+  it("splits the full name only when both stored parts are blank", () => {
+    expect(personNameParts({ firstName: "", lastName: "", fullName: "Ada Lovelace" })).toEqual({
+      firstName: "Ada",
+      lastName: "Lovelace",
+    });
+    expect(personNameParts({ firstName: "   ", lastName: "  ", fullName: "Ada Lovelace" })).toEqual({
+      firstName: "Ada",
+      lastName: "Lovelace",
+    });
+  });
+});
+
+describe("profileNameForSave", () => {
+  it("keeps a multi-part first name when the full name is unchanged", () => {
+    expect(
+      profileNameForSave({
+        firstName: "Mary Jane",
+        lastName: "Watson",
+        fullName: "Mary Jane Watson",
+        editedFullName: "Mary Jane Watson",
+      }),
+    ).toEqual({ firstName: "Mary Jane", lastName: "Watson" });
+  });
+
+  it("splits an edited full name before save", () => {
+    expect(
+      profileNameForSave({
+        firstName: "Mary Jane",
+        lastName: "Watson",
+        fullName: "Mary Jane Watson",
+        editedFullName: "Grace Hopper",
+      }),
+    ).toEqual({ firstName: "Grace", lastName: "Hopper" });
   });
 });
 
