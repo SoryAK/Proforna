@@ -250,7 +250,8 @@ function readGroup(value: unknown): CanvasGroup | null {
 }
 
 function boardJson(board: CanvasBoard) {
-  return JSON.stringify(board);
+  const normalized = readCanvasBoards([board])?.[0];
+  return JSON.stringify(normalized ?? board);
 }
 
 /** Merge a stale canvas save with the boards now on the server.

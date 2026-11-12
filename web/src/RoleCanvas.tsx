@@ -352,6 +352,9 @@ let sharedPending: { boards: CanvasBoard[]; roleIds: string[] } | null = null;
 let sharedStudyRevision: number | null = null;
 const sharedRoleRevisions = new Map<string, number>();
 const sharedBoardSinks = new Set<(boards: CanvasBoard[]) => void>();
+let sharedBoardVersion = 0;
+let sharedLatestVersion = 0;
+let sharedLatestBoards: CanvasBoard[] | null = null;
 
 type SharedMap = {
   studyRevision: number;
@@ -473,6 +476,7 @@ async function flushSharedSave(retry = true): Promise<void> {
       keepPendingSave(job);
       throw new Error("save stale");
     }
+    const versionAtLoad = sharedBoardVersion;
     let loaded: SharedMap | null = null;
     try {
       loaded = await loadSharedMap();
@@ -480,25 +484,39 @@ async function flushSharedSave(retry = true): Promise<void> {
       loaded = null;
     }
     if (!loaded) {
-      keepPendingSave(job);
+      if (sharedBoardVersion === versionAtLoad) keepPendingSave(job);
       throw new Error("save stale");
+    }
+    let localBoards = job.boards;
+    if (sharedBoardVersion !== versionAtLoad) {
+      if (!sharedLatestBoards || sharedLatestVersion !== sharedBoardVersion) {
+        throw new Error("save stale");
+      }
+      localBoards = sharedLatestBoards;
     }
     const remote = remoteSharedBoards(loaded, job.roleIds);
-    const merged = reconcileSharedBoards(job.boards, remote, baseSharedBoards(job.roleIds));
-    if (!merged || sharedPending) {
-      keepPendingSave(job);
+    const merged = reconcileSharedBoards(localBoards, remote, baseSharedBoards(job.roleIds));
+    const seenVersion = localBoards === job.boards ? versionAtLoad : sharedLatestVersion;
+    if (!merged || sharedBoardVersion !== seenVersion || (sharedPending && sharedPending.boards !== localBoards)) {
+      if (sharedBoardVersion === seenVersion) {
+        keepPendingSave(localBoards === job.boards ? job : { boards: localBoards, roleIds: job.roleIds });
+      }
       throw new Error("save stale");
     }
-    const matchesLocal = sameBoards(merged, job.boards);
+    const matchesLocal = sameBoards(merged, localBoards);
     if (!matchesLocal && sharedBoardSinks.size === 0) {
-      keepPendingSave(job);
+      keepPendingSave({ boards: localBoards, roleIds: job.roleIds });
       throw new Error("save stale");
     }
     adoptSharedRevisions(loaded);
     if (!matchesLocal) {
-      if (sameBoards(merged, remote)) storeSharedBoards(merged, job.roleIds);
       for (const sink of sharedBoardSinks) sink(merged);
-      return;
+      if (sameBoards(merged, remote)) {
+        storeSharedBoards(merged, job.roleIds);
+        return;
+      }
+      sharedPending = { boards: merged, roleIds: job.roleIds };
+      return flushSharedSave(false);
     }
     if (sameBoards(merged, remote)) {
       storeSharedBoards(merged, job.roleIds);
@@ -642,9 +660,27 @@ export function RoleCanvasEntry({
   const openingId = scope === "all" ? "" : role.id;
   const openingViewport = openingId ? readViewport(role.id, openingId) : null;
   const loadedStudies = storedStudies(studyBoards);
-  const [boards, setBoards] = useState(() =>
+  const [boards, setBoardsState] = useState(() =>
     scope === "all" ? loadAllBoards(catalog, loadedStudies) : reflectRole(loadBoards(role, loadedStudies), role),
   );
+  function setBoards(update: CanvasBoard[] | ((current: CanvasBoard[]) => CanvasBoard[])) {
+    if (typeof update === "function") {
+      const requested = ++sharedBoardVersion;
+      setBoardsState((current) => {
+        const next = update(current);
+        if (sharedBoardVersion === requested) {
+          sharedLatestBoards = next;
+          sharedLatestVersion = requested;
+        }
+        return next;
+      });
+      return;
+    }
+    sharedBoardVersion += 1;
+    sharedLatestVersion = sharedBoardVersion;
+    sharedLatestBoards = update;
+    setBoardsState(update);
+  }
   const [canvasId, setCanvasId] = useState(openingId);
   const [boardKind, setBoardKind] = useState<"all" | CareerHistorySectionKey>("all");
   const [boardRoleId, setBoardRoleId] = useState<string | null>(null);
@@ -860,7 +896,7 @@ export function RoleCanvasEntry({
   rememberSharedRevisions(studyRevision, catalog);
 
   useEffect(() => {
-    const sink = (next: CanvasBoard[]) => setBoards(next);
+    const sink = (next: CanvasBoard[]) => setBoardsState(next);
     sharedBoardSinks.add(sink);
     return () => {
       sharedBoardSinks.delete(sink);

@@ -353,6 +353,33 @@ describe("reconcileSharedBoards", () => {
     expect(merged?.map((item) => item.id)).toEqual(["role"]);
   });
 
+  it("keeps a local edit when the server only dropped an unlocked flag", () => {
+    const saved = board("role", "Saved");
+    saved.nodes[0] = { ...saved.nodes[0], locked: false };
+    const remoteRole = board("role", "Saved");
+    const local = board("role", "Local");
+    local.nodes[0] = { ...local.nodes[0], locked: false };
+    const baseStudy = board("study", "Saved");
+    const remoteStudy = board("study", "Remote");
+    const merged = reconcileSharedBoards(
+      [local, baseStudy],
+      [remoteRole, remoteStudy],
+      [saved, baseStudy],
+    );
+    expect(merged?.map((item) => item.id)).toEqual(["role", "study"]);
+    expect(merged?.[0].nodes[0]?.title).toBe("Local");
+    expect(merged?.[1].nodes[0]?.title).toBe("Remote");
+  });
+
+  it("still refuses when both sides changed the unlocked node", () => {
+    const saved = board("role", "Saved");
+    saved.nodes[0] = { ...saved.nodes[0], locked: false };
+    const local = board("role", "Local");
+    local.nodes[0] = { ...local.nodes[0], locked: false };
+    const remote = board("role", "Remote");
+    expect(reconcileSharedBoards([local], [remote], [saved])).toBeNull();
+  });
+
   it("refuses a removal of a board the other side edited", () => {
     const base = [board("role", "Saved"), board("study", "Saved")];
     expect(
