@@ -311,6 +311,22 @@ export function reconcileSharedBoards(
   return merged;
 }
 
+function sameRoleSet(left: readonly string[], right: readonly string[]) {
+  if (left.length !== right.length) return false;
+  const seen = new Set(right);
+  return left.every((id) => seen.has(id));
+}
+
+/** Use a newer board list only when it belongs to the canvas that started the save. */
+export function localBoardsForReload<T>(
+  jobBoards: readonly T[],
+  jobRoleIds: readonly string[],
+  latest: { roleIds: readonly string[]; boards: readonly T[] } | null,
+): readonly T[] {
+  if (!latest || !sameRoleSet(jobRoleIds, latest.roleIds)) return jobBoards;
+  return latest.boards;
+}
+
 export function pointsAtGroup(node: { links: { id: string }[] } | undefined, groupId: string) {
   return Boolean(node?.links.some((link) => link.id === groupId));
 }

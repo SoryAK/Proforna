@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  localBoardsForReload,
   readCanvasBoards,
   reconcileSharedBoards,
   releasePointingMembers,
@@ -385,5 +386,26 @@ describe("reconcileSharedBoards", () => {
     expect(
       reconcileSharedBoards([board("role", "Saved")], [board("role", "Saved"), board("study", "Remote")], base),
     ).toBeNull();
+  });
+});
+
+describe("localBoardsForReload", () => {
+  it("keeps the saving canvas's boards when another canvas edited last", () => {
+    const saving = [board("role-a", "A")];
+    const other = [board("role-b", "B")];
+    expect(localBoardsForReload(saving, ["role-a"], { roleIds: ["role-b"], boards: other })).toBe(saving);
+  });
+
+  it("uses a newer list from the same canvas", () => {
+    const saving = [board("role-a", "A0")];
+    const newer = [board("role-a", "A1"), board("study", "S")];
+    expect(localBoardsForReload(saving, ["role-a", "role-b"], { roleIds: ["role-b", "role-a"], boards: newer })).toBe(
+      newer,
+    );
+  });
+
+  it("keeps the saving canvas's boards when nothing newer is ready", () => {
+    const saving = [board("role-a", "A")];
+    expect(localBoardsForReload(saving, ["role-a"], null)).toBe(saving);
   });
 });

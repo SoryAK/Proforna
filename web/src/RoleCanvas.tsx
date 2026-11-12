@@ -17,6 +17,7 @@ import {
 import {
   addToSequence,
   pointsAtGroup,
+  localBoardsForReload,
   readCanvasBoards,
   reconcileSharedBoards,
   releasePointingMembers,
@@ -354,7 +355,7 @@ const sharedRoleRevisions = new Map<string, number>();
 const sharedBoardSinks = new Set<(boards: CanvasBoard[]) => void>();
 let sharedBoardVersion = 0;
 let sharedLatestVersion = 0;
-let sharedLatestBoards: CanvasBoard[] | null = null;
+let sharedLatestRoleIds: string[] | null = null;
 
 type SharedMap = {
   studyRevision: number;
@@ -430,6 +431,19 @@ function adoptSharedRevisions(loaded: SharedMap) {
   }
 }
 
+function rememberRemoteBaseline(remote: readonly CanvasBoard[], roleIds: readonly string[]) {
+  const ids = new Set(roleIds);
+  sharedBoardsCache = remote.filter((board) => !ids.has(board.id));
+  for (const roleId of roleIds) {
+    const own = remote.find((board) => board.id === roleId);
+    const existing = vaultBoards.get(roleId) ?? [];
+    const kept = existing.filter((board) => board.id !== roleId);
+    const next = own ? [own, ...kept] : kept;
+    vaultBoards.set(roleId, next);
+    savedBoardJson.set(roleId, JSON.stringify(next));
+  }
+}
+
 async function loadSharedMap(): Promise<SharedMap | null> {
   const response = await fetch("/api/work-map");
   if (!response.ok) return null;
@@ -484,19 +498,34 @@ async function flushSharedSave(retry = true): Promise<void> {
       loaded = null;
     }
     if (!loaded) {
-      if (sharedBoardVersion === versionAtLoad) keepPendingSave(job);
+      const otherCanvas =
+        sharedLatestRoleIds != null &&
+        localBoardsForReload(job.boards, job.roleIds, {
+          roleIds: sharedLatestRoleIds,
+          boards: [],
+        }) === job.boards;
+      if (sharedBoardVersion === versionAtLoad || otherCanvas) keepPendingSave(job);
       throw new Error("save stale");
     }
-    let localBoards = job.boards;
-    if (sharedBoardVersion !== versionAtLoad) {
-      if (!sharedLatestBoards || sharedLatestVersion !== sharedBoardVersion) {
-        throw new Error("save stale");
-      }
-      localBoards = sharedLatestBoards;
+    const latest =
+      sharedBoardVersion !== versionAtLoad && sharedLatestRoleIds
+        ? { roleIds: sharedLatestRoleIds, boards: sharedLatestBoards ?? [] }
+        : null;
+    const belongsToJob =
+      latest != null && localBoardsForReload(job.boards, job.roleIds, latest) !== job.boards;
+    if (belongsToJob && (sharedLatestBoards == null || sharedLatestVersion !== sharedBoardVersion)) {
+      throw new Error("save stale");
     }
+    const localBoards =
+      belongsToJob && sharedLatestBoards && sharedLatestRoleIds
+        ? localBoardsForReload(job.boards, job.roleIds, {
+            roleIds: sharedLatestRoleIds,
+            boards: sharedLatestBoards,
+          })
+        : job.boards;
     const remote = remoteSharedBoards(loaded, job.roleIds);
     const merged = reconcileSharedBoards(localBoards, remote, baseSharedBoards(job.roleIds));
-    const seenVersion = localBoards === job.boards ? versionAtLoad : sharedLatestVersion;
+    const seenVersion = localBoards === job.boards ? sharedBoardVersion : sharedLatestVersion;
     if (!merged || sharedBoardVersion !== seenVersion || (sharedPending && sharedPending.boards !== localBoards)) {
       if (sharedBoardVersion === seenVersion) {
         keepPendingSave(localBoards === job.boards ? job : { boards: localBoards, roleIds: job.roleIds });
@@ -509,6 +538,7 @@ async function flushSharedSave(retry = true): Promise<void> {
       throw new Error("save stale");
     }
     adoptSharedRevisions(loaded);
+    rememberRemoteBaseline(remote, job.roleIds);
     if (!matchesLocal) {
       for (const sink of sharedBoardSinks) sink(merged);
       if (sameBoards(merged, remote)) {
@@ -664,13 +694,18 @@ export function RoleCanvasEntry({
     scope === "all" ? loadAllBoards(catalog, loadedStudies) : reflectRole(loadBoards(role, loadedStudies), role),
   );
   function setBoards(update: CanvasBoard[] | ((current: CanvasBoard[]) => CanvasBoard[])) {
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
     if (typeof update === "function") {
       const requested = ++sharedBoardVersion;
+      sharedLatestRoleIds = [...roleIds];
+      sharedLatestVersion = requested;
+      sharedLatestBoards = null;
       setBoardsState((current) => {
         const next = update(current);
         if (sharedBoardVersion === requested) {
           sharedLatestBoards = next;
           sharedLatestVersion = requested;
+          sharedLatestRoleIds = [...roleIds];
         }
         return next;
       });
@@ -679,6 +714,7 @@ export function RoleCanvasEntry({
     sharedBoardVersion += 1;
     sharedLatestVersion = sharedBoardVersion;
     sharedLatestBoards = update;
+    sharedLatestRoleIds = [...roleIds];
     setBoardsState(update);
   }
   const [canvasId, setCanvasId] = useState(openingId);
