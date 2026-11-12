@@ -10,6 +10,8 @@ describe("prepareProfile", () => {
     expect(prepareProfile({ fullName: "  Ada Lovelace  " })).toEqual({
       ok: true,
       value: {
+        firstName: "Ada",
+        lastName: "Lovelace",
         fullName: "Ada Lovelace",
         headline: "",
         address: "",
@@ -45,6 +47,8 @@ describe("prepareProfile", () => {
     expect(prepared).toEqual({
       ok: true,
       value: {
+        firstName: "Ada",
+        lastName: "",
         fullName: "Ada",
         headline: "Mathematician",
         address: "12 Private Lane",
@@ -54,6 +58,25 @@ describe("prepareProfile", () => {
         linkedinUrl: "https://linkedin.com/in/ada",
         githubUrl: "https://github.com/ada",
         portfolioUrl: "http://ada.example",
+      },
+    });
+  });
+
+  it("keeps a typed first and last name instead of splitting them again", () => {
+    expect(prepareProfile({ firstName: "Mary Anne", lastName: "Smith" })).toEqual({
+      ok: true,
+      value: {
+        firstName: "Mary Anne",
+        lastName: "Smith",
+        fullName: "Mary Anne Smith",
+        headline: "",
+        address: "",
+        city: "",
+        state: "",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
       },
     });
   });

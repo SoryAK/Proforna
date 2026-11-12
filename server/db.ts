@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { splitPersonName } from "../core/profile";
 
 export function openDatabase(path: string): DatabaseSync {
   if (path !== ":memory:") {
@@ -551,6 +552,9 @@ export function openDatabase(path: string): DatabaseSync {
   addColumnIfMissing(db, "integration_accounts", "enabled", "INTEGER NOT NULL DEFAULT 1");
   addColumnIfMissing(db, "integration_accounts", "nango_connection_id", "TEXT");
   addColumnIfMissing(db, "integration_accounts", "nango_provider_key", "TEXT");
+  addColumnIfMissing(db, "profiles", "first_name", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "last_name", "TEXT NOT NULL DEFAULT ''");
+  splitStoredProfileNames(db);
   addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address_latitude", "REAL");
@@ -643,6 +647,29 @@ function relaxResidenceCoordinates(db: DatabaseSync) {
     throw error;
   } finally {
     db.exec("PRAGMA foreign_keys = ON");
+  }
+}
+
+function splitStoredProfileNames(db: DatabaseSync) {
+  const rows = db
+    .prepare(
+      `SELECT occupant_id AS occupantId, full_name AS fullName,
+              first_name AS firstName, last_name AS lastName
+       FROM profiles`,
+    )
+    .all() as Array<{
+    occupantId: string;
+    fullName: string;
+    firstName: string;
+    lastName: string;
+  }>;
+  const update = db.prepare(
+    "UPDATE profiles SET first_name = ?, last_name = ? WHERE occupant_id = ?",
+  );
+  for (const row of rows) {
+    if (row.firstName.trim() || row.lastName.trim() || !row.fullName.trim()) continue;
+    const parts = splitPersonName(row.fullName);
+    update.run(parts.firstName, parts.lastName, row.occupantId);
   }
 }
 

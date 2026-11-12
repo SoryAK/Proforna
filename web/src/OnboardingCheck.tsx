@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
 import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { formatCareerSpan } from "@core/career-file";
 import {
@@ -125,9 +127,7 @@ export function CheckOverview({
         </button>
       </div>
       {error ? (
-        <p className="onboarding-alert" role="alert">
-          {error}
-        </p>
+        <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       {unopenedCount > 0 ? (
         <p className="onboarding-quiet" role="status">
@@ -135,12 +135,14 @@ export function CheckOverview({
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" disabled={busy} onClick={onBack}>
-          Back
-        </button>
-        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={continueOn}>
-          {busy ? "Saving…" : "Continue"}
-        </button>
+        <Button className="onboarding-nav" label="Back" variant="ghost" isDisabled={busy} onClick={onBack} />
+        <Button
+          className="onboarding-nav"
+          label={busy ? "Saving…" : "Continue"}
+          variant="primary"
+          isDisabled={busy}
+          onClick={continueOn}
+        />
       </div>
       <ReviewCarousel
         open={reviewOpen}

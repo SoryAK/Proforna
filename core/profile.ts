@@ -10,6 +10,8 @@ export const PROFILE_AVATAR_TYPES = [
 export const PROFILE_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 export type ProfileFields = {
+  firstName: string;
+  lastName: string;
   fullName: string;
   headline: string;
   address: string;
@@ -24,6 +26,8 @@ export type ProfileFields = {
 export type ProfilePrepareError = "name-required" | "url-invalid";
 
 export type ProfileInput = {
+  firstName?: unknown;
+  lastName?: unknown;
   fullName?: unknown;
   headline?: unknown;
   address?: unknown;
@@ -37,6 +41,18 @@ export type ProfileInput = {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+/** First word is the given name. The rest is the family name. */
+export function splitPersonName(fullName: string): { firstName: string; lastName: string } {
+  const cleaned = fullName.trim().replace(/\s+/g, " ");
+  const space = cleaned.indexOf(" ");
+  if (space < 0) return { firstName: cleaned, lastName: "" };
+  return { firstName: cleaned.slice(0, space), lastName: cleaned.slice(space + 1) };
+}
+
+export function joinPersonName(firstName: string, lastName: string): string {
+  return [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
 }
 
 function optionalHttpUrl(value: unknown): string | null {
@@ -62,7 +78,11 @@ export function prepareProfile(
 ):
   | { ok: true; value: ProfileFields }
   | { ok: false; error: ProfilePrepareError } {
-  const fullName = text(input.fullName);
+  const parts =
+    input.firstName !== undefined || input.lastName !== undefined
+      ? { firstName: text(input.firstName), lastName: text(input.lastName) }
+      : splitPersonName(text(input.fullName));
+  const fullName = joinPersonName(parts.firstName, parts.lastName);
   if (!fullName) return { ok: false, error: "name-required" };
 
   const linkedinUrl = optionalHttpUrl(input.linkedinUrl);
@@ -75,6 +95,8 @@ export function prepareProfile(
   return {
     ok: true,
     value: {
+      firstName: parts.firstName,
+      lastName: parts.lastName,
       fullName,
       headline: text(input.headline),
       address: text(input.address),

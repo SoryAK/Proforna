@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { Avatar } from "@astryxdesign/core/Avatar";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Icon } from "@astryxdesign/core/Icon";
+import { FileInput } from "@astryxdesign/core/FileInput";
+import { Selector } from "@astryxdesign/core/Selector";
+import { Stepper, Step } from "@astryxdesign/core/Stepper";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { isHttpUrl, OPENAI_BASE_URL, type ModelHosting } from "@core/model-connection";
 import {
   LOCAL_SCAN_PORT_MAX,
@@ -21,8 +30,16 @@ import {
   type OnboardingLinkAnswer,
   type OnboardingPlaceAnswer,
 } from "@core/onboarding-review";
-import { isAvatarType, prepareProfile, PROFILE_AVATAR_MAX_BYTES, type ProfileFields } from "@core/profile";
-import type { ExtractedProfile, ExtractedResume } from "@core/resume-extract";
+import {
+  isAvatarType,
+  joinPersonName,
+  prepareProfile,
+  PROFILE_AVATAR_MAX_BYTES,
+  splitPersonName,
+  type ProfileFields,
+} from "@core/profile";
+import { splitResidence, type ExtractedProfile, type ExtractedResume } from "@core/resume-extract";
+import { Plus } from "lucide-react";
 import {
   dropSetAside,
   historyFromHeld,
@@ -33,7 +50,8 @@ import {
   type HeldSkill,
   type SetAsideRole,
 } from "@core/resume-compare";
-import { CityStateFields, StreetField } from "./OnboardingAddress";
+import type { PlaceHit } from "./place-search";
+import { usePlaceSuggestions } from "./use-place-suggestions";
 import { ResumePreview } from "./OnboardingCheck";
 import { AllResumesVerify, ResumeCompare, type ResumeBundle } from "./OnboardingCompare";
 import { ResumeReview } from "./ResumeReview";
@@ -72,6 +90,14 @@ const STEP_INDEX: Record<OnboardingStep, number> = {
 
 const STEPS = ["Profile", "Model", "Integrations", "Resume", "Verify"] as const;
 
+/** Dev-only. Drop this with the Integrations "Preview connected layout" checkbox. */
+function readConnectedPreview(): boolean {
+  if (!import.meta.env.DEV) return false;
+  const hashQuery = window.location.hash.split("?")[1] ?? "";
+  const params = new URLSearchParams(hashQuery || window.location.search.slice(1));
+  return params.get("preview") === "connected";
+}
+
 export function Onboarding({
   initialProfile,
   onFinished,
@@ -79,7 +105,11 @@ export function Onboarding({
   initialProfile: OnboardingProfileValue;
   onFinished: (me: Me, next: OnboardingExit) => void;
 }) {
-  const [name, setName] = useState(initialProfile.fullName);
+  const openedName = splitPersonName(initialProfile.fullName);
+  const [firstName, setFirstName] = useState(initialProfile.firstName || openedName.firstName);
+  const [lastName, setLastName] = useState(
+    initialProfile.lastName || (initialProfile.firstName ? "" : openedName.lastName),
+  );
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialProfile.avatarUrl);
   const [place, setPlace] = useState<OnboardingPlaceAnswer>({
@@ -116,7 +146,8 @@ export function Onboarding({
   const [setAsides, setSetAsides] = useState<SetAsideRole[]>([]);
   const [draftReady, setDraftReady] = useState(false);
   const [profileExtract, setProfileExtract] = useState<ExtractedProfile | null>(null);
-  const [step, setStep] = useState<OnboardingStep>("name");
+  const [step, setStep] = useState<OnboardingStep>(readConnectedPreview() ? "integrations" : "name");
+  const [previewConnected, setPreviewConnected] = useState(readConnectedPreview);
   const [items, setItems] = useState<OnboardingCheckItem[]>([]);
   const [extracted, setExtracted] = useState<ExtractedResume | null>(null);
   const [extracting, setExtracting] = useState(false);
@@ -314,6 +345,16 @@ export function Onboarding({
       void scanRange(String(LOCAL_SCAN_PORT_MIN), String(LOCAL_SCAN_PORT_MAX));
     }
   }, [step, localProbe]);
+
+  useEffect(() => {
+    function openConnectedPreview() {
+      if (!readConnectedPreview()) return;
+      setPreviewConnected(true);
+      setStep("integrations");
+    }
+    window.addEventListener("hashchange", openConnectedPreview);
+    return () => window.removeEventListener("hashchange", openConnectedPreview);
+  }, []);
 
   const foundModels = scanned.flatMap((hit) => hit.models.map((id) => ({ address: hit.baseUrl, id })));
   const foundKey = foundPick || (foundModels[0] ? `${foundModels[0].address} ${foundModels[0].id}` : "");
@@ -603,7 +644,8 @@ export function Onboarding({
       const draft = profileAfterOnboarding({
         current: profileRef.current,
         extracted: profileExtract,
-        fullName: name,
+        firstName,
+        lastName,
         place,
         links,
       });
@@ -726,9 +768,6 @@ export function Onboarding({
   const notes = notesForStep();
 
   function notesForStep(): string[] {
-    if (step === "name") {
-      return ["Change any of this later in Profile."];
-    }
     if (step === "integrations") {
       return ["You can connect these later in Settings."];
     }
@@ -782,20 +821,22 @@ export function Onboarding({
         <WashProgress step={step} />
         <div
           className="onboarding-sheet"
-          data-wide={step === "check" || step === "integrations" ? "true" : undefined}
+          data-wide={step === "name" || step === "check" || step === "integrations" ? "true" : undefined}
         >
         <section className="onboarding-card">
           {step === "name" ? (
             <ProfileStep
-              name={name}
+              firstName={firstName}
+              lastName={lastName}
               photoPreview={photoPreview}
               place={place}
               error={error}
-              onName={setName}
+              onFirstName={setFirstName}
+              onLastName={setLastName}
               onPhoto={pickPhoto}
               onPlace={setPlace}
               onContinue={() => {
-                const checked = prepareProfile({ fullName: name, ...links });
+                const checked = prepareProfile({ firstName, lastName, ...links });
                 if (!checked.ok && checked.error === "url-invalid") {
                   setError("Use a full link that starts with http:// or https://.");
                   return;
@@ -810,17 +851,16 @@ export function Onboarding({
             <>
               <p className="onboarding-kicker">Model</p>
               <h1>
-                Should Proforna read <em>your resume?</em>
+                Should a model process <em>your resume?</em>
               </h1>
               <p className="onboarding-lead">
                 A model reads your resume and lists your jobs and schools for you to check. You can also skip this and
                 add them yourself.
               </p>
               <div className="onboarding-choices onboarding-host" role="group" aria-label="Where the model runs">
-                <button
-                  type="button"
-                  className="onboarding-choice"
-                  data-active={hosting === "local" ? "true" : undefined}
+                <Button
+                  label="Local"
+                  variant={hosting === "local" ? "primary" : "secondary"}
                   aria-pressed={hosting === "local"}
                   onClick={() => pickHosting("local")}
                 >
@@ -832,17 +872,16 @@ export function Onboarding({
                         ? "A model is on this computer."
                         : "Scan this computer for a model."}
                   </span>
-                </button>
-                <button
-                  type="button"
-                  className="onboarding-choice"
-                  data-active={hosting === "cloud" ? "true" : undefined}
+                </Button>
+                <Button
+                  label="Cloud"
+                  variant={hosting === "cloud" ? "primary" : "secondary"}
                   aria-pressed={hosting === "cloud"}
                   onClick={() => pickHosting("cloud")}
                 >
                   <strong>Cloud</strong>
                   <span>A cloud provider may read, keep, report, and train on what you send.</span>
-                </button>
+                </Button>
               </div>
               {hosting === "local" ? (
               <section
@@ -890,23 +929,17 @@ export function Onboarding({
                   />
                 ) : null}
                 {!advancedOpen && localProbe === "ready" && foundModels.length > 0 ? (
-                  <>
-                    <label className="onboarding-field">
-                      <span>Model</span>
-                      <select
-                        className="onboarding-model-select"
-                        value={foundKey}
-                        onChange={(event) => setFoundPick(event.target.value)}
-                      >
-                        {foundModels.map((hit) => (
-                          <option key={`${hit.address} ${hit.id}`} value={`${hit.address} ${hit.id}`}>
-                            {presentModelId(hit.id)}
-                            {scanned.length > 1 ? ` · ${presentScanAddress(hit.address)}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </>
+                  <Selector
+                    label="Model"
+                    width="100%"
+                    value={foundKey}
+                    isReadOnly={foundModels.length === 1}
+                    onChange={setFoundPick}
+                    options={foundModels.map((hit) => ({
+                      value: `${hit.address} ${hit.id}`,
+                      label: `${presentModelId(hit.id)}${scanned.length > 1 ? ` · ${presentScanAddress(hit.address)}` : ""}`,
+                    }))}
+                  />
                 ) : null}
                 {!advancedOpen && localProbe === "ready" && foundModels.length === 0 ? (
                   <p className="onboarding-quiet">
@@ -916,91 +949,79 @@ export function Onboarding({
                 {localProbe === "ready" ? (
                   <div className="onboarding-found-actions">
                     {!advancedOpen && foundModels.length > 0 ? (
-                      <button
-                        type="button"
-                        className="onboarding-btn onboarding-btn-solid"
+                      <Button
+                        label={usingFound ? "Using this model" : "Use this model"}
+                        variant="primary"
                         aria-pressed={usingFound}
                         onClick={() => {
                           const hit = foundModels.find((model) => `${model.address} ${model.id}` === foundKey);
                           if (hit) chooseLocal(hit.address, hit.id);
                         }}
-                      >
-                        {usingFound ? "Using this model" : "Use this model"}
-                      </button>
+                      />
                     ) : null}
-                    <button
-                      type="button"
-                      className="onboarding-btn onboarding-btn-ghost onboarding-advanced"
+                    <Button
+                      label="Advanced"
+                      variant="ghost"
                       aria-pressed={advancedOpen}
                       onClick={() => setAdvancedOpen((open) => !open)}
-                    >
-                      Advanced
-                    </button>
+                    />
                   </div>
                 ) : null}
               </section>
               ) : null}
               {hosting === "cloud" ? (
                 <section className="onboarding-found">
-                  <label className="onboarding-field">
-                    <span>Model</span>
-                    <input
-                      value={selected}
-                      autoComplete="off"
-                      placeholder="model name"
-                      onChange={(event) => setSelected(event.target.value)}
-                    />
-                  </label>
-                  <label className="onboarding-field">
-                    <span>Key</span>
-                    <input
-                      type="password"
-                      value={cloudKey}
-                      autoComplete="off"
-                      onChange={(event) => setCloudKey(event.target.value)}
-                    />
-                  </label>
+                  <TextInput
+                    label="Model"
+                    value={selected}
+                    autoComplete="off"
+                    placeholder="model name"
+                    width="100%"
+                    onChange={setSelected}
+                  />
+                  <TextInput
+                    label="Key"
+                    type="password"
+                    value={cloudKey}
+                    autoComplete="off"
+                    width="100%"
+                    onChange={setCloudKey}
+                  />
                 </section>
               ) : null}
               {error ? (
-                <p className="onboarding-alert" role="alert">
-                  {error}
-                </p>
+                <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
               ) : null}
               <div className="onboarding-actions" data-split="true">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-ghost"
+                <Button
+                  className="onboarding-nav"
+                  label="Back"
+                  variant="ghost"
                   onClick={() => {
                     setError(null);
                     setStep("name");
                   }}
-                >
-                  Back
-                </button>
+                />
                 <div className="onboarding-action-pair">
-                  <button
-                    type="button"
-                    className="onboarding-link"
+                  <Button
+                    label="Skip, I'll add jobs myself"
+                    variant="ghost"
                     onClick={() => {
                       clearModel();
                       setWantsModel(false);
                       setStep("integrations");
                     }}
-                  >
-                    Skip, I'll add jobs myself
-                  </button>
-                  <button
-                    type="button"
-                    className="onboarding-btn onboarding-btn-solid"
-                    disabled={wantsModel !== true || !modelReady}
+                  />
+                  <Button
+                    className="onboarding-nav"
+                    label="Continue"
+                    variant="primary"
+                    isDisabled={wantsModel !== true || !modelReady}
                     onClick={() => {
                       setError(null);
                       setStep("integrations");
                     }}
-                  >
-                    Continue
-                  </button>
+                  />
                 </div>
               </div>
             </>
@@ -1015,43 +1036,67 @@ export function Onboarding({
                 Optional. Turn one on if you want Proforna to use it when you ask. It does not file mail into
                 Opportunities on its own.
               </p>
-              <IntegrationSettings nested />
+              {import.meta.env.DEV ? (
+                <p className="onboarding-quiet">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={previewConnected}
+                      onChange={(event) => setPreviewConnected(event.target.checked)}
+                    />{" "}
+                    Preview connected layout
+                  </label>
+                  {previewConnected ? " Nothing is connected." : null}
+                </p>
+              ) : null}
+              <IntegrationSettings nested previewConnected={previewConnected} />
               <div className="onboarding-actions" data-split="true">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-ghost"
+                <Button
+                  className="onboarding-nav"
+                  label="Back"
+                  variant="ghost"
                   onClick={() => setStep("model")}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-solid"
+                />
+                <Button
+                  className="onboarding-nav"
+                  label="Continue"
+                  variant="primary"
                   onClick={() => {
                     setError(null);
                     setStep("file");
                   }}
-                >
-                  Continue
-                </button>
+                />
               </div>
             </>
           ) : null}
 
           {step === "file" ? (
             <>
-              <p className="onboarding-kicker">Resume</p>
-              <h1>
-                {extracting ? (
-                  <>
-                    Reading <em>{files[cursor]?.file.name ?? "the resume"}.</em>
-                  </>
-                ) : (
-                  <>
-                    Import your <em>resumes.</em>
-                  </>
-                )}
-              </h1>
+              <div className="onboarding-file-head">
+                <p className="onboarding-kicker">Resume</p>
+                <div className="onboarding-file-title">
+                  <h1>
+                    {extracting ? (
+                      <>
+                        Reading <em>{files[cursor]?.file.name ?? "the resume"}.</em>
+                      </>
+                    ) : (
+                      <>
+                        Import your <em>resumes.</em>
+                      </>
+                    )}
+                  </h1>
+                  {files.length > 0 ? (
+                    <Button
+                      className="onboarding-file-add"
+                      label="Add resume"
+                      icon={<Icon icon={Plus} />}
+                      isDisabled={extracting}
+                      onClick={() => fileInputRef.current?.click()}
+                    />
+                  ) : null}
+                </div>
+              </div>
               {extracting ? (
                 <p className="onboarding-meta">
                   {cursor + 1} of {files.length}. The questions start after every file is read.
@@ -1075,6 +1120,18 @@ export function Onboarding({
                 </label>
               ) : (
                 <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    hidden
+                    accept="application/pdf,text/plain,.pdf,.txt,.md"
+                    onChange={(event) => {
+                      const picked = event.target.files ? [...event.target.files] : [];
+                      event.target.value = "";
+                      addResumes(picked);
+                    }}
+                  />
                   <ul className="onboarding-file-list">
                     {files.map((row, index) => {
                       const read = readDigests.includes(row.digest);
@@ -1121,26 +1178,6 @@ export function Onboarding({
                       );
                     })}
                   </ul>
-                  <button
-                    type="button"
-                    className="onboarding-btn onboarding-btn-ghost onboarding-file-add"
-                    disabled={extracting}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Add resumes
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    hidden
-                    accept="application/pdf,text/plain,.pdf,.txt,.md"
-                    onChange={(event) => {
-                      const picked = event.target.files ? [...event.target.files] : [];
-                      event.target.value = "";
-                      addResumes(picked);
-                    }}
-                  />
                 </>
               )}
                   {previewIndex != null && files[previewIndex] ? (
@@ -1169,43 +1206,42 @@ export function Onboarding({
                     </dialog>
                   ) : null}
                   {error ? (
-                    <p className="onboarding-alert" role="alert">
-                      {error}
-                    </p>
+                    <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
                   ) : null}
                   <div className="onboarding-actions" data-split="true">
-                    <button
-                      type="button"
-                      className="onboarding-btn onboarding-btn-ghost"
+                    <Button
+                      className="onboarding-nav"
+                      label="Back"
+                      variant="ghost"
+                      isDisabled={held.length > 0 || extracting}
                       onClick={() => setStep("integrations")}
-                      disabled={held.length > 0 || extracting}
-                    >
-                      Back
-                    </button>
+                    />
                     <div className="onboarding-action-pair">
                       {(wantsModel === true || (wantsModel !== false && filesRead)) && files.length > 0 ? (
-                        <button
-                          type="button"
-                          className="onboarding-btn onboarding-btn-solid"
-                          disabled={extracting || (!filesRead && (!selected || (hosting === "cloud" && !cloudKey.trim())))}
+                        <Button
+                          className="onboarding-nav"
+                          label={
+                            !filesRead
+                              ? files.length > 1
+                                ? "Read the resumes"
+                                : "Extract job data"
+                              : held.length > 0
+                                ? "Continue"
+                                : "Check what we read"
+                          }
+                          variant="primary"
+                          isDisabled={extracting || (!filesRead && (!selected || (hosting === "cloud" && !cloudKey.trim())))}
                           onClick={() => {
                             if (filesRead) openReadFiles();
                             else void readAll();
                           }}
-                        >
-                          {!filesRead
-                            ? files.length > 1
-                              ? "Read the resumes"
-                              : "Extract job data"
-                            : held.length > 0
-                              ? "Continue"
-                              : "Check what we read"}
-                        </button>
+                        />
                       ) : (
-                        <button
-                          type="button"
-                          className="onboarding-btn onboarding-btn-solid"
-                          disabled={busy}
+                        <Button
+                          className="onboarding-nav"
+                          label={busy ? "Saving…" : "Continue"}
+                          variant="primary"
+                          isDisabled={busy}
                           onClick={() => {
                             if (files.length > 0 && cursor >= files.length) {
                               void finishSession(held, heldSkills, true);
@@ -1213,9 +1249,7 @@ export function Onboarding({
                             }
                             continueWithoutRead();
                           }}
-                        >
-                          {busy ? "Saving…" : "Continue"}
-                        </button>
+                        />
                       )}
                     </div>
                   </div>
@@ -1303,19 +1337,21 @@ function resumeBundles(queued: QueuedResume[], extracts: Map<string, ExtractedRe
 }
 
 function WashProgress({ step }: { step: OnboardingStep }) {
-  const current = STEP_INDEX[step];
   return (
-    <ol className="onboarding-steps" aria-label="Onboarding progress">
-      {STEPS.map((label, index) => (
-        <li
-          key={label}
-          data-state={index < current ? "done" : index === current ? "current" : "upcoming"}
-        >
-          <span className="onboarding-steps-dot" aria-hidden="true" />
-          {label}
-        </li>
-      ))}
-    </ol>
+    <div className="onboarding-stepper">
+      <Stepper
+        activeStep={STEP_INDEX[step]}
+        orientation="horizontal"
+        density="balanced"
+        indicatorPosition="on-track"
+        label="Onboarding progress"
+        horizontalOptions={{ minimumStepWidth: 112, collapsedVariant: "withLabel" }}
+      >
+        {STEPS.map((label, index) => (
+          <Step key={label} step={index} label={label} />
+        ))}
+      </Stepper>
+    </div>
   );
 }
 
@@ -1347,50 +1383,43 @@ function LocalModels({
     <div className="onboarding-detect-body">
       <p className="onboarding-quiet">Scan checks ports on this machine.</p>
       <div className="onboarding-scan-row">
-        <label className="onboarding-field">
-          <span>From</span>
-          <input
-            inputMode="numeric"
-            value={portFrom}
-            autoComplete="off"
-            onChange={(event) => setPortFrom(event.target.value)}
-          />
-        </label>
-        <label className="onboarding-field">
-          <span>To</span>
-          <input
-            inputMode="numeric"
-            value={portTo}
-            autoComplete="off"
-            onChange={(event) => setPortTo(event.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-solid"
-          disabled={localProbe === "scanning"}
+        <TextInput
+          label="From"
+          inputMode="numeric"
+          value={portFrom}
+          autoComplete="off"
+          width="100%"
+          onChange={setPortFrom}
+        />
+        <TextInput
+          label="To"
+          inputMode="numeric"
+          value={portTo}
+          autoComplete="off"
+          width="100%"
+          onChange={setPortTo}
+        />
+        <Button
+          label={localProbe === "scanning" ? "Scanning…" : "Scan"}
+          variant="primary"
+          isDisabled={localProbe === "scanning"}
           onClick={() => onScan(portFrom, portTo)}
-        >
-          {localProbe === "scanning" ? "Scanning…" : "Scan"}
-        </button>
+        />
       </div>
       {scanError ? (
-        <p className="onboarding-alert" role="alert">
-          {scanError}
-        </p>
+        <Banner status="error" title={scanError} container="section" collapsible={false} role="alert" />
       ) : null}
       {localProbe === "ready" && scanned.length === 0 ? (
         <p className="onboarding-quiet">No models listed.</p>
       ) : null}
-      <label className="onboarding-field">
-        <span>Address</span>
-        <input
-          value={localUrl}
-          autoComplete="off"
-          placeholder="http://127.0.0.1:8080/v1"
-          onChange={(event) => onCustomUrl(event.target.value)}
-        />
-      </label>
+      <TextInput
+        label="Address"
+        value={localUrl}
+        autoComplete="off"
+        placeholder="http://127.0.0.1:8080/v1"
+        width="100%"
+        onChange={onCustomUrl}
+      />
       <label className="onboarding-field">
         <span>Model</span>
         <input
@@ -1588,9 +1617,7 @@ function DoneStep({
         </label>
       ) : null}
       {error ? (
-        <p className="onboarding-alert" role="alert">
-          {error}
-        </p>
+        <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       <div className="onboarding-actions" data-split="true">
         <button type="button" className="onboarding-link" onClick={() => void leave({ page: "home" })}>
@@ -1619,26 +1646,73 @@ function DoneStep({
   );
 }
 
+function ProfileStreet({
+  place,
+  onPlace,
+  note,
+}: {
+  place: OnboardingPlaceAnswer;
+  onPlace: (place: OnboardingPlaceAnswer) => void;
+  note: string;
+}) {
+  const applied = useRef(place.street);
+  const hits = usePlaceSuggestions(place.street === applied.current ? "" : place.street);
+
+  function choose(hit: PlaceHit) {
+    const parts = splitResidence(hit.address);
+    applied.current = parts.street;
+    onPlace({ street: parts.street, city: parts.city, state: parts.state });
+  }
+
+  return (
+    <>
+      <TextInput
+        label="Street"
+        value={place.street}
+        autoComplete="off"
+        width="100%"
+        onChange={(street) => {
+          applied.current = "";
+          onPlace({ ...place, street });
+        }}
+      />
+      <Text type="supporting">{note}</Text>
+      {hits.length > 0 ? (
+        <ul className="onboarding-suggest" role="listbox">
+          {hits.map((hit) => (
+            <li key={`${hit.address}-${hit.latitude}`}>
+              <Button label={hit.address} variant="ghost" onClick={() => choose(hit)} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
 function ProfileStep({
-  name,
+  firstName,
+  lastName,
   photoPreview,
   place,
   error,
-  onName,
+  onFirstName,
+  onLastName,
   onPhoto,
   onPlace,
   onContinue,
 }: {
-  name: string;
+  firstName: string;
+  lastName: string;
   photoPreview: string | null;
   place: OnboardingPlaceAnswer;
   error: string | null;
-  onName: (value: string) => void;
+  onFirstName: (value: string) => void;
+  onLastName: (value: string) => void;
   onPhoto: (file: File | null) => void;
   onPlace: (place: OnboardingPlaceAnswer) => void;
   onContinue: () => void;
 }) {
-  const [addressOpen, setAddressOpen] = useState(false);
   return (
     <>
       <p className="onboarding-kicker">Profile</p>
@@ -1646,56 +1720,85 @@ function ProfileStep({
         Let's start with <em>your profile.</em>
       </h1>
       <p className="onboarding-lead">Proforna runs on this computer. Nothing here leaves it unless you publish.</p>
-      <fieldset className="onboarding-group">
-        <legend>About you · can be published</legend>
-        <label className="onboarding-avatar onboarding-avatar-pick">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={(event) => onPhoto(event.target.files?.[0] ?? null)}
+      <div className="onboarding-badge">
+        <div className="onboarding-badge-portrait">
+          <Avatar
+            src={photoPreview ?? undefined}
+            name={joinPersonName(firstName, lastName)}
+            alt="Profile photo"
+            size="xl"
           />
-          {photoPreview ? <img src={photoPreview} alt="Profile photo" /> : <span>Add a photo</span>}
-        </label>
-        <label className="onboarding-field">
-          <span>Name</span>
-          <input value={name} autoComplete="name" onChange={(event) => onName(event.target.value)} />
-        </label>
-        <CityStateFields
-          place={place}
-          onPlace={onPlace}
-          note="A published page shows your state. It shows the city only when you publish exact locations."
-        />
-      </fieldset>
-      {addressOpen ? (
-        <fieldset className="onboarding-group" data-private="true">
-          <legend>Only for you · never published</legend>
-          <StreetField place={place} onPlace={onPlace} note="Used to place your home on the map." />
-        </fieldset>
-      ) : (
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-ghost onboarding-add-address"
-          onClick={() => setAddressOpen(true)}
-        >
-          Add address
-        </button>
-      )}
+          <FileInput
+            label="Photo"
+            mode="input"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            value={null}
+            width="100%"
+            onChange={(file) => onPhoto(file instanceof File ? file : null)}
+          />
+        </div>
+        <div className="onboarding-badge-identity">
+          <fieldset className="onboarding-group">
+            <legend>About you · can be published</legend>
+            <div className="onboarding-field-row">
+              <TextInput
+                label="First name"
+                value={firstName}
+                autoComplete="given-name"
+                width="100%"
+                onChange={onFirstName}
+              />
+              <TextInput
+                label="Last name"
+                value={lastName}
+                autoComplete="family-name"
+                width="100%"
+                onChange={onLastName}
+              />
+            </div>
+            <div className="onboarding-field-row">
+              <TextInput
+                label="City"
+                value={place.city}
+                autoComplete="address-level2"
+                width="100%"
+                onChange={(city) => onPlace({ ...place, city })}
+              />
+              <TextInput
+                label="State"
+                value={place.state}
+                autoComplete="address-level1"
+                width="100%"
+                onChange={(state) => onPlace({ ...place, state })}
+              />
+            </div>
+            <Text type="supporting">
+              A published page shows your state. It shows the city only when you publish exact locations.
+            </Text>
+          </fieldset>
+          <div className="onboarding-badge-address">
+            <fieldset className="onboarding-group" data-private="true">
+              <legend>Only for you · never published</legend>
+              <ProfileStreet place={place} onPlace={onPlace} note="Used to place your home on the map." />
+            </fieldset>
+          </div>
+        </div>
+      </div>
       {error ? (
-        <p className="onboarding-alert" role="alert">
-          {error}
-        </p>
+        <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       <div className="onboarding-actions" data-end="true">
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-solid"
-          disabled={!name.trim()}
+        <Button
+          className="onboarding-nav"
+          label="Continue"
+          variant="primary"
+          isDisabled={!firstName.trim() || !lastName.trim()}
           onClick={onContinue}
-        >
-          Continue
-        </button>
+        />
       </div>
-      {name.trim() ? null : <p className="onboarding-why">Add your name to continue.</p>}
+      {firstName.trim() && lastName.trim() ? null : (
+        <p className="onboarding-why">Add your first and last name to continue.</p>
+      )}
     </>
   );
 }

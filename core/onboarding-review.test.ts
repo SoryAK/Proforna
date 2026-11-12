@@ -15,6 +15,8 @@ import type { ProfileFields } from "./profile";
 import { emptyExtractedResume, type ExtractedResume } from "./resume-extract";
 
 const current: ProfileFields = {
+  firstName: "Ada",
+  lastName: "Lovelace",
   fullName: "Ada Lovelace",
   headline: "",
   address: "12 Private Lane",
@@ -242,7 +244,8 @@ describe("profileAfterOnboarding", () => {
     const next = profileAfterOnboarding({
       current,
       extracted: resume().profile,
-      fullName: "Ada Lovelace",
+      firstName: "Ada",
+      lastName: "Lovelace",
       place: null,
       links: null,
     });
@@ -259,10 +262,13 @@ describe("profileAfterOnboarding", () => {
     const next = profileAfterOnboarding({
       current,
       extracted: resume().profile,
-      fullName: "  Ada   Lovelace ",
+      firstName: "  Ada",
+      lastName: "  Lovelace ",
       place: { street: "701 Hamilton St", city: "  ", state: "" },
       links: { linkedinUrl: "", githubUrl: "https://github.com/ada", portfolioUrl: "" },
     });
+    expect(next.firstName).toBe("Ada");
+    expect(next.lastName).toBe("Lovelace");
     expect(next.fullName).toBe("Ada Lovelace");
     expect(next.address).toBe("701 Hamilton St");
     expect(next.city).toBe("London");
@@ -284,7 +290,8 @@ describe("profileAfterOnboarding", () => {
     const next = profileAfterOnboarding({
       current: blank,
       extracted: resume().profile,
-      fullName: "Ada Lovelace",
+      firstName: "Ada",
+      lastName: "Lovelace",
       place: { street: "", city: "", state: "" },
       links: { linkedinUrl: "", githubUrl: "https://github.com/typed", portfolioUrl: "" },
     });

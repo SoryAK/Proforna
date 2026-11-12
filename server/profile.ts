@@ -39,6 +39,8 @@ export function saveProfile(
   db.prepare(
     `UPDATE profiles SET
       full_name = ?,
+      first_name = ?,
+      last_name = ?,
       headline = ?,
       address = ?,
       address_latitude = ?,
@@ -53,6 +55,8 @@ export function saveProfile(
      WHERE occupant_id = ?`,
   ).run(
     value.fullName,
+    value.firstName,
+    value.lastName,
     value.headline,
     value.address,
     location.latitude,

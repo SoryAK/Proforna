@@ -16,6 +16,8 @@ describe("GET /api/me", () => {
       await expect(res.json()).resolves.toEqual({
         occupant: { id: "local" },
         profile: {
+          firstName: "",
+          lastName: "",
           fullName: "",
           headline: "",
           address: "",

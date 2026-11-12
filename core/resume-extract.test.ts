@@ -109,6 +109,8 @@ describe("fillProfileFromExtract", () => {
     expect(
       fillProfileFromExtract(
         {
+          firstName: "Sory",
+          lastName: "Kaba",
           fullName: "Sory Kaba",
           headline: "",
           address: "12 Private Lane",
@@ -129,6 +131,8 @@ describe("fillProfileFromExtract", () => {
         },
       ),
     ).toEqual({
+      firstName: "Sory",
+      lastName: "Kaba",
       fullName: "Sory Kaba",
       headline: "Electrician",
       address: "12 Private Lane",
@@ -145,6 +149,8 @@ describe("fillProfileFromExtract", () => {
     expect(
       fillProfileFromExtract(
         {
+          firstName: "Sory",
+          lastName: "Kaba",
           fullName: "Sory Kaba",
           headline: "",
           address: "",

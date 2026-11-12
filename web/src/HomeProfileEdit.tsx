@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { prepareProfile, type ProfileFields } from "@core/profile";
+import { joinPersonName, prepareProfile, splitPersonName, type ProfileFields } from "@core/profile";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./onboarding.css";
 
@@ -12,7 +12,11 @@ export function HomeProfileEdit({
   onCancel: () => void;
   onSaved: (profile: OnboardingProfileValue) => void;
 }) {
-  const [fullName, setFullName] = useState(initial.fullName);
+  const openedName = splitPersonName(initial.fullName);
+  const [firstName, setFirstName] = useState(initial.firstName || openedName.firstName);
+  const [lastName, setLastName] = useState(
+    initial.lastName || (initial.firstName ? "" : openedName.lastName),
+  );
   const [headline, setHeadline] = useState(initial.headline);
   const [address, setAddress] = useState(initial.address);
   const [city, setCity] = useState(initial.city);
@@ -87,7 +91,9 @@ export function HomeProfileEdit({
         e.preventDefault();
         void save(
           {
-            fullName,
+            firstName,
+            lastName,
+            fullName: joinPersonName(firstName, lastName),
             headline,
             address,
             city,
@@ -117,12 +123,23 @@ export function HomeProfileEdit({
       </label>
 
       <label className="onboarding-field">
-        <span>Full name</span>
+        <span>First name</span>
         <input
-          name="fullName"
-          autoComplete="name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
+          name="firstName"
+          autoComplete="given-name"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          required
+        />
+      </label>
+
+      <label className="onboarding-field">
+        <span>Last name</span>
+        <input
+          name="lastName"
+          autoComplete="family-name"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
           required
         />
       </label>

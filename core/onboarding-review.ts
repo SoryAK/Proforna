@@ -332,16 +332,21 @@ function keptSchool(
 export function profileAfterOnboarding(input: {
   current: ProfileFields;
   extracted: ExtractedProfile | null;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   place: OnboardingPlaceAnswer | null;
   links: OnboardingLinkAnswer | null;
 }): ProfileFields {
   const base = input.extracted
     ? fillProfileFromExtract(input.current, input.extracted)
     : { ...input.current };
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim().replace(/\s+/g, " ");
   const next: ProfileFields = {
     ...base,
-    fullName: input.fullName.trim().replace(/\s+/g, " "),
+    firstName,
+    lastName,
+    fullName: [firstName, lastName].filter(Boolean).join(" "),
   };
   if (input.place) {
     next.address = input.place.street.trim() || base.address;

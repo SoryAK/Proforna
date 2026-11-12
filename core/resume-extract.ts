@@ -235,6 +235,8 @@ export function fillProfileFromExtract(
 ): ProfileFields {
   const place = splitResidence(extracted.location);
   return {
+    firstName: current.firstName,
+    lastName: current.lastName,
     fullName: current.fullName,
     headline: current.headline || extracted.headline,
     address: current.address || place.street,
