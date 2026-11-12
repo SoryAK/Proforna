@@ -16,6 +16,9 @@ import { HomeCenter } from "./HomeCenter";
 import { HomeProforna, type ChatRole } from "./HomeProforna";
 import { RoleCanvasEntry } from "./RoleCanvas";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
+import { previewWindowUrl } from "./preview-placement";
+import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
+import type { MapSettings } from "@core/map-settings";
 import "./home.css";
 
 const NAV_COLLAPSED_KEY = "proforna.navCollapsed";
@@ -58,6 +61,13 @@ export function Home({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
+  const [publicPreview, setPublicPreview] = useState<{
+    snapshot: PublicWorkMapSnapshot;
+    publishable: boolean;
+    exactLocations: boolean;
+    mapSettings: MapSettings | null;
+  } | null>(null);
+  const [previewNote, setPreviewNote] = useState("");
   const [desktop, setDesktop] = useState(readDesktop);
   const leftClosed = desktop && collapsed;
   const role = currentJob(career);
@@ -205,6 +215,39 @@ export function Home({
     setCenterView({ id: Date.now(), updates: true, updateId: id });
   }
 
+  async function openPublicPreview(where: "here" | "window") {
+    setPreviewNote("");
+    const response = await fetch("/api/work-map/preview");
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      setPreviewNote(
+        body.error === "slug-required"
+          ? "Save a public slug in publication settings before previewing."
+          : body.error === "sections-required"
+            ? "Choose at least one section in publication settings before previewing."
+            : "Could not build the preview.",
+      );
+      return;
+    }
+    const next = (await response.json()) as {
+      snapshot: PublicWorkMapSnapshot;
+      publishable: boolean;
+      exactLocations: boolean;
+    };
+    if (where === "window") {
+      const opened = window.open(
+        previewWindowUrl(),
+        "proforna-public-preview",
+        "popup,width=1100,height=800",
+      );
+      if (opened) return;
+      setPreviewNote("The browser blocked the preview window. Preview is staying in this window.");
+    }
+    const maps = await fetch("/api/maps");
+    const mapBody = maps.ok ? ((await maps.json()) as { settings?: MapSettings }) : {};
+    setPublicPreview({ ...next, mapSettings: mapBody.settings ?? null });
+  }
+
   return (
     <div className="home">
       <HomeSearch
@@ -240,6 +283,7 @@ export function Home({
           profornaOpen ? "is-right-open" : "",
           page === "home" || page === "history" ? "" : "is-stage-full",
           page === "history" && bioMode === "preview" ? "" : "is-bio-hidden",
+          publicPreview ? "is-previewing" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -264,6 +308,13 @@ export function Home({
           profornaOpen={profornaOpen}
           bioMode={bioMode}
           onBioMode={setBioMode}
+          previewOpen={publicPreview !== null}
+          notice={previewNote}
+          onPreview={(where) => void openPublicPreview(where)}
+          onExitPreview={() => {
+            setPublicPreview(null);
+            setPreviewNote("");
+          }}
           onNotice={(href) => {
             setEditing(false);
             setMobileOpen(false);
@@ -274,6 +325,20 @@ export function Home({
             goPage(href);
           }}
         />
+        {publicPreview ? (
+          <div className="home-public-preview work-map">
+            <WorkMapPreview
+              exactLocations={publicPreview.exactLocations}
+              mapSettings={publicPreview.mapSettings}
+              publishable={publicPreview.publishable}
+              snapshot={publicPreview.snapshot}
+              onClose={() => {
+                setPublicPreview(null);
+                setPreviewNote("");
+              }}
+            />
+          </div>
+        ) : null}
         {leftClosed ? null : (
           <>
             <section className="home-card home-bio" aria-label="Profile">

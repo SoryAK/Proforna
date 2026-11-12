@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@astryxdesign/core/Button";
 import { ButtonGroup } from "@astryxdesign/core/ButtonGroup";
 import type { OccupantNoticeHref } from "@core/notices";
+import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
 import mark from "./proforna-mark.svg";
@@ -21,6 +22,10 @@ export function HomeBar({
   profornaOpen,
   bioMode,
   onBioMode,
+  onPreview,
+  previewOpen = false,
+  onExitPreview,
+  notice = "",
   onNotice,
 }: {
   name: string;
@@ -35,9 +40,17 @@ export function HomeBar({
   profornaOpen?: boolean;
   bioMode: HomeBioMode;
   onBioMode: (mode: HomeBioMode) => void;
+  onPreview: (where: "here" | "window") => void;
+  previewOpen?: boolean;
+  onExitPreview?: () => void;
+  notice?: string;
   onNotice: (href: OccupantNoticeHref) => void;
 }) {
   const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishNote, setPublishNote] = useState("");
+  const [share, setShare] = useState<{ note: string; page?: string; code?: string } | null>(null);
+  const [copied, setCopied] = useState<"link" | "frame" | null>(null);
   const [searchMax, setSearchMax] = useState<number | null>(null);
   const barRef = useRef<HTMLElement>(null);
   const startRef = useRef<HTMLDivElement>(null);
@@ -64,14 +77,18 @@ export function HomeBar({
   }, []);
 
   useEffect(() => {
-    if (!menu) return;
+    if (!menu && !share) return;
     function onPointer(event: MouseEvent) {
       if (root.current && !root.current.contains(event.target as Node)) {
         setMenu(null);
+        setShare(null);
       }
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenu(null);
+      if (event.key === "Escape") {
+        setMenu(null);
+        setShare(null);
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -79,7 +96,112 @@ export function HomeBar({
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [menu]);
+  }, [menu, share]);
+
+  function publishFailure(code: string | undefined) {
+    if (code === "slug-required") {
+      return "Save a public slug in publication settings before publishing.";
+    }
+    if (code === "sections-required") {
+      return "Choose at least one section in publication settings before publishing.";
+    }
+    if (code === "private-not-publishable") {
+      return "A private Work Map cannot be published.";
+    }
+    return code ?? "The Work Map could not be published.";
+  }
+
+  async function openShare() {
+    setShare({ note: "Loading the share link…" });
+    setCopied(null);
+    try {
+      const [settingsResponse, publicationResponse] = await Promise.all([
+        fetch("/api/work-map/settings"),
+        fetch("/api/projections"),
+      ]);
+      if (!settingsResponse.ok) {
+        setShare({ note: "Could not load the share link." });
+        return;
+      }
+      const body = (await settingsResponse.json()) as {
+        settings?: { slug?: string; visibility?: string };
+        relayOrigin?: string | null;
+      };
+      const settings = body.settings;
+      if (!settings || typeof settings.visibility !== "string") {
+        setShare({ note: "Could not load the share link." });
+        return;
+      }
+      const embed = publicationEmbed({
+        origin: body.relayOrigin,
+        slug: settings.slug ?? "",
+        visibility: settings.visibility as Parameters<typeof publicationEmbed>[0]["visibility"],
+      });
+      if (!embed.ok) {
+        setShare({
+          note:
+            embed.reason === "private"
+              ? "A private career stays off the relay, so there is no link to share."
+              : embed.reason === "access-controlled"
+                ? "An access-controlled career uses its own link, so there is no public link to copy."
+                : embed.reason === "slug"
+                  ? "Save a public slug in publication settings before sharing."
+                  : "The share link appears once the relay is connected.",
+        });
+        return;
+      }
+      let published = false;
+      if (publicationResponse.ok) {
+        const listed = (await publicationResponse.json()) as {
+          projections?: Array<{ slug: string; status: string }>;
+        };
+        published = (listed.projections ?? []).some(
+          (item) => item.slug === settings.slug && item.status === "published",
+        );
+      }
+      setShare({
+        page: embed.page.replace(/\?embed=1$/, ""),
+        code: embed.code,
+        note: published
+          ? "This link shows the published career. A later edit stays private until you publish again."
+          : "Publish once, then this link shows the career. A later edit stays private until you publish again.",
+      });
+    } catch {
+      setShare({ note: "Could not load the share link." });
+    }
+  }
+
+  function copyShare(value: string, which: "link" | "frame") {
+    void navigator.clipboard.writeText(value).then(
+      () => {
+        setCopied(which);
+        window.setTimeout(() => setCopied((current) => (current === which ? null : current)), 2000);
+      },
+      () => setCopied(null),
+    );
+  }
+
+  async function confirmPublish() {
+    if (publishing) return;
+    setPublishing(true);
+    setPublishNote("");
+    setMenu(null);
+    try {
+      const response = await fetch("/api/work-map/publish", { method: "POST" });
+      if (response.ok) {
+        setPublishNote(
+          "Published this Work Map snapshot to the public link. Private edits stay local until you publish an update.",
+        );
+        return;
+      }
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      setPublishNote(publishFailure(body.error));
+    } catch {
+      setPublishNote("The Work Map could not be published.");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   return (
     <header
@@ -134,13 +256,14 @@ export function HomeBar({
               aria-haspopup="menu"
               onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
             />
-            {bioMode === "preview" ? (
+            {previewOpen || bioMode === "preview" ? (
               <Button
                 label="Exit preview"
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  onBioMode("browse");
+                  if (previewOpen) onExitPreview?.();
+                  else onBioMode("browse");
                   setMenu(null);
                 }}
               />
@@ -158,7 +281,12 @@ export function HomeBar({
           </ButtonGroup>
           {menu === "publish" ? (
             <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
-              <button type="button" role="menuitem" onClick={() => setMenu(null)}>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={publishing}
+                onClick={() => void confirmPublish()}
+              >
                 Confirm publish
               </button>
               <button type="button" role="menuitem" onClick={() => setMenu(null)}>
@@ -170,10 +298,9 @@ export function HomeBar({
             <div className="home-pub-menu" role="menu" aria-label="Preview and share">
               <button
                 type="button"
-                role="menuitemradio"
-                aria-checked={bioMode === "preview"}
+                role="menuitem"
                 onClick={() => {
-                  onBioMode("preview");
+                  onPreview("here");
                   setMenu(null);
                 }}
               >
@@ -181,11 +308,20 @@ export function HomeBar({
               </button>
               <button
                 type="button"
-                role="menuitemradio"
-                aria-checked={bioMode === "share"}
+                role="menuitem"
                 onClick={() => {
-                  onBioMode("share");
+                  onPreview("window");
                   setMenu(null);
+                }}
+              >
+                New window
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  void openShare();
                 }}
               >
                 Edit for sharing
@@ -202,6 +338,30 @@ export function HomeBar({
                 Browsing
               </button>
             </div>
+          ) : null}
+          {share ? (
+            <div className="home-pub-share" role="dialog" aria-label="Share">
+              <p>{share.note}</p>
+              {share.page ? <p className="home-pub-share-link">{share.page}</p> : null}
+              {share.page && share.code ? (
+                <div className="home-pub-share-actions">
+                  <button type="button" onClick={() => copyShare(share.page ?? "", "link")}>
+                    {copied === "link" ? "Copied" : "Copy link"}
+                  </button>
+                  <button type="button" onClick={() => copyShare(share.code ?? "", "frame")}>
+                    {copied === "frame" ? "Copied" : "Copy frame"}
+                  </button>
+                </div>
+              ) : null}
+              <button type="button" onClick={() => setShare(null)}>
+                Close
+              </button>
+            </div>
+          ) : null}
+          {publishNote || notice ? (
+            <p className="home-pub-status" role="status">
+              {publishNote || notice}
+            </p>
           ) : null}
         </div>
         {onProforna ? (
