@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { readCanvasBoards, releasePointingMembers } from "./canvas-board";
+import {
+  localBoardsForReload,
+  readCanvasBoards,
+  reconcileSharedBoards,
+  releasePointingMembers,
+  type CanvasBoard,
+} from "./canvas-board";
 
 describe("readCanvasBoards", () => {
   it("keeps a placed node's position and drops a board with no id", () => {
@@ -285,5 +291,121 @@ describe("releasePointingMembers", () => {
     });
     expect(board.groups).toEqual([]);
     expect(board.nodes.find((node) => node.id === "west")?.links).toEqual([]);
+  });
+});
+
+function board(id: string, title: string): CanvasBoard {
+  return {
+    id,
+    name: id,
+    nodes: [
+      {
+        id: `${id}-node`,
+        kind: "Design",
+        title,
+        body: "",
+        x: 0,
+        y: 0,
+        url: "",
+        notes: [],
+        links: [],
+      },
+    ],
+    groups: [],
+  };
+}
+
+describe("reconcileSharedBoards", () => {
+  it("refuses a merge when there is no baseline", () => {
+    expect(reconcileSharedBoards([board("role", "Local")], [board("role", "Remote")], null)).toBeNull();
+  });
+
+  it("keeps a local edit when the server board is unchanged", () => {
+    const base = [board("role", "Saved")];
+    expect(reconcileSharedBoards([board("role", "Local")], base, base)).toEqual([board("role", "Local")]);
+  });
+
+  it("keeps a newer server board when the local copy is unchanged", () => {
+    const base = [board("role", "Saved")];
+    const remote = [board("role", "Remote")];
+    expect(reconcileSharedBoards(base, remote, base)).toEqual(remote);
+  });
+
+  it("refuses when both sides changed the same board", () => {
+    const base = [board("role", "Saved")];
+    expect(
+      reconcileSharedBoards([board("role", "Local")], [board("role", "Remote")], base),
+    ).toBeNull();
+  });
+
+  it("keeps a board the other side added and a board this side added", () => {
+    const base = [board("role", "Saved")];
+    const merged = reconcileSharedBoards(
+      [board("role", "Saved"), board("note", "Local")],
+      [board("role", "Saved"), board("study", "Remote")],
+      base,
+    );
+    expect(merged?.map((item) => item.id)).toEqual(["role", "study", "note"]);
+  });
+
+  it("accepts a removal that the other side did not edit", () => {
+    const base = [board("role", "Saved"), board("study", "Saved")];
+    const merged = reconcileSharedBoards([board("role", "Saved")], base, base);
+    expect(merged?.map((item) => item.id)).toEqual(["role"]);
+  });
+
+  it("keeps a local edit when the server only dropped an unlocked flag", () => {
+    const saved = board("role", "Saved");
+    saved.nodes[0] = { ...saved.nodes[0], locked: false };
+    const remoteRole = board("role", "Saved");
+    const local = board("role", "Local");
+    local.nodes[0] = { ...local.nodes[0], locked: false };
+    const baseStudy = board("study", "Saved");
+    const remoteStudy = board("study", "Remote");
+    const merged = reconcileSharedBoards(
+      [local, baseStudy],
+      [remoteRole, remoteStudy],
+      [saved, baseStudy],
+    );
+    expect(merged?.map((item) => item.id)).toEqual(["role", "study"]);
+    expect(merged?.[0].nodes[0]?.title).toBe("Local");
+    expect(merged?.[1].nodes[0]?.title).toBe("Remote");
+  });
+
+  it("still refuses when both sides changed the unlocked node", () => {
+    const saved = board("role", "Saved");
+    saved.nodes[0] = { ...saved.nodes[0], locked: false };
+    const local = board("role", "Local");
+    local.nodes[0] = { ...local.nodes[0], locked: false };
+    const remote = board("role", "Remote");
+    expect(reconcileSharedBoards([local], [remote], [saved])).toBeNull();
+  });
+
+  it("refuses a removal of a board the other side edited", () => {
+    const base = [board("role", "Saved"), board("study", "Saved")];
+    expect(
+      reconcileSharedBoards([board("role", "Saved")], [board("role", "Saved"), board("study", "Remote")], base),
+    ).toBeNull();
+  });
+});
+
+describe("localBoardsForReload", () => {
+  it("keeps the saving canvas's boards when another canvas edited last", () => {
+    const saving = [board("role-a", "A")];
+    const other = [board("role-b", "B")];
+    expect(localBoardsForReload(saving, ["role-a"], { roleIds: ["role-b"], boards: other })).toBe(saving);
+  });
+
+  it("uses a newer list from the same canvas", () => {
+    const saving = [board("role-a", "A0")];
+    const newer = [board("role-a", "A1"), board("study", "S")];
+    expect(localBoardsForReload(saving, ["role-a", "role-b"], { roleIds: ["role-b", "role-a"], boards: newer })).toBe(
+      newer,
+    );
+  });
+
+  it("keeps the saving canvas's boards when nothing newer is ready", () => {
+    const saving = [board("role-a", "A")];
+    expect(localBoardsForReload(saving, ["role-a"], null)).toBe(saving);
   });
 });

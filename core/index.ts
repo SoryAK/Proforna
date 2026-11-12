@@ -426,7 +426,9 @@ export {
 export {
   addToSequence,
   pointsAtGroup,
+  localBoardsForReload,
   readCanvasBoards,
+  reconcileSharedBoards,
   releasePointingMembers,
   removeFromSequence,
   sequenceWithoutNodes,

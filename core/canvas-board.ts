@@ -249,6 +249,84 @@ function readGroup(value: unknown): CanvasGroup | null {
   };
 }
 
+function boardJson(board: CanvasBoard) {
+  const normalized = readCanvasBoards([board])?.[0];
+  return JSON.stringify(normalized ?? board);
+}
+
+/** Merge a stale canvas save with the boards now on the server.
+ * Returns null when there is no saved baseline, or when both sides changed the same board.
+ */
+export function reconcileSharedBoards(
+  local: readonly CanvasBoard[],
+  remote: readonly CanvasBoard[],
+  base: readonly CanvasBoard[] | null,
+): CanvasBoard[] | null {
+  if (!base) return null;
+  const localById = new Map(local.map((board) => [board.id, board]));
+  const remoteById = new Map(remote.map((board) => [board.id, board]));
+  const baseById = new Map(base.map((board) => [board.id, board]));
+  const ordered = [
+    ...remote.map((board) => board.id),
+    ...local.map((board) => board.id).filter((id) => !remoteById.has(id)),
+  ];
+  const merged: CanvasBoard[] = [];
+  for (const id of ordered) {
+    const left = localById.get(id);
+    const right = remoteById.get(id);
+    const previous = baseById.get(id);
+    if (left && right) {
+      if (boardJson(left) === boardJson(right)) {
+        merged.push(right);
+        continue;
+      }
+      if (!previous) return null;
+      const previousJson = boardJson(previous);
+      if (boardJson(right) === previousJson) {
+        merged.push(left);
+        continue;
+      }
+      if (boardJson(left) === previousJson) {
+        merged.push(right);
+        continue;
+      }
+      return null;
+    }
+    if (left) {
+      if (!previous) {
+        merged.push(left);
+        continue;
+      }
+      if (boardJson(left) !== boardJson(previous)) return null;
+      continue;
+    }
+    if (right) {
+      if (!previous) {
+        merged.push(right);
+        continue;
+      }
+      if (boardJson(right) !== boardJson(previous)) return null;
+    }
+  }
+  return merged;
+}
+
+function sameRoleSet(left: readonly string[], right: readonly string[]) {
+  if (left.length !== right.length) return false;
+  const seen = new Set(right);
+  return left.every((id) => seen.has(id));
+}
+
+/** Use a newer board list only when it belongs to the canvas that started the save. */
+export function localBoardsForReload<T>(
+  jobBoards: readonly T[],
+  jobRoleIds: readonly string[],
+  latest: { roleIds: readonly string[]; boards: readonly T[] } | null,
+): readonly T[] {
+  if (!latest || !sameRoleSet(jobRoleIds, latest.roleIds)) return jobBoards;
+  return latest.boards;
+}
+
 export function pointsAtGroup(node: { links: { id: string }[] } | undefined, groupId: string) {
   return Boolean(node?.links.some((link) => link.id === groupId));
 }

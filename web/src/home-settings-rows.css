@@ -1,0 +1,41 @@
+/* Row layout from the settings dialog template. This app does not compile
+   stylex, so the container-query stack lives here. It does not restyle the
+   controls. */
+.home-settings-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--spacing-3);
+  width: 100%;
+}
+
+.home-settings-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-settings-text {
+  max-width: 420px;
+}
+
+.home-settings-control {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+@container home-settings-panel (max-width: 480px) {
+  .home-settings-line {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-2);
+  }
+
+  .home-settings-text {
+    max-width: none;
+  }
+
+  .home-settings-control {
+    margin-inline-start: 0;
+  }
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ResumeImport } from "./ResumeImport";
+import { CareerHistoryAddMenu, createCareerHistoryRole } from "./CareerHistoryAddMenu";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
@@ -23,11 +24,9 @@ import {
 import {
   DEFAULT_WORK_MAP_OVERVIEW_FIELDS,
   WORK_MAP_OVERVIEW_FIELDS,
-  publicationEmbed,
   roleCoverPhoto,
   type WorkMapOverviewField,
   type WorkMapPublicationSettings,
-  type WorkMapPublishSection,
   type WorkMapRole,
 } from "@core/work-map";
 import {
@@ -51,8 +50,6 @@ import {
   notifyPreviewRefresh,
   previewWindowUrl,
   readPreviewPlacement,
-  writePreviewPlacement,
-  type PreviewPlacement,
 } from "./preview-placement";
 import type { WorkMapHome } from "./WorkMapCanvas";
 import { type MapSettings } from "@core/map-settings";
@@ -90,6 +87,7 @@ type WorkMapResponse = {
     publicMedia: number;
   };
   studyBoards?: CanvasBoard[];
+  studyRevision?: number;
 };
 
 type Publication = {
@@ -107,6 +105,8 @@ export function WorkMap({
   focusTab,
   onHome,
   mapRevision = 0,
+  careerRevision = 0,
+  canvasFromNav = false,
 }: {
   fallbackCareer: CareerFile;
   error: string | null;
@@ -114,6 +114,8 @@ export function WorkMap({
   focusTab?: DetailTab;
   onHome: () => void;
   mapRevision?: number;
+  careerRevision?: number;
+  canvasFromNav?: boolean;
 }) {
   const [data, setData] = useState<WorkMapResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -122,6 +124,7 @@ export function WorkMap({
   const [canvasRoleId, setCanvasRoleId] = useState<string | null>(null);
   const [canvasAll, setCanvasAll] = useState(false);
   const [canvasMinimized, setCanvasMinimized] = useState(false);
+  const canvasNavSeen = useRef(false);
   const [canvasSlot, setCanvasSlot] = useState<HTMLDivElement | null>(null);
   const [canvasDock, setCanvasDock] = useState<HTMLDivElement | null>(null);
   const [search, setSearch] = useState("");
@@ -138,7 +141,6 @@ export function WorkMap({
   const [view, setView] = useState<"map" | "timeline">("map");
   const [timelineMonth, setTimelineMonth] = useState(currentCareerMonth);
   const [timelinePlaying, setTimelinePlaying] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishMenu, setPublishMenu] = useState(false);
   const [menuHost, setMenuHost] = useState<"bio" | "tab">("tab");
   const publishMenuRef = useRef<HTMLDivElement>(null);
@@ -166,6 +168,19 @@ export function WorkMap({
   const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
   const [message, setMessage] = useState("");
   useEffect(() => {
+    if (canvasNavSeen.current === canvasFromNav) return;
+    canvasNavSeen.current = canvasFromNav;
+    if (canvasFromNav) {
+      setCanvasAll(true);
+      setCanvasRoleId(null);
+      setCanvasMinimized(false);
+      return;
+    }
+    setCanvasAll(false);
+    setCanvasRoleId(null);
+    setCanvasMinimized(false);
+  }, [canvasFromNav]);
+  useEffect(() => {
     if (!message) return;
     const life = message.length > 90 ? 5200 : 2800;
     const timer = window.setTimeout(() => setMessage(""), life);
@@ -181,7 +196,6 @@ export function WorkMap({
   previewRef.current = preview;
   const [previewMenu, setPreviewMenu] = useState(false);
   const previewMenuRef = useRef<HTMLDivElement>(null);
-  const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
@@ -202,7 +216,7 @@ export function WorkMap({
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [careerRevision]);
 
   useEffect(() => {
     if (!data) return;
@@ -490,23 +504,6 @@ export function WorkMap({
     (publication) => publication.slug === settings?.slug,
   );
 
-  async function saveSettings(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!settings) return;
-    const response = await fetch("/api/work-map/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    if (!response.ok) {
-      setMessage("Could not save publication settings.");
-      return;
-    }
-    setSettingsOpen(false);
-    setMessage("Publication settings saved.");
-    await load();
-  }
-
   function selectMonth(month: string) {
     const frame = careerFrame(timelineRoles, timelineMoments, month, timelineResidences);
     if (frame.lead) {
@@ -531,11 +528,6 @@ export function WorkMap({
     searchPick.current = pick;
     selectRole(id);
   }, [search, historyItems, selectRole]);
-
-  function openSettings() {
-    setPublishMenu(false);
-    setSettingsOpen(true);
-  }
 
   function requestPublish(host: "bio" | "tab" = "tab") {
     if (!settings || publishing) return;
@@ -609,16 +601,6 @@ export function WorkMap({
     if (!settings) return;
     setPublishing(true);
     setMessage("");
-    const settingsResponse = await fetch("/api/work-map/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    if (!settingsResponse.ok) {
-      setPublishing(false);
-      setMessage("Save valid publication settings before publishing.");
-      return;
-    }
     const response = await fetch("/api/work-map/publish", { method: "POST" });
     setPublishing(false);
     if (response.ok) {
@@ -702,25 +684,19 @@ export function WorkMap({
 
   async function addRole(kind: CareerHistorySectionKey) {
     setCreatingKind(kind);
-    setSettingsOpen(false);
     setMessage("");
-    const response = await fetch("/api/work-map/roles", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind }),
-    });
+    const id = await createCareerHistoryRole(kind);
     setCreatingKind(null);
-    if (!response.ok) {
+    if (!id) {
       setMessage("Could not add that role.");
       return;
     }
-    const body = (await response.json()) as { role: { id: string } };
     setClosedSections((current) => {
       const next = new Set(current);
       next.delete(kind);
       return next;
     });
-    setSelectedId(body.role.id);
+    setSelectedId(id);
     await load();
   }
 
@@ -1029,6 +1005,7 @@ export function WorkMap({
           role={canvasRole}
           roles={canvasAll ? canvasRoles : undefined}
           studyBoards={data?.studyBoards ?? []}
+          studyRevision={data?.studyRevision ?? 0}
           scope={canvasAll ? "all" : "role"}
           minimized={canvasMinimized}
           slot={canvasAll || selectedId !== canvasRole.id ? null : canvasSlot}
@@ -1198,15 +1175,6 @@ export function WorkMap({
               >
                 <HomesIcon />
               </button>
-              <button
-                className="history-icon"
-                type="button"
-                aria-label="Settings"
-                title="Settings"
-                onClick={openSettings}
-              >
-                <SettingsIcon />
-              </button>
             </div>
           </header>
           <div className="work-map-tools" ref={toolsRef}>
@@ -1273,21 +1241,12 @@ export function WorkMap({
                 +
               </button>
               {ledgerMenu === "add" ? (
-                <div className="history-menu-panel" role="menu" aria-label="Add">
-                  {CAREER_HISTORY_SECTIONS.map((section) => (
-                    <button
-                      key={section.key}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setLedgerMenu(null);
-                        void addRole(section.key);
-                      }}
-                    >
-                      {addKindLabel(section.key)}
-                    </button>
-                  ))}
-                </div>
+                <CareerHistoryAddMenu
+                  onChoose={(kind) => {
+                    setLedgerMenu(null);
+                    void addRole(kind);
+                  }}
+                />
               ) : null}
             </div>
             <button
@@ -1649,31 +1608,6 @@ export function WorkMap({
           <RoleSheet role={selected} tab={detailTab} />
         ) : null}
 
-        {settingsOpen && settings ? (
-          <>
-            <button
-              className="publication-settings-backdrop"
-              type="button"
-              aria-label="Close publication settings"
-              onClick={() => setSettingsOpen(false)}
-            />
-            <PublicationSettings
-              placement={placement}
-              published={
-                latest?.status === "published" && latest.slug === settings.slug
-              }
-              relayOrigin={data?.relayOrigin ?? null}
-              settings={settings}
-              onChange={setSettings}
-              onClose={() => setSettingsOpen(false)}
-              onPlacement={(value) => {
-                writePreviewPlacement(value);
-                setPlacement(value);
-              }}
-              onSubmit={saveSettings}
-            />
-          </>
-        ) : null}
         {importOpen ? (
           <ResumeImport
             onClose={() => setImportOpen(false)}
@@ -2118,214 +2052,6 @@ function MediaSheet({ role }: { role: WorkMapRole }) {
   );
 }
 
-function PublicationSettings({
-  placement,
-  published,
-  relayOrigin,
-  settings,
-  onChange,
-  onClose,
-  onPlacement,
-  onSubmit,
-}: {
-  placement: PreviewPlacement;
-  published: boolean;
-  relayOrigin: string | null;
-  settings: WorkMapPublicationSettings;
-  onChange: (settings: WorkMapPublicationSettings) => void;
-  onClose: () => void;
-  onPlacement: (placement: PreviewPlacement) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const embed = publicationEmbed({
-    origin: relayOrigin,
-    slug: settings.slug,
-    visibility: settings.visibility,
-  });
-  const sections: Array<[WorkMapPublishSection, string]> = [
-    ["profile", "Profile and bio"],
-    ["history", "Career history"],
-    ["map", "Approved locations"],
-    ["milestones", "Milestones and events"],
-    ["media", "Approved galleries"],
-    ["evidence", "Linked evidence"],
-    ["skills", "Skills"],
-    ["contact", "Contact and inbound opportunities"],
-  ];
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <aside className="publication-settings" role="dialog" aria-label="Publication settings">
-      <header>
-        <div>
-          <h2>Publication settings</h2>
-          <p>These settings shape the immutable snapshot sent to the relay.</p>
-        </div>
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </header>
-      <label className="publication-preview-place">
-        Open preview
-        <select
-          value={placement}
-          onChange={(event) =>
-            onPlacement(event.target.value as PreviewPlacement)
-          }
-        >
-          <option value="ask">Ask each time</option>
-          <option value="here">In this window</option>
-          <option value="window">In a new window</option>
-        </select>
-      </label>
-      <form onSubmit={onSubmit}>
-        <div className="publication-fields">
-          <label>
-            Public slug
-            <input
-              value={settings.slug}
-              onChange={(event) =>
-                onChange({ ...settings, slug: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Target role
-            <input
-              value={settings.targetRole}
-              onChange={(event) =>
-                onChange({ ...settings, targetRole: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Visibility
-            <select
-              value={settings.visibility}
-              onChange={(event) =>
-                onChange({
-                  ...settings,
-                  visibility: event.target
-                    .value as WorkMapPublicationSettings["visibility"],
-                })
-              }
-            >
-              <option value="public">Public</option>
-              <option value="unlisted">Unlisted</option>
-              <option value="access-controlled">Access controlled</option>
-              <option value="stealth">Stealth — hide identity</option>
-              <option value="anonymous">Anonymous — redact career detail</option>
-              <option value="private">Private — keep off the relay</option>
-            </select>
-          </label>
-        </div>
-        <fieldset className="publication-sections">
-          <legend>Published sections</legend>
-          {sections.map(([value, label]) => (
-            <label className="publication-check" key={value}>
-              <input
-                type="checkbox"
-                checked={settings.sections.includes(value)}
-                onChange={(event) =>
-                  onChange({
-                    ...settings,
-                    sections: event.target.checked
-                      ? [...settings.sections, value]
-                      : settings.sections.filter((section) => section !== value),
-                  })
-                }
-              />
-              {label}
-            </label>
-          ))}
-        </fieldset>
-        <div className="publication-options">
-          <label className="publication-check">
-            <input
-              type="checkbox"
-              checked={settings.hideCurrentEmployer}
-              onChange={(event) =>
-                onChange({
-                  ...settings,
-                  hideCurrentEmployer: event.target.checked,
-                })
-              }
-            />
-            Hide current employer in restricted modes
-          </label>
-          <label className="publication-check">
-            <input
-              type="checkbox"
-              checked={settings.showExactLocations}
-              onChange={(event) =>
-                onChange({
-                  ...settings,
-                  showExactLocations: event.target.checked,
-                })
-              }
-            />
-            Publish exact coordinates and addresses
-          </label>
-        </div>
-        <div className="publication-embed">
-          <span>Frame</span>
-          {embed.ok ? (
-            <>
-              <textarea readOnly rows={3} value={embed.code} />
-              <div className="publication-embed-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(embed.code).then(
-                      () => {
-                        setCopied(true);
-                        window.setTimeout(() => setCopied(false), 2000);
-                      },
-                      () => setCopied(false),
-                    );
-                  }}
-                >
-                  {copied ? "Copied" : "Copy frame"}
-                </button>
-                <p>
-                  {published
-                    ? "This frame shows the published career. A later edit stays private until you publish again."
-                    : "Publish once, then this frame shows the career. A later edit stays private until you publish again."}
-                </p>
-              </div>
-            </>
-          ) : (
-            <p>
-              {embed.reason === "private"
-                ? "A private career stays off the relay, so there is no frame to copy."
-                : embed.reason === "access-controlled"
-                  ? "An access-controlled career uses its own link, so there is no frame to copy."
-                  : embed.reason === "slug"
-                    ? "Save a public slug before copying a frame."
-                    : "The frame address appears once the relay is connected."}
-            </p>
-          )}
-        </div>
-        <p className="publication-warning">
-          Private notes stay out of the snapshot. Compensation, working
-          conditions, unpublished locations, and unpublished media enter only
-          when approved for publishing.
-        </p>
-        <button className="is-primary" type="submit">
-          Save settings
-        </button>
-      </form>
-    </aside>
-  );
-}
 
 function currentCareerMonth() {
   const now = new Date();
@@ -2358,12 +2084,6 @@ function asTimelineRole(role: WorkMapRole): CareerTimelineRole {
     milestones: role.details?.milestones ?? [],
     events: role.details?.events ?? [],
   };
-}
-
-function addKindLabel(key: CareerHistorySectionKey): string {
-  if (key === "school") return "Education";
-  if (key === "internship") return "Internship";
-  return "Job";
 }
 
 function ImportIcon() {
@@ -2656,15 +2376,3 @@ function HomesIcon() {
     </svg>
   );
 }
-
-function SettingsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 7h16M4 12h16M4 17h16" />
-      <circle cx="9" cy="7" r="1.7" />
-      <circle cx="15" cy="12" r="1.7" />
-      <circle cx="11" cy="17" r="1.7" />
-    </svg>
-  );
-}
-

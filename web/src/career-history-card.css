@@ -1,0 +1,400 @@
+.pch,
+.pch-view {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.pch-view:not(.astryx-scrollable-area) {
+  overflow: hidden;
+}
+
+.pch-view.is-role {
+  min-height: 0;
+}
+
+.pch-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+}
+
+.pch-history-back {
+  align-self: flex-start;
+}
+
+.pch-back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #171717;
+  cursor: pointer;
+}
+
+.pch-back:hover,
+.pch-back:focus-visible {
+  background: #f3f3f4;
+}
+
+.pch-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #171717;
+  cursor: pointer;
+}
+
+.pch-tool svg,
+.pch-mark {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+}
+
+.pch-tool:hover,
+.pch-tool:focus-visible,
+.pch-tool[aria-pressed="true"],
+.pch-tool[aria-expanded="true"] {
+  background: #f3f3f4;
+}
+
+.pch-tool .pch-more-mark {
+  fill: currentColor;
+  stroke: none;
+}
+
+.pch-more,
+.pch-sort {
+  position: relative;
+}
+
+.pch-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 9rem;
+  padding: 4px 0;
+  border: 1px solid #cecece;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.14);
+}
+
+.pch-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 28px;
+  margin: 0 4px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3b3b3b;
+  font: 400 13px/24px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pch-more-menu button svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pch-more-menu button:hover,
+.pch-more-menu button:focus-visible {
+  background: #005fb8;
+  color: #fff;
+  outline: none;
+}
+
+.pch-sort-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 4px 0;
+  border: 1px solid #cecece;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.14);
+  color: #3b3b3b;
+  font-size: 13px;
+}
+
+.pch-sort-menu button {
+  position: relative;
+  min-height: 24px;
+  margin: 0 4px;
+  padding: 0 2em;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3b3b3b;
+  font: 400 13px/24px system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pch-sort-menu button[aria-checked="true"]::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 0.7em;
+  width: 0.45em;
+  height: 0.22em;
+  border-bottom: 1.5px solid currentColor;
+  border-left: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.pch-sort-menu button:hover,
+.pch-sort-menu button:focus-visible {
+  background: #005fb8;
+  color: #fff;
+  outline: none;
+}
+
+.pch-find {
+  margin-top: 0.45rem;
+}
+
+.pch-find input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 1.7rem;
+  padding: 0 0.45rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fff;
+  color: #171717;
+  font: 400 0.8rem/1.2 system-ui, sans-serif;
+}
+
+.pch-note {
+  min-width: 0;
+  color: #171717;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.pch-status,
+.pch-empty {
+  margin: 0.25rem 0 0;
+  color: #6b6b70;
+  font-size: 0.875rem;
+}
+
+.pch-bulk .astryx-toolbar {
+  flex-wrap: wrap;
+  height: auto;
+  row-gap: 0.25rem;
+}
+
+.pch-groups {
+  min-height: 0;
+  flex: 1;
+  margin-top: 0.5rem;
+}
+
+.pch-frame {
+  margin-top: 0.65rem;
+  margin-bottom: 0.55rem;
+  padding: 0.2rem 0.45rem 0.45rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pch-frame ul {
+  flex: none;
+  overflow: visible;
+}
+
+.pch-groups h3 {
+  margin: 1.25rem 0 0.35rem;
+  color: #6b6b70;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pch-groups section:first-child h3 {
+  margin-top: 0.5rem;
+}
+
+.pch ul {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pch .pch-groups ul {
+  min-height: 0;
+  margin-top: 0;
+}
+
+.pch-groups button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.45rem;
+  border: 0;
+  border-top: 1px solid #efeff1;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pch-groups li:first-child button {
+  border-top: 0;
+}
+
+.pch-groups button:hover,
+.pch-groups button:focus-visible {
+  background: #f3f3f4;
+}
+
+.pch-groups button > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.pch strong {
+  display: block;
+  color: #171717;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.pch-groups strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: #171717;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.pch b,
+.pch-groups b,
+.pch-groups small {
+  display: block;
+  overflow: hidden;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pch b {
+  color: #6b6b70;
+  font-size: 0.8rem;
+  font-weight: 450;
+}
+
+.pch-groups b {
+  margin-top: 0.1rem;
+  color: #3f3f46;
+  font-weight: 450;
+  line-height: 1.45;
+}
+
+.pch-groups small {
+  margin-top: 0.15rem;
+  color: #6b6b70;
+  font-size: 0.8rem;
+  font-weight: 450;
+}
+
+.pch mark {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #0e7534;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.pch-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.pch-entry button {
+  min-width: 0;
+  flex: 1;
+}
+
+.pch-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.45rem;
+}
+
+.pch-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: #171717;
+}
+
+.pch-role h2 {
+  margin: 0.75rem 0 0;
+  color: #171717;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.pch-role p {
+  margin: 0.15rem 0 0;
+  color: #6b6b70;
+  font-size: 0.8rem;
+}
+
+.pch-role p:first-of-type {
+  margin-top: 0.1rem;
+  color: #3f3f46;
+}

@@ -328,6 +328,7 @@ export type WorkMapRole = {
   linkedEvidence: LinkedEvidence[];
   details: WorkMapRoleDetails;
   canvasBoards?: CanvasBoard[];
+  canvasRevision?: number;
 };
 
 export type WorkMapPublishSection =

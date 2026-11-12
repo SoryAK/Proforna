@@ -17,7 +17,9 @@ import {
 import {
   addToSequence,
   pointsAtGroup,
+  localBoardsForReload,
   readCanvasBoards,
+  reconcileSharedBoards,
   releasePointingMembers,
   removeFromSequence,
   sequenceWithoutNodes,
@@ -348,6 +350,31 @@ async function sendLatestBoards(roleId: string) {
 let sharedBoardsCache: CanvasBoard[] | null = null;
 let sharedSaveTail: Promise<void> = Promise.resolve();
 let sharedPending: { boards: CanvasBoard[]; roleIds: string[] } | null = null;
+let sharedStudyRevision: number | null = null;
+const sharedRoleRevisions = new Map<string, number>();
+const sharedBoardSinks = new Set<(boards: CanvasBoard[]) => void>();
+let sharedBoardVersion = 0;
+let sharedLatestVersion = 0;
+let sharedLatestRoleIds: string[] | null = null;
+let sharedLatestBoards: CanvasBoard[] | null = null;
+
+type SharedMap = {
+  studyRevision: number;
+  studyBoards: CanvasBoard[];
+  roles: Array<{ id: string; canvasRevision?: number; canvasBoards?: CanvasBoard[] }>;
+};
+
+function rememberSharedRevisions(
+  studyRevision: number,
+  roles: readonly { id: string; canvasRevision?: number }[],
+) {
+  if (sharedStudyRevision == null) sharedStudyRevision = studyRevision;
+  for (const role of roles) {
+    if (!sharedRoleRevisions.has(role.id) && typeof role.canvasRevision === "number") {
+      sharedRoleRevisions.set(role.id, role.canvasRevision);
+    }
+  }
+}
 
 function scheduleSharedSave(boards: CanvasBoard[], roleIds: string[]) {
   sharedPending = { boards, roleIds };
@@ -355,7 +382,90 @@ function scheduleSharedSave(boards: CanvasBoard[], roleIds: string[]) {
   return sharedSaveTail;
 }
 
-async function flushSharedSave() {
+function sameBoards(left: readonly CanvasBoard[], right: readonly CanvasBoard[]) {
+  if (left.length !== right.length) return false;
+  const rightById = new Map(right.map((board) => [board.id, JSON.stringify(board)]));
+  return left.every((board) => rightById.get(board.id) === JSON.stringify(board));
+}
+
+function storeSharedBoards(boards: CanvasBoard[], roleIds: readonly string[]) {
+  const ids = new Set(roleIds);
+  sharedBoardsCache = boards.filter((board) => !ids.has(board.id));
+  const sent = new Set(boards.map((board) => board.id));
+  for (const roleId of ids) {
+    const own = boards.find((board) => board.id === roleId);
+    if (!own) continue;
+    const existing = vaultBoards.get(roleId) ?? [];
+    const kept = existing.filter((board) => board.id !== roleId && !sent.has(board.id));
+    const next = [own, ...kept];
+    vaultBoards.set(roleId, next);
+    savedBoardJson.set(roleId, JSON.stringify(next));
+  }
+}
+
+function baseSharedBoards(roleIds: readonly string[]): CanvasBoard[] | null {
+  if (!sharedBoardsCache) return null;
+  const boards = [...sharedBoardsCache];
+  for (const roleId of roleIds) {
+    const own = (vaultBoards.get(roleId) ?? []).find((board) => board.id === roleId);
+    if (own) boards.push(own);
+  }
+  return boards;
+}
+
+function remoteSharedBoards(loaded: SharedMap, roleIds: readonly string[]) {
+  const wanted = new Set(roleIds);
+  const owned = loaded.roles.flatMap((role) => {
+    if (!wanted.has(role.id)) return [];
+    const own = role.canvasBoards?.find((board) => board.id === role.id);
+    return own ? [own] : [];
+  });
+  return [...loaded.studyBoards, ...owned];
+}
+
+function adoptSharedRevisions(loaded: SharedMap) {
+  sharedStudyRevision = loaded.studyRevision;
+  for (const role of loaded.roles) {
+    if (typeof role.canvasRevision === "number") {
+      sharedRoleRevisions.set(role.id, role.canvasRevision);
+    }
+  }
+}
+
+function rememberRemoteBaseline(remote: readonly CanvasBoard[], roleIds: readonly string[]) {
+  const ids = new Set(roleIds);
+  sharedBoardsCache = remote.filter((board) => !ids.has(board.id));
+  for (const roleId of roleIds) {
+    const own = remote.find((board) => board.id === roleId);
+    const existing = vaultBoards.get(roleId) ?? [];
+    const kept = existing.filter((board) => board.id !== roleId);
+    const next = own ? [own, ...kept] : kept;
+    vaultBoards.set(roleId, next);
+    savedBoardJson.set(roleId, JSON.stringify(next));
+  }
+}
+
+async function loadSharedMap(): Promise<SharedMap | null> {
+  const response = await fetch("/api/work-map");
+  if (!response.ok) return null;
+  const body = (await response.json()) as {
+    studyRevision?: number;
+    studyBoards?: CanvasBoard[];
+    roles?: SharedMap["roles"];
+  };
+  if (typeof body.studyRevision !== "number") return null;
+  return {
+    studyRevision: body.studyRevision,
+    studyBoards: body.studyBoards ?? [],
+    roles: body.roles ?? [],
+  };
+}
+
+function keepPendingSave(job: { boards: CanvasBoard[]; roleIds: string[] }) {
+  if (!sharedPending) sharedPending = job;
+}
+
+async function flushSharedSave(retry = true): Promise<void> {
   const job = sharedPending;
   if (!job) return;
   sharedPending = null;
@@ -364,28 +474,101 @@ async function flushSharedSave() {
     response = await fetch("/api/work-map/canvas", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ boards: job.boards }),
+      body: JSON.stringify({
+        boards: job.boards,
+        revision: sharedStudyRevision ?? 0,
+        roleRevisions: Object.fromEntries(
+          job.roleIds.map((id) => [id, sharedRoleRevisions.get(id) ?? 0]),
+        ),
+      }),
     });
   } catch {
-    if (!sharedPending) sharedPending = job;
+    keepPendingSave(job);
     throw new Error("save failed");
+  }
+  if (response.status === 409) {
+    if (!retry) {
+      keepPendingSave(job);
+      throw new Error("save stale");
+    }
+    const versionAtLoad = sharedBoardVersion;
+    let loaded: SharedMap | null = null;
+    try {
+      loaded = await loadSharedMap();
+    } catch {
+      loaded = null;
+    }
+    if (!loaded) {
+      const otherCanvas =
+        sharedLatestRoleIds != null &&
+        localBoardsForReload(job.boards, job.roleIds, {
+          roleIds: sharedLatestRoleIds,
+          boards: [],
+        }) === job.boards;
+      if (sharedBoardVersion === versionAtLoad || otherCanvas) keepPendingSave(job);
+      throw new Error("save stale");
+    }
+    const latest =
+      sharedBoardVersion !== versionAtLoad && sharedLatestRoleIds
+        ? { roleIds: sharedLatestRoleIds, boards: sharedLatestBoards ?? [] }
+        : null;
+    const belongsToJob =
+      latest != null && localBoardsForReload(job.boards, job.roleIds, latest) !== job.boards;
+    if (belongsToJob && (sharedLatestBoards == null || sharedLatestVersion !== sharedBoardVersion)) {
+      throw new Error("save stale");
+    }
+    const localBoards =
+      belongsToJob && sharedLatestBoards && sharedLatestRoleIds
+        ? localBoardsForReload(job.boards, job.roleIds, {
+            roleIds: sharedLatestRoleIds,
+            boards: sharedLatestBoards,
+          })
+        : job.boards;
+    const remote = remoteSharedBoards(loaded, job.roleIds);
+    const merged = reconcileSharedBoards(localBoards, remote, baseSharedBoards(job.roleIds));
+    const seenVersion = localBoards === job.boards ? sharedBoardVersion : sharedLatestVersion;
+    if (!merged || sharedBoardVersion !== seenVersion || (sharedPending && sharedPending.boards !== localBoards)) {
+      if (sharedBoardVersion === seenVersion) {
+        keepPendingSave(localBoards === job.boards ? job : { boards: localBoards, roleIds: job.roleIds });
+      }
+      throw new Error("save stale");
+    }
+    const matchesLocal = sameBoards(merged, localBoards);
+    if (!matchesLocal && sharedBoardSinks.size === 0) {
+      keepPendingSave({ boards: localBoards, roleIds: job.roleIds });
+      throw new Error("save stale");
+    }
+    adoptSharedRevisions(loaded);
+    rememberRemoteBaseline(remote, job.roleIds);
+    if (!matchesLocal) {
+      for (const sink of sharedBoardSinks) sink(merged);
+      if (sameBoards(merged, remote)) {
+        storeSharedBoards(merged, job.roleIds);
+        return;
+      }
+      sharedPending = { boards: merged, roleIds: job.roleIds };
+      return flushSharedSave(false);
+    }
+    if (sameBoards(merged, remote)) {
+      storeSharedBoards(merged, job.roleIds);
+      return;
+    }
+    sharedPending = { boards: merged, roleIds: job.roleIds };
+    return flushSharedSave(false);
   }
   if (!response.ok) {
-    if (!sharedPending) sharedPending = job;
+    keepPendingSave(job);
     throw new Error("save failed");
   }
-  const roleIds = new Set(job.roleIds);
-  sharedBoardsCache = job.boards.filter((board) => !roleIds.has(board.id));
-  const sent = new Set(job.boards.map((board) => board.id));
-  for (const roleId of roleIds) {
-    const own = job.boards.find((board) => board.id === roleId);
-    if (!own) continue;
-    const existing = vaultBoards.get(roleId) ?? [];
-    const kept = existing.filter((board) => board.id !== roleId && !sent.has(board.id));
-    const next = [own, ...kept];
-    vaultBoards.set(roleId, next);
-    savedBoardJson.set(roleId, JSON.stringify(next));
+  const saved = (await response.json()) as {
+    revision: number;
+    roleRevisions?: Record<string, number>;
+  };
+  sharedStudyRevision = saved.revision;
+  for (const [id, revision] of Object.entries(saved.roleRevisions ?? {})) {
+    sharedRoleRevisions.set(id, revision);
   }
+  storeSharedBoards(job.boards, job.roleIds);
 }
 
 function storedStudies(fromServer: CanvasBoard[]) {
@@ -484,8 +667,10 @@ export function RoleCanvasEntry({
   onOpenRole,
   onClose,
   studyBoards = [],
+  studyRevision = 0,
+  host = null,
 }: {
-  role: WorkMapRole;
+  role?: WorkMapRole;
   roles?: WorkMapRole[];
   scope?: "role" | "all";
   minimized: boolean;
@@ -496,17 +681,47 @@ export function RoleCanvasEntry({
   onOpenRole?: (role: WorkMapRole) => void;
   onClose: () => void;
   studyBoards?: CanvasBoard[];
+  studyRevision?: number;
+  host?: HTMLElement | null;
 }) {
   const catalog = useMemo(
     () => (scope === "all" ? (roles ?? []) : [role]),
     [scope, role, roles],
   );
-  const openingId = scope === "all" ? "" : role.id;
-  const openingViewport = openingId ? readViewport(role.id, openingId) : null;
+  const openingId = scope === "all" ? "" : (role?.id ?? "");
+  const openingViewport = openingId && role ? readViewport(role.id, openingId) : null;
   const loadedStudies = storedStudies(studyBoards);
-  const [boards, setBoards] = useState(() =>
-    scope === "all" ? loadAllBoards(catalog, loadedStudies) : reflectRole(loadBoards(role, loadedStudies), role),
+  const [boards, setBoardsState] = useState(() =>
+    scope === "all"
+      ? loadAllBoards(catalog, loadedStudies)
+      : role
+        ? reflectRole(loadBoards(role, loadedStudies), role)
+        : [],
   );
+  function setBoards(update: CanvasBoard[] | ((current: CanvasBoard[]) => CanvasBoard[])) {
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
+    if (typeof update === "function") {
+      const requested = ++sharedBoardVersion;
+      sharedLatestRoleIds = [...roleIds];
+      sharedLatestVersion = requested;
+      sharedLatestBoards = null;
+      setBoardsState((current) => {
+        const next = update(current);
+        if (sharedBoardVersion === requested) {
+          sharedLatestBoards = next;
+          sharedLatestVersion = requested;
+          sharedLatestRoleIds = [...roleIds];
+        }
+        return next;
+      });
+      return;
+    }
+    sharedBoardVersion += 1;
+    sharedLatestVersion = sharedBoardVersion;
+    sharedLatestBoards = update;
+    sharedLatestRoleIds = [...roleIds];
+    setBoardsState(update);
+  }
   const [canvasId, setCanvasId] = useState(openingId);
   const [boardKind, setBoardKind] = useState<"all" | CareerHistorySectionKey>("all");
   const [boardRoleId, setBoardRoleId] = useState<string | null>(null);
@@ -527,7 +742,7 @@ export function RoleCanvasEntry({
   const [guides, setGuides] = useState<GuideLine[]>([]);
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(openingViewport?.zoom ?? 1);
-  const [railOpen, setRailOpen] = useState(true);
+  const [railOpen, setRailOpen] = useState(!host);
   const [boardQuery, setBoardQuery] = useState("");
   const [titleOpen, setTitleOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -669,6 +884,7 @@ export function RoleCanvasEntry({
       setBoards((current) => catalog.reduce((next, item) => reflectRole(next, item), current));
       return;
     }
+    if (!role) return;
     setBoards((current) => reflectRole(current, role));
     setDraft((current) => {
       if (!current?.achievementId) return current;
@@ -702,7 +918,7 @@ export function RoleCanvasEntry({
   }, [canvas]);
   const selected = canvas?.nodes.find((node) => node.id === selectedId) ?? null;
   const focusRole = scope === "all" ? (catalog.find((item) => item.id === canvas?.id) ?? null) : role;
-  const roleBoard = boards.find((board) => board.id === (focusRole?.id ?? role.id));
+  const roleBoard = boards.find((board) => board.id === (focusRole?.id ?? role?.id));
   const linkedIds = new Set<string>();
   for (const node of roleBoard?.nodes ?? []) {
     for (const link of node.links) {
@@ -719,11 +935,20 @@ export function RoleCanvasEntry({
   });
   const boardsRef = useRef(boards);
   boardsRef.current = boards;
+  rememberSharedRevisions(studyRevision, catalog);
 
   useEffect(() => {
-    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    const sink = (next: CanvasBoard[]) => setBoardsState(next);
+    sharedBoardSinks.add(sink);
+    return () => {
+      sharedBoardSinks.delete(sink);
+    };
+  }, []);
+
+  useEffect(() => {
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     void scheduleSharedSave(boards, roleIds).catch(() => undefined);
-  }, [boards, role.id, scope, catalog]);
+  }, [boards, role, scope, catalog]);
 
   useEffect(() => {
     if (!open || minimized) return;
@@ -854,11 +1079,11 @@ export function RoleCanvasEntry({
   }
 
   function deleteBoard() {
-    if (!canvas || canvas.id === role.id) return;
+    if (!canvas || canvas.id === role?.id) return;
     const id = canvas.id;
-    const order = boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+    const order = boardGroups(boards, role?.id ?? "", "").flatMap((group) => group.boards);
     const index = order.findIndex((board) => board.id === id);
-    const fallback = order[index - 1]?.id ?? order[index + 1]?.id ?? role.id;
+    const fallback = order[index - 1]?.id ?? order[index + 1]?.id ?? role?.id ?? "";
     setBoardOpen(false);
     setBoards((current) => current.filter((board) => board.id !== id));
     showHome(fallback);
@@ -924,7 +1149,7 @@ export function RoleCanvasEntry({
   }
 
   function viewOwner(boardId: string) {
-    if (scope !== "all") return role.id;
+    if (scope !== "all") return role?.id ?? "";
     return catalog.some((item) => item.id === boardId) ? boardId : "all";
   }
 
@@ -1057,7 +1282,7 @@ export function RoleCanvasEntry({
   }
 
   function onLinked(node: CanvasNode) {
-    if (scope !== "all" && canvasId !== role.id) showHome(role.id);
+    if (scope !== "all" && role && canvasId !== role.id) showHome(role.id);
     if (node.kind === "Video") {
       openVideo(node);
       return;
@@ -1255,7 +1480,7 @@ export function RoleCanvasEntry({
   }
 
   function dragWindow(event: ReactPointerEvent<HTMLElement>) {
-    if (event.button !== 0 || maximized || minimized) return;
+    if (host || event.button !== 0 || maximized || minimized) return;
     if ((event.target as HTMLElement).closest("button, input, .role-canvas-history-panel")) return;
     event.preventDefault();
     const origin = readFrame();
@@ -1283,7 +1508,7 @@ export function RoleCanvasEntry({
   }
 
   function resizeWindow(event: ReactPointerEvent<HTMLElement>, edge: string) {
-    if (event.button !== 0 || maximized || minimized) return;
+    if (host || event.button !== 0 || maximized || minimized) return;
     event.preventDefault();
     event.stopPropagation();
     const origin = readFrame();
@@ -1323,6 +1548,7 @@ export function RoleCanvasEntry({
   }
 
   function toggleMinimize() {
+    if (host) return;
     if (!minimized) {
       rememberViewport();
       if (!maximized) {
@@ -1339,6 +1565,7 @@ export function RoleCanvasEntry({
   }
 
   function toggleMaximize() {
+    if (host) return;
     const current = readFrame();
     if (!maximized) {
       restoreFrame.current = current;
@@ -1844,7 +2071,7 @@ export function RoleCanvasEntry({
   }
 
   function snapKey(boardId = canvas?.id ?? "") {
-    return `${role.id}:${boardId}`;
+    return `${role?.id ?? "all"}:${boardId}`;
   }
 
   function savesFor(boardId = canvas?.id ?? "") {
@@ -1866,7 +2093,7 @@ export function RoleCanvasEntry({
     };
     setSnaps((current) => ({ ...current, [snapKey(canvas.id)]: [snap, ...list].slice(0, 30) }));
     setSaveError("");
-    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     void scheduleSharedSave(boards, roleIds)
       .then(() => {
         setSavedFlash(true);
@@ -2826,33 +3053,36 @@ export function RoleCanvasEntry({
   };
 
   const geometry =
-    minimized || !frame
+    host || minimized || !frame
       ? undefined
       : { left: frame.left, top: frame.top, width: frame.width, height: frame.height };
 
   const boardOrder =
-    scope === "all" ? [] : boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+    scope === "all" ? [] : boardGroups(boards, role?.id ?? "", "").flatMap((group) => group.boards);
   const boardIndex = boardOrder.findIndex((board) => board.id === canvas?.id);
   const previousBoard = boardIndex > 0 ? boardOrder[boardIndex - 1] : null;
   const nextBoard =
     boardIndex >= 0 && boardIndex < boardOrder.length - 1 ? boardOrder[boardIndex + 1] : null;
 
-  const roleFacts = [
-    role.organization.trim(),
-    formatHistoryPlace({
-      organization: role.organization,
-      locationLabel: role.locationLabel,
-      locations: role.locations.map((location) => ({ address: location.address })),
-    }),
-    formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const roleFacts = role
+    ? [
+        role.organization.trim(),
+        formatHistoryPlace({
+          organization: role.organization,
+          locationLabel: role.locationLabel,
+          locations: role.locations.map((location) => ({ address: location.address })),
+        }),
+        formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   const windowNode = open ? (
     <div
       className={[
         "role-canvas",
+        host ? "is-embedded" : "",
         minimized ? "is-minimized" : "",
         draft ? "is-editing" : "",
         panelPos ? "is-panel-free" : "",
@@ -2896,7 +3126,7 @@ export function RoleCanvasEntry({
           </button>
           {scope === "all" ? (
             <span className="role-canvas-title">Career history</span>
-          ) : role.title.trim() ? (
+          ) : role && role.title.trim() ? (
             <>
               {role.organization.trim() ? (
                 <>
@@ -3000,7 +3230,7 @@ export function RoleCanvasEntry({
           ) : (
             <span className="role-canvas-title">Canvas</span>
           )}
-          {titleOpen && role.title.trim() ? (
+          {titleOpen && role && role.title.trim() ? (
             <div className="role-canvas-title-menu" role="menu">
               {roleFacts ? <p>{roleFacts}</p> : null}
               <button
@@ -3538,9 +3768,9 @@ export function RoleCanvasEntry({
       ) : null}
       <div className="role-canvas-body">
       {railOpen ? (
-        <aside className="role-canvas-rail" aria-label={scope === "all" ? "Boards" : role.organization.trim() || "Boards"}>
+        <aside className="role-canvas-rail" aria-label={scope === "all" ? "Boards" : role?.organization.trim() || "Boards"}>
           <div className="role-canvas-rail-head">
-            <strong>{scope === "all" ? "Boards" : role.organization.trim() || "Boards"}</strong>
+            <strong>{scope === "all" ? "Boards" : role?.organization.trim() || "Boards"}</strong>
           </div>
           <div className="role-canvas-rail-find">
             <input
@@ -3579,7 +3809,7 @@ export function RoleCanvasEntry({
                 onBoard={showHome}
               />
             ) : (
-              boardGroups(boards, role.id, boardQuery).map((group) => (
+              boardGroups(boards, role?.id ?? "", boardQuery).map((group) => (
                 <div key={group.label}>
                   <p>{group.label}</p>
                   {group.boards.map((board) => (
@@ -4482,7 +4712,7 @@ export function RoleCanvasEntry({
       </>
     ) : null;
 
-  const windowHost = minimized ? dockSlot : document.body;
+  const windowHost = host ?? (minimized ? dockSlot : document.body);
 
   return (
     <>

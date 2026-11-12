@@ -69,6 +69,22 @@
   box-sizing: border-box;
 }
 
+.role-canvas.is-embedded {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.role-canvas.is-embedded .resize {
+  display: none;
+}
+
 .role-canvas {
   position: fixed;
   z-index: 740;

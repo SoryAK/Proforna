@@ -1,0 +1,264 @@
+.home-stage.home-center-live {
+  padding: 1rem 1.05rem;
+  background: #fff;
+  color: #171717;
+  overflow: hidden;
+}
+
+.home-stage.home-center-live > .home-center-bar {
+  flex: 0 0 auto;
+}
+
+.home-stage.home-center-live > .home-center-stage {
+  flex: 1 1 auto;
+}
+
+.home-media.home-center-media {
+  padding: 1rem 1.05rem;
+  background: #fff;
+  color: #171717;
+}
+
+.home-center-live h2,
+.home-center-media h2 {
+  margin: 0;
+  color: #171717;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.home-center-media header p,
+.home-center-empty {
+  margin: 0.25rem 0 0;
+  color: #6b6b70;
+  font-size: 0.875rem;
+}
+
+.home-center-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  margin: 0 -1.05rem 0;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.home-center-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  margin: 0 0 -1px;
+  padding: 0 0.65rem 0.45rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #6b6b70;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+
+.home-center-bar button:hover,
+.home-center-bar button[aria-selected="true"] {
+  color: #171717;
+}
+
+.home-center-bar button[aria-selected="true"] {
+  border-bottom-color: #171717;
+}
+
+.home-center-bar button:focus-visible {
+  outline: 2px solid #171717;
+  outline-offset: 2px;
+}
+
+.home-center-bar svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+}
+
+.home-center-count {
+  color: #6b6b70;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-center-stage {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.home-center-map {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #ececee;
+}
+
+.home-center-map .work-map-canvas,
+.home-center-map .work-map-google {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.home-center-updates {
+  min-height: 0;
+  flex: 1;
+  margin: 1rem 0 0;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  background: #f3f3f4;
+}
+
+.home-center-updates.is-reading {
+  flex: none;
+}
+
+.home-center-updates ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-center-updates > ul > li + li {
+  margin-top: 0.9rem;
+}
+
+.home-center-updates button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-center-updates article > button {
+  margin-bottom: 0.65rem;
+  color: #6b6b70;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.home-center-updates b {
+  display: block;
+  color: #6b6b70;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.home-center-group > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.home-center-group > span b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-center-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-top: 0.28rem;
+}
+
+.home-center-line b {
+  flex: none;
+}
+
+.home-center-line p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-center-updates time {
+  flex: none;
+  color: #6b6b70;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.home-center-updates article time {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.home-center-updates mark {
+  background: transparent;
+  color: #0e7534;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.home-center-updates p,
+.home-center-updates article p {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.home-center-updates article p {
+  white-space: normal;
+}
+
+.home-center-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.home-center-thumb {
+  width: 4.5rem;
+  flex: none;
+}
+
+.home-center-events {
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-center-events li + li {
+  margin-top: 0.55rem;
+}
+
+.home-center-events strong {
+  display: block;
+  color: #171717;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.home-center-events span {
+  display: block;
+  color: #6b6b70;
+  font-size: 0.8rem;
+  font-weight: 450;
+}
