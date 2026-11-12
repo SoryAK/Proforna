@@ -10,6 +10,12 @@ export {
   type OnboardingProfile,
 } from "./onboarding";
 export {
+  finishSignature,
+  parseFinishReceipt,
+  reuseSavedHistory,
+  type OnboardingFinishReceipt,
+} from "./onboarding-finish";
+export {
   blankOnboardingCheckItem,
   isBlankOnboardingCheckItem,
   keptOnboardingHistory,

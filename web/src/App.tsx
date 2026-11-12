@@ -3,6 +3,7 @@ import { needsOnboarding } from "@core/onboarding";
 import type { CareerFile } from "@core/career-file";
 import { DevPrototypeScreen, readDevPrototype, readReviewOnboarding } from "./dev-routes";
 import { Home } from "./Home";
+import { readEvidenceRole, writeEvidenceRole } from "./onboarding-evidence";
 import { Onboarding } from "./Onboarding";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { isPreviewWindow } from "./preview-placement";
@@ -23,7 +24,7 @@ export function App() {
   const [prototype, setPrototype] = useState(readDevPrototype);
   const [reviewOnboarding, setReviewOnboarding] = useState(readReviewOnboarding);
   const [previewWindow, setPreviewWindow] = useState(isPreviewWindow);
-  const [focusJobId, setFocusJobId] = useState<string | null>(null);
+  const [focusJobId, setFocusJobId] = useState<string | null>(readEvidenceRole);
 
   useEffect(() => {
     function onHash() {
@@ -95,9 +96,11 @@ export function App() {
       <Onboarding
         initialProfile={me.profile}
         onFinished={(next, exit) => {
+          const focus = exit.page === "history" ? (exit.focusJobId ?? null) : null;
+          writeEvidenceRole(focus);
           setMe(next);
           setReviewOnboarding(false);
-          setFocusJobId(exit.page === "history" ? (exit.focusJobId ?? null) : null);
+          setFocusJobId(focus);
           window.location.hash = exit.page === "history" ? "#/history" : "#/";
           void loadCareer();
         }}

@@ -19,6 +19,11 @@ import {
   type LocalScanHit,
 } from "@core/model-onboarding";
 import {
+  finishSignature,
+  reuseSavedHistory,
+  type OnboardingFinishReceipt,
+} from "@core/onboarding-finish";
+import {
   evidenceRoleChoices,
   onboardingCheckItems,
   onboardingDone,
@@ -62,6 +67,11 @@ import {
   type OnboardingModelChoice,
   type OnboardingTimelineRow,
 } from "./onboarding-session";
+import {
+  clearFinishReceipt,
+  readFinishReceipt,
+  writeFinishReceipt,
+} from "./onboarding-finish-store";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { IntegrationSettings } from "./IntegrationSettings";
 import "./onboarding.css";
@@ -159,6 +169,8 @@ export function Onboarding({
   const extractsRef = useRef<Map<string, ExtractedResume>>(new Map());
   const profileRef = useRef<ProfileFields>(initialProfile);
   const abortRef = useRef<AbortController | null>(null);
+  const finishing = useRef(false);
+  const concluded = useRef(false);
   const scanAbort = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const filesRef = useRef(files);
@@ -239,6 +251,25 @@ export function Onboarding({
       cancel = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const receipt = readFinishReceipt();
+    if (!receipt?.awaitingComplete) return;
+    let cancel = false;
+    void (async () => {
+      const completed = await requestOnboardingComplete();
+      if (cancel) return;
+      if (!completed.ok) {
+        setError(completed.error);
+        return;
+      }
+      await concludeFinish(receipt, completed.me);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [draftReady]);
 
   useEffect(() => {
     if (!draftReady || (files.length === 0 && held.length === 0)) return;
@@ -637,7 +668,42 @@ export function Onboarding({
     setSetAsides((current) => rememberSetAside(current, role.item));
   }
 
+  async function requestOnboardingComplete(): Promise<{ ok: true; me: Me } | { ok: false; error: string }> {
+    try {
+      const res = await fetch("/api/onboarding/complete", { method: "POST" });
+      const body = (await res.json()) as Me & { error?: string };
+      if (!res.ok) return { ok: false, error: body.error ?? "Could not finish onboarding." };
+      return { ok: true, me: body };
+    } catch {
+      return { ok: false, error: "Could not finish onboarding." };
+    }
+  }
+
+  async function concludeFinish(receipt: OnboardingFinishReceipt, me: Me) {
+    if (concluded.current) return;
+    concluded.current = true;
+    clearFinishReceipt();
+    await clearOnboardingDraft();
+    if (!receipt.historySaved) {
+      onFinished(me, { page: "home" });
+      return;
+    }
+    setDone({
+      me,
+      profile: profileRef.current,
+      summary: onboardingDone({
+        jobs: receipt.jobs,
+        schools: receipt.schools,
+        skills: receipt.skills,
+        resumes: receipt.resumes,
+        setAside: receipt.setAside,
+      }),
+    });
+  }
+
   async function finishSession(roles: HeldRole[], skills: HeldSkill[], includeHistory: boolean) {
+    if (finishing.current) return;
+    finishing.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -712,54 +778,62 @@ export function Onboarding({
         setError("Could not save the roles you set aside.");
         return;
       }
+      const signature = finishSignature(roles.map((role) => role.id));
+      const reused = includeHistory ? reuseSavedHistory(readFinishReceipt(), signature) : null;
       let keptHistory: { jobs: number; schools: number; skills: number } | null = null;
       if (includeHistory) {
         const history = historyFromHeld(roles, skills);
         if (history.experience.length > 0 || history.education.length > 0) {
-          const saved = await fetch("/api/history", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              experience: history.experience,
-              education: history.education,
-              skills: history.skills,
-              resumeId: resumeIds[0],
-              evidence: {
-                experience: history.experienceEvidence.map((source) => ({
-                  resumeIds: source.files.map((index) => resumeIds[index]),
-                  achievements: source.achievements.map((index) => resumeIds[index]),
-                })),
-                education: history.educationEvidence.map((source) => ({
-                  resumeIds: source.files.map((index) => resumeIds[index]),
-                })),
-                skills: history.skillFiles.map((index) => (index >= 0 ? (resumeIds[index] ?? "") : "")),
-              },
-            }),
-          });
-          if (!saved.ok) {
-            setError("Could not save jobs and schools.");
-            return;
+          if (reused) {
+            keptHistory = { jobs: reused.jobs, schools: reused.schools, skills: reused.skills };
+          } else {
+            const saved = await fetch("/api/history", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                experience: history.experience,
+                education: history.education,
+                skills: history.skills,
+                resumeId: resumeIds[0],
+                evidence: {
+                  experience: history.experienceEvidence.map((source) => ({
+                    resumeIds: source.files.map((index) => resumeIds[index]),
+                    achievements: source.achievements.map((index) => resumeIds[index]),
+                  })),
+                  education: history.educationEvidence.map((source) => ({
+                    resumeIds: source.files.map((index) => resumeIds[index]),
+                  })),
+                  skills: history.skillFiles.map((index) => (index >= 0 ? (resumeIds[index] ?? "") : "")),
+                },
+              }),
+            });
+            if (!saved.ok) {
+              setError("Could not save jobs and schools.");
+              return;
+            }
+            keptHistory = (await saved.json()) as { jobs: number; schools: number; skills: number };
           }
-          keptHistory = (await saved.json()) as { jobs: number; schools: number; skills: number };
         }
       }
-      const res = await fetch("/api/onboarding/complete", { method: "POST" });
-      const body = (await res.json()) as Me & { error?: string };
-      if (!res.ok) {
-        setError(body.error ?? "Could not finish onboarding.");
+      const receipt: OnboardingFinishReceipt = {
+        signature,
+        historySaved: keptHistory != null,
+        awaitingComplete: true,
+        jobs: keptHistory?.jobs ?? 0,
+        schools: keptHistory?.schools ?? 0,
+        skills: keptHistory?.skills ?? 0,
+        resumes: resumeIds.length,
+        setAside: setAsides.length,
+      };
+      writeFinishReceipt(receipt);
+      const completed = await requestOnboardingComplete();
+      if (!completed.ok) {
+        setError(completed.error);
         return;
       }
-      await clearOnboardingDraft();
-      if (!keptHistory) {
-        onFinished(body, { page: "home" });
-        return;
-      }
-      setDone({
-        me: body,
-        profile: prepared.value,
-        summary: onboardingDone({ ...keptHistory, resumes: resumeIds.length, setAside: setAsides.length }),
-      });
+      await concludeFinish(receipt, completed.me);
     } finally {
+      finishing.current = false;
       setBusy(false);
     }
   }
@@ -806,7 +880,8 @@ export function Onboarding({
               <DoneStep
                 summary={done.summary}
                 profile={done.profile}
-                onGo={(next) => onFinished(done.me, next)}
+                savedProfile={done.me.profile}
+                onGo={(next, profile) => onFinished({ ...done.me, profile }, next)}
               />
             </section>
           </div>
@@ -1470,11 +1545,13 @@ function ReadProgress({ model }: { model: string }) {
 function DoneStep({
   summary,
   profile,
+  savedProfile,
   onGo,
 }: {
   summary: OnboardingDone;
   profile: ProfileFields;
-  onGo: (next: OnboardingExit) => void;
+  savedProfile: Me["profile"];
+  onGo: (next: OnboardingExit, profile: Me["profile"]) => void;
 }) {
   const saved = onboardingSavedLines(profile);
   const [fields, setFields] = useState(profile);
@@ -1513,23 +1590,26 @@ function DoneStep({
       fields.linkedinUrl !== profile.linkedinUrl ||
       fields.githubUrl !== profile.githubUrl ||
       fields.portfolioUrl !== profile.portfolioUrl;
-    if (changed) {
-      const prepared = prepareProfile(fields);
-      if (!prepared.ok) {
-        setError(prepared.error === "url-invalid" ? "Use an http(s) URL for a link." : "A name is required.");
-        return;
-      }
-      const savedProfile = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(prepared.value),
-      });
-      if (!savedProfile.ok) {
-        setError("Could not save those profile changes.");
-        return;
-      }
+    if (!changed) {
+      onGo(next, { ...savedProfile, ...fields });
+      return;
     }
-    onGo(next);
+    const prepared = prepareProfile(fields);
+    if (!prepared.ok) {
+      setError(prepared.error === "url-invalid" ? "Use an http(s) URL for a link." : "A name is required.");
+      return;
+    }
+    const saved = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(prepared.value),
+    });
+    const body = (await saved.json()) as { profile?: Me["profile"]; error?: string };
+    if (!saved.ok || !body.profile) {
+      setError("Could not save those profile changes.");
+      return;
+    }
+    onGo(next, body.profile);
   }
 
   return (

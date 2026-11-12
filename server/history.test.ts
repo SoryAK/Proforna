@@ -445,3 +445,50 @@ describe("GET /api/history", () => {
     }
   });
 });
+
+describe("POST /api/history retry", () => {
+  it("keeps a single copy when the same resume is saved again", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 same"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      expect(uploaded.status).toBe(201);
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const payload = {
+        experience: [
+          {
+            company: "Acme",
+            title: "Lead",
+            location: "NYC",
+            startDate: "2024-01-01",
+            isCurrent: true,
+            description: "Ran the shop.",
+            achievements: ["Cut overtime"],
+          },
+        ],
+        education: [],
+        skills: ["TypeScript"],
+        resumeId: stored.resume.id,
+      };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(first.status).toBe(201);
+      const second = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      expect(second.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: unknown[]; skills: string[] };
+      expect(career.jobs).toHaveLength(1);
+      expect(career.skills).toEqual(["TypeScript"]);
+    } finally {
+      ctx.close();
+    }
+  });
+});

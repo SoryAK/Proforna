@@ -34,6 +34,10 @@ export async function saveExtractedResume(
   evidenceId?: string | null,
   imports?: ImportEvidence | null,
 ): Promise<{ jobs: number; schools: number; skills: number }> {
+  if (evidenceId) {
+    const prior = countsForImportedEvidence(db, occupantId, evidenceId);
+    if (prior) return prior;
+  }
   const now = new Date().toISOString();
   let jobs = 0;
   let schools = 0;
@@ -200,6 +204,39 @@ export function resolveImportEvidence(
     skillEvidenceIds.push(evidenceId);
   }
   return { experience, education, skillEvidenceIds };
+}
+
+function countsForImportedEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  evidenceId: string,
+): { jobs: number; schools: number; skills: number } | null {
+  const rows = db
+    .prepare(
+      `SELECT fact_type AS factType, evidence_ids_json AS evidenceIdsJson
+       FROM career_facts
+       WHERE occupant_id = ? AND status = 'canonical'
+         AND fact_type IN ('role', 'education', 'skill')`,
+    )
+    .all(occupantId) as Array<{ factType: string; evidenceIdsJson: string }>;
+  let jobs = 0;
+  let schools = 0;
+  let skills = 0;
+  let matched = false;
+  for (const row of rows) {
+    let ids: unknown;
+    try {
+      ids = JSON.parse(row.evidenceIdsJson);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(ids) || !ids.includes(evidenceId)) continue;
+    matched = true;
+    if (row.factType === "role") jobs += 1;
+    else if (row.factType === "education") schools += 1;
+    else skills += 1;
+  }
+  return matched ? { jobs, schools, skills } : null;
 }
 
 function resolveResumeEvidence(

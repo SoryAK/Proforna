@@ -16,6 +16,7 @@ import { HomeCenter } from "./HomeCenter";
 import { HomeProforna, type ChatRole } from "./HomeProforna";
 import { RoleCanvasEntry } from "./RoleCanvas";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
+import { clearEvidenceRole } from "./onboarding-evidence";
 import { previewWindowUrl } from "./preview-placement";
 import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
 import type { MapSettings } from "@core/map-settings";
@@ -100,6 +101,11 @@ export function Home({
     window.addEventListener("hashchange", onRoute);
     return () => window.removeEventListener("hashchange", onRoute);
   }, []);
+
+  useEffect(() => {
+    if (!initialFocusJobId || focusJobId === initialFocusJobId) return;
+    clearEvidenceRole();
+  }, [focusJobId, initialFocusJobId]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
