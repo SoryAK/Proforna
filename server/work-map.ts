@@ -930,6 +930,18 @@ function parsePin(value: unknown): LinkedEvidence["pin"] {
   }
 }
 
+export function readWorkMapSettingsUpdatedAt(
+  db: DatabaseSync,
+  occupantId: string,
+): string | null {
+  const row = db
+    .prepare(
+      "SELECT updated_at FROM work_map_publication_settings WHERE occupant_id = ?",
+    )
+    .get(occupantId) as { updated_at: string } | undefined;
+  return row?.updated_at ?? null;
+}
+
 export function readWorkMapSettings(
   db: DatabaseSync,
   occupantId: string,
@@ -1012,6 +1024,10 @@ export async function saveWorkMapSettings(
       "expiresAt" in input ? text(input.expiresAt) || null : current.expiresAt,
   };
   if (!settings.slug) throw new WorkMapStoreError("slug-required");
+  const storedUpdatedAt = readWorkMapSettingsUpdatedAt(db, occupantId);
+  if ("updatedAt" in input && input.updatedAt !== storedUpdatedAt) {
+    throw new WorkMapStoreError("revision-stale");
+  }
   const operations = planWorkMapPublicationSettings({
     current,
     next: settings,
@@ -1027,14 +1043,36 @@ export async function saveWorkMapSettings(
   db.exec("BEGIN");
   try {
     persistApprovedChange(db, minted.changeSet, minted.hash, minted.approval);
-    db.prepare(
-      `INSERT INTO work_map_publication_settings
-        (occupant_id, settings_json, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(occupant_id) DO UPDATE SET
-         settings_json = excluded.settings_json,
-         updated_at = excluded.updated_at`,
-    ).run(occupantId, JSON.stringify(settings), now);
+    const json = JSON.stringify(settings);
+    if ("updatedAt" in input) {
+      const written =
+        storedUpdatedAt === null
+          ? db
+              .prepare(
+                `INSERT INTO work_map_publication_settings
+                  (occupant_id, settings_json, updated_at)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(occupant_id) DO NOTHING`,
+              )
+              .run(occupantId, json, now)
+          : db
+              .prepare(
+                `UPDATE work_map_publication_settings
+                 SET settings_json = ?, updated_at = ?
+                 WHERE occupant_id = ? AND updated_at = ?`,
+              )
+              .run(json, now, occupantId, storedUpdatedAt);
+      if (Number(written.changes) !== 1) throw new WorkMapStoreError("revision-stale");
+    } else {
+      db.prepare(
+        `INSERT INTO work_map_publication_settings
+          (occupant_id, settings_json, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(occupant_id) DO UPDATE SET
+           settings_json = excluded.settings_json,
+           updated_at = excluded.updated_at`,
+      ).run(occupantId, json, now);
+    }
     persistAuditEvent(db, {
       id: randomUUID(),
       occupantId,
@@ -1186,6 +1224,8 @@ export function saveSharedCanvas(db: DatabaseSync, occupantId: string, input: Js
   if (!Array.isArray(input.boards)) throw new WorkMapStoreError("canvas-invalid");
   const boards = input.boards.length === 0 ? [] : readCanvasBoards(input.boards);
   if (!boards) throw new WorkMapStoreError("canvas-invalid");
+  if (typeof input.revision !== "number") throw new WorkMapStoreError("revision-stale");
+  const roleRevisions = readRoleRevisions(input.roleRevisions);
   const roleRows = db
     .prepare(`SELECT id FROM work_history WHERE occupant_id = ?`)
     .all(occupantId) as { id: string }[];
@@ -1193,18 +1233,44 @@ export function saveSharedCanvas(db: DatabaseSync, occupantId: string, input: Js
   const studies = boards.filter((board) => !roleIds.has(board.id));
   const owned = boards.filter((board) => roleIds.has(board.id));
   const incoming = new Set(boards.map((board) => board.id));
-  const library = writeStudyBoards(
-    db,
-    occupantId,
-    studies,
-    typeof input.revision === "number" ? input.revision : undefined,
-  );
   for (const board of owned) {
-    const existing = readRoleCanvasRecord(db, occupantId, board.id).boards;
-    const kept = existing.filter((item) => item.id !== board.id && !incoming.has(item.id));
-    writeRoleCanvas(db, occupantId, board.id, [board, ...kept]);
+    if (!roleRevisions.has(board.id)) throw new WorkMapStoreError("revision-stale");
   }
-  return { boards, revision: library.revision };
+  db.exec("BEGIN");
+  try {
+    const library = writeStudyBoards(db, occupantId, studies, input.revision);
+    const savedRoles: Record<string, number> = {};
+    for (const board of owned) {
+      const existing = readRoleCanvasRecord(db, occupantId, board.id).boards;
+      const kept = existing.filter((item) => item.id !== board.id && !incoming.has(item.id));
+      const saved = writeRoleCanvas(
+        db,
+        occupantId,
+        board.id,
+        [board, ...kept],
+        roleRevisions.get(board.id),
+      );
+      savedRoles[board.id] = saved.revision;
+    }
+    db.exec("COMMIT");
+    return { boards, revision: library.revision, roleRevisions: savedRoles };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function readRoleRevisions(value: unknown): Map<string, number> {
+  if (value == null) return new Map();
+  if (typeof value !== "object" || Array.isArray(value)) throw new WorkMapStoreError("canvas-invalid");
+  const revisions = new Map<string, number>();
+  for (const [id, revision] of Object.entries(value)) {
+    if (!id || typeof revision !== "number" || !Number.isInteger(revision) || revision < 0) {
+      throw new WorkMapStoreError("canvas-invalid");
+    }
+    revisions.set(id, revision);
+  }
+  return revisions;
 }
 
 export function saveCanvasAction(

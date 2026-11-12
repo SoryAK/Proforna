@@ -1669,6 +1669,7 @@ const VISIBILITY_OPTIONS: Array<{ value: WorkMapPublicationSettings["visibility"
 
 export function PublicationSettingsPanel() {
   const [settings, setSettings] = useState<WorkMapPublicationSettings | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [relayOrigin, setRelayOrigin] = useState<string | null>(null);
   const [publications, setPublications] = useState<Array<{ slug: string; status: string }>>([]);
   const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
@@ -1690,10 +1691,12 @@ export function PublicationSettingsPanel() {
       }
       const body = (await settingsResponse.json()) as {
         settings: WorkMapPublicationSettings;
+        updatedAt?: string | null;
         relayOrigin?: string | null;
       };
       if (cancel) return;
       setSettings(body.settings);
+      setUpdatedAt(body.updatedAt ?? null);
       setRelayOrigin(body.relayOrigin ?? null);
       if (!publicationResponse.ok) return;
       const listed = (await publicationResponse.json()) as {
@@ -1725,15 +1728,23 @@ export function PublicationSettingsPanel() {
     const response = await fetch("/api/work-map/settings", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(settings),
+      body: JSON.stringify({ ...settings, updatedAt }),
     });
     setBusy(false);
+    if (response.status === 409) {
+      setError("Publication settings changed after this panel opened. Reload them before saving.");
+      return;
+    }
     if (!response.ok) {
       setError("Could not save publication settings.");
       return;
     }
-    const body = (await response.json()) as { settings: WorkMapPublicationSettings };
+    const body = (await response.json()) as {
+      settings: WorkMapPublicationSettings;
+      updatedAt?: string | null;
+    };
     setSettings(body.settings);
+    setUpdatedAt(body.updatedAt ?? null);
     setMessage("Publication settings saved.");
   }
 

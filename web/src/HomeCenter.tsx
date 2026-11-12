@@ -34,24 +34,39 @@ export function HomeCenter({
   }, [viewRequest]);
 
   useEffect(() => {
-    void fetch("/api/work-map")
+    const controller = new AbortController();
+    let cancelled = false;
+    void fetch("/api/work-map", { signal: controller.signal })
       .then(async (response) => {
+        if (cancelled) return;
         if (!response.ok) {
           setError("The map could not be loaded.");
           return;
         }
         const body = (await response.json()) as { roles?: WorkMapRole[] };
+        if (cancelled) return;
         setRoles(body.roles ?? []);
         setError("");
       })
-      .catch(() => setError("The map could not be loaded."));
-    void fetch("/api/maps")
+      .catch((error: unknown) => {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+        setError("The map could not be loaded.");
+      });
+    void fetch("/api/maps", { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) return;
+        if (cancelled || !response.ok) return;
         const body = (await response.json()) as { settings?: MapSettings };
-        if (body.settings) setSettings(body.settings);
+        if (cancelled || !body.settings) return;
+        setSettings(body.settings);
       })
-      .catch(() => setSettings(null));
+      .catch((error: unknown) => {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+        setSettings(null);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [revision]);
 
   const focus = roles.find((role) => role.id === focusRoleId) ?? null;

@@ -37,6 +37,12 @@ type SessionMessage = {
   body: string;
 };
 
+type LocalEdit = {
+  id: string;
+  body: string;
+  roles: ChatRole[];
+};
+
 export function HomeProforna({
   open,
   onToggle,
@@ -60,7 +66,9 @@ export function HomeProforna({
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [composerMode, setComposerMode] = useState<"ask" | "edit">("ask");
   const [notes, setNotes] = useState<Record<string, ChatRole[]>>({});
+  const [edits, setEdits] = useState<Record<string, LocalEdit[]>>({});
   const picked = useRef(false);
+  const sessionLoad = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const sessionsRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<ChatComposerInputHandle | null>(null);
@@ -104,9 +112,12 @@ export function HomeProforna({
   }
 
   async function openSession(sessionId: string) {
+    const load = ++sessionLoad.current;
+    picked.current = true;
     setSelectedId(sessionId);
     setStatus("");
     const response = await fetch(`/api/command/sessions/${sessionId}`);
+    if (sessionLoad.current !== load) return;
     if (!response.ok) {
       setMessages([]);
       return;
@@ -115,10 +126,13 @@ export function HomeProforna({
       session: SessionSummary;
       messages: SessionMessage[];
     };
+    if (sessionLoad.current !== load) return;
     setMessages(body.messages);
   }
 
   function startNew() {
+    sessionLoad.current += 1;
+    picked.current = true;
     abortRef.current?.abort();
     setSelectedId(null);
     setMessages([]);
@@ -134,8 +148,11 @@ export function HomeProforna({
     const attached = roles;
     if (composerMode === "edit") {
       const id = `edit-${Date.now()}`;
-      setMessages((current) => [...current, { id, speaker: "occupant", body }]);
-      if (attached.length > 0) setNotes((current) => ({ ...current, [id]: attached }));
+      const key = selectedId ?? "new";
+      setEdits((current) => ({
+        ...current,
+        [key]: [...(current[key] ?? []), { id, body, roles: attached }],
+      }));
       setDraft("");
       setStatus("");
       return;
@@ -157,8 +174,17 @@ export function HomeProforna({
           return;
         }
         const created = (await opened.json()) as { session: SessionSummary };
-        sessionId = created.session.id;
-        setSelectedId(sessionId);
+        const createdId = created.session.id;
+        sessionId = createdId;
+        setSelectedId(createdId);
+        setEdits((current) => {
+          const pending = current.new;
+          if (!pending?.length) return current;
+          const next = { ...current };
+          delete next.new;
+          next[createdId] = [...(next[createdId] ?? []), ...pending];
+          return next;
+        });
       }
       const response = await fetch(`/api/command/sessions/${sessionId}/messages`, {
         method: "POST",
@@ -216,6 +242,7 @@ export function HomeProforna({
   }
 
   const title = sessions.find((session) => session.id === selectedId)?.title ?? "New";
+  const localEdits = edits[selectedId ?? "new"] ?? [];
 
   return (
     <aside
@@ -333,6 +360,21 @@ export function HomeProforna({
               />
             }
           >
+            {localEdits.length > 0 ? (
+              <div className="home-chat-edits">
+                <p className="home-chat-edits-label">Edits on this screen</p>
+                <ul>
+                  {localEdits.map((edit) => (
+                    <li key={edit.id}>
+                      <p>{edit.body}</p>
+                      {edit.roles.length ? (
+                        <p className="home-chat-context">{contextLine(edit.roles)}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {messages.length > 0 || busy ? (
               <ChatMessageList>
                 {messages.map((message) => (

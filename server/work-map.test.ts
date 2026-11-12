@@ -787,8 +787,9 @@ describe("canvas arrangement", () => {
         }),
       });
       const workMap = (await (await app.request("/api/work-map")).json()) as {
-        roles: Array<{ id: string }>;
+        roles: Array<{ id: string; canvasRevision?: number }>;
         studyBoards: unknown[];
+        studyRevision: number;
       };
       const roleId = workMap.roles[0].id;
       expect(workMap.studyBoards).toEqual([]);
@@ -797,6 +798,8 @@ describe("canvas arrangement", () => {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          revision: workMap.studyRevision,
+          roleRevisions: { [roleId]: workMap.roles[0].canvasRevision ?? 0 },
           boards: [
             {
               id: roleId,
@@ -814,6 +817,37 @@ describe("canvas arrangement", () => {
         }),
       });
       expect(saved.status).toBe(200);
+      const savedBody = (await saved.json()) as {
+        revision: number;
+        roleRevisions: Record<string, number>;
+      };
+      expect(savedBody.revision).toBe(1);
+      expect(savedBody.roleRevisions).toEqual({ [roleId]: 1 });
+
+      const stale = await app.request("/api/work-map/canvas", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          revision: savedBody.revision,
+          roleRevisions: { [roleId]: 0 },
+          boards: [
+            {
+              id: roleId,
+              name: "Lead",
+              nodes: [{ id: "node-1", kind: "Design", title: "Replaced", x: 1, y: 1 }],
+              groups: [],
+            },
+            {
+              id: "sample-group",
+              name: "Replaced",
+              nodes: [],
+              groups: [],
+            },
+          ],
+        }),
+      });
+      expect(stale.status).toBe(409);
+      expect(await stale.json()).toEqual({ error: "revision-stale" });
 
       const again = (await (await app.request("/api/work-map")).json()) as {
         roles: Array<{ canvasRevision?: number; canvasBoards?: Array<{ nodes: Array<{ title: string }> }> }>;
@@ -915,6 +949,70 @@ describe("canvas arrangement", () => {
       };
       expect(after.roles[0].canvasRevision).toBe(2);
       expect(after.roles[0].canvasBoards?.[0].nodes[0]).toMatchObject({ x: 80, notes: [] });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("refuses a publication settings write that was loaded before a newer save", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
+    try {
+      const opened = (await (await app.request("/api/work-map/settings")).json()) as {
+        updatedAt: string | null;
+        settings: { slug: string };
+      };
+      expect(opened.updatedAt).toBeNull();
+
+      const saved = await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...opened.settings,
+          slug: "newer-slug",
+          updatedAt: opened.updatedAt,
+        }),
+      });
+      expect(saved.status).toBe(200);
+      const savedBody = (await saved.json()) as {
+        updatedAt: string;
+        settings: { slug: string };
+      };
+      expect(savedBody.settings.slug).toBe("newer-slug");
+      expect(savedBody.updatedAt).toEqual(expect.any(String));
+
+      const stale = await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...opened.settings,
+          slug: "older-slug",
+          updatedAt: opened.updatedAt,
+        }),
+      });
+      expect(stale.status).toBe(409);
+      expect(await stale.json()).toEqual({ error: "revision-stale" });
+
+      const published = await app.request("/api/work-map/publish", { method: "POST" });
+      expect(published.status).toBe(201);
+      const publication = (await published.json()) as { projection: { slug: string } };
+      expect(publication.projection.slug).toBe("newer-slug");
+
+      const current = (await (await app.request("/api/work-map/settings")).json()) as {
+        settings: { slug: string };
+        updatedAt: string;
+      };
+      expect(current.settings.slug).toBe("newer-slug");
+      expect(current.updatedAt).toBe(savedBody.updatedAt);
     } finally {
       db.close();
     }

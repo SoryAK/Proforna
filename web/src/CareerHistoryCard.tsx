@@ -21,6 +21,7 @@ export function CareerHistoryCard({
   onBack,
   onImport,
   onAsk,
+  onRemoved,
   onSelectionChange,
   release,
 }: {
@@ -29,6 +30,7 @@ export function CareerHistoryCard({
   onBack: () => void;
   onImport: () => void;
   onAsk: () => void;
+  onRemoved?: (ids: string[]) => void;
   onSelectionChange?: (roles: WorkMapRole[]) => void;
   release?: { id: string; nonce: number } | null;
 }) {
@@ -183,7 +185,9 @@ export function CareerHistoryCard({
       }
       return next;
     });
-    if (focusId && ids.includes(focusId) && !failed.includes(focusId)) setFocusId(null);
+    const removed = ids.filter((id) => !failed.includes(id));
+    if (focusId && removed.includes(focusId)) setFocusId(null);
+    if (removed.length > 0) onRemoved?.(removed);
     setNote(
       failed.length === 0
         ? ids.length === 1

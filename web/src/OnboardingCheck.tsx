@@ -197,6 +197,12 @@ function ReviewCarousel({
       ref={dialog}
       className="onboarding-review"
       data-compare={slideFile ? "true" : undefined}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") event.stopPropagation();
+      }}
+      onCancel={(event) => {
+        event.stopPropagation();
+      }}
       onClose={onClose}
       aria-labelledby="onboarding-review-title"
     >

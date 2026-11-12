@@ -348,6 +348,20 @@ async function sendLatestBoards(roleId: string) {
 let sharedBoardsCache: CanvasBoard[] | null = null;
 let sharedSaveTail: Promise<void> = Promise.resolve();
 let sharedPending: { boards: CanvasBoard[]; roleIds: string[] } | null = null;
+let sharedStudyRevision: number | null = null;
+const sharedRoleRevisions = new Map<string, number>();
+
+function rememberSharedRevisions(
+  studyRevision: number,
+  roles: readonly { id: string; canvasRevision?: number }[],
+) {
+  if (sharedStudyRevision == null) sharedStudyRevision = studyRevision;
+  for (const role of roles) {
+    if (!sharedRoleRevisions.has(role.id) && typeof role.canvasRevision === "number") {
+      sharedRoleRevisions.set(role.id, role.canvasRevision);
+    }
+  }
+}
 
 function scheduleSharedSave(boards: CanvasBoard[], roleIds: string[]) {
   sharedPending = { boards, roleIds };
@@ -364,15 +378,30 @@ async function flushSharedSave() {
     response = await fetch("/api/work-map/canvas", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ boards: job.boards }),
+      body: JSON.stringify({
+        boards: job.boards,
+        revision: sharedStudyRevision ?? 0,
+        roleRevisions: Object.fromEntries(
+          job.roleIds.map((id) => [id, sharedRoleRevisions.get(id) ?? 0]),
+        ),
+      }),
     });
   } catch {
     if (!sharedPending) sharedPending = job;
     throw new Error("save failed");
   }
+  if (response.status === 409) throw new Error("save stale");
   if (!response.ok) {
     if (!sharedPending) sharedPending = job;
     throw new Error("save failed");
+  }
+  const saved = (await response.json()) as {
+    revision: number;
+    roleRevisions?: Record<string, number>;
+  };
+  sharedStudyRevision = saved.revision;
+  for (const [id, revision] of Object.entries(saved.roleRevisions ?? {})) {
+    sharedRoleRevisions.set(id, revision);
   }
   const roleIds = new Set(job.roleIds);
   sharedBoardsCache = job.boards.filter((board) => !roleIds.has(board.id));
@@ -484,6 +513,7 @@ export function RoleCanvasEntry({
   onOpenRole,
   onClose,
   studyBoards = [],
+  studyRevision = 0,
   host = null,
 }: {
   role: WorkMapRole;
@@ -497,6 +527,7 @@ export function RoleCanvasEntry({
   onOpenRole?: (role: WorkMapRole) => void;
   onClose: () => void;
   studyBoards?: CanvasBoard[];
+  studyRevision?: number;
   host?: HTMLElement | null;
 }) {
   const catalog = useMemo(
@@ -721,6 +752,7 @@ export function RoleCanvasEntry({
   });
   const boardsRef = useRef(boards);
   boardsRef.current = boards;
+  rememberSharedRevisions(studyRevision, catalog);
 
   useEffect(() => {
     const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];

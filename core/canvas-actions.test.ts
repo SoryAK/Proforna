@@ -109,6 +109,11 @@ describe("canvas actions", () => {
       ok: false,
       error: "kind-invalid",
     });
+    expect(addCanvasNode(saved, { id: "hinge", kind: "Text", title: "Another hinge", x: 1, y: 1 })).toEqual({
+      ok: false,
+      error: "id-taken",
+    });
+    expect(saved.nodes).toHaveLength(2);
   });
 
   it("moves one node and leaves the others in place", () => {
@@ -153,6 +158,13 @@ describe("canvas actions", () => {
       ok: false,
       error: "node-missing",
     });
+    expect(grouped.ok).toBe(true);
+    if (!grouped.ok) return;
+    expect(groupCanvasNodes(grouped.board, { id: "group-1", name: "Again", memberIds: ["hinge"] })).toEqual({
+      ok: false,
+      error: "id-taken",
+    });
+    expect(grouped.board.groups).toHaveLength(1);
   });
 
   it("appends a note and refuses a blank one", () => {
@@ -198,5 +210,32 @@ describe("canvas actions", () => {
       }),
     ).toEqual({ ok: false, error: "revision-stale", revision: 4 });
     expect(saved.nodes.find((node) => node.id === "photo")?.notes).toEqual(["Kept"]);
+  });
+
+  it("keeps the board unchanged when a save repeats a node or group id", () => {
+    const saved = board();
+    const grouped = groupCanvasNodes(saved, { id: "group-1", name: "Shop", memberIds: ["hinge"] });
+    expect(grouped.ok).toBe(true);
+    if (!grouped.ok) return;
+    expect(
+      applyCanvasSave({
+        boards: [grouped.board],
+        revision: 1,
+        expectedRevision: 1,
+        boardId: "role-1",
+        action: { name: "add-node", input: { id: "hinge", kind: "Text", title: "Copy", x: 1, y: 2 } },
+      }),
+    ).toEqual({ ok: false, error: "id-taken", revision: 1 });
+    expect(
+      applyCanvasSave({
+        boards: [grouped.board],
+        revision: 1,
+        expectedRevision: 1,
+        boardId: "role-1",
+        action: { name: "group-nodes", input: { id: "group-1", name: "Again", memberIds: ["photo"] } },
+      }),
+    ).toEqual({ ok: false, error: "id-taken", revision: 1 });
+    expect(grouped.board.nodes.map((node) => node.id)).toEqual(["hinge", "photo"]);
+    expect(grouped.board.groups.map((group) => group.id)).toEqual(["group-1"]);
   });
 });

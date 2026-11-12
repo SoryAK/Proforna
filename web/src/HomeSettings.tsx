@@ -608,21 +608,20 @@ function SettingsNarrowShell({
             onSelect={(setting) => onSelectPanel(setting.panel)}
           />
         </VStack>
-      ) : (
-        <>
-          <SettingsPanelTabs
-            activePanel={activePanel}
-            onSelectPanel={onSelectPanel}
-          />
-          <Divider />
-          <StackItem size="fill">
-            <VStack gap={4} padding={4} isScrollable height="100%" style={panelStyle}>
-              <SettingsPanelHeading panel={activePanel} />
-              {fields}
-            </VStack>
-          </StackItem>
-        </>
-      )}
+      ) : null}
+      <div hidden={search.isActive} style={search.isActive ? undefined : { display: "contents" }}>
+        <SettingsPanelTabs
+          activePanel={activePanel}
+          onSelectPanel={onSelectPanel}
+        />
+        <Divider />
+        <StackItem size="fill">
+          <VStack gap={4} padding={4} isScrollable height="100%" style={panelStyle}>
+            <SettingsPanelHeading panel={activePanel} />
+            {fields}
+          </VStack>
+        </StackItem>
+      </div>
     </VStack>
   );
 }

@@ -25,7 +25,13 @@ export type CanvasBoardSummary = {
   nodes: number;
 };
 
-export type CanvasActionError = "board-missing" | "node-missing" | "kind-invalid" | "title-required" | "note-empty";
+export type CanvasActionError =
+  | "board-missing"
+  | "node-missing"
+  | "kind-invalid"
+  | "title-required"
+  | "note-empty"
+  | "id-taken";
 
 export type CanvasWrite =
   | { name: "add-node"; input: { id: string; kind: string; title: string; x: number; y: number } }
@@ -67,6 +73,7 @@ export function addCanvasNode(
   const title = input.title.trim();
   if (!title) return { ok: false, error: "title-required" };
   if (!isCanvasNodeKind(input.kind)) return { ok: false, error: "kind-invalid" };
+  if (board.nodes.some((node) => node.id === input.id)) return { ok: false, error: "id-taken" };
   const node: CanvasNode = {
     id: input.id,
     kind: input.kind,
@@ -119,6 +126,7 @@ export function groupCanvasNodes(
 ): CanvasActionResult<{ board: CanvasBoard }> {
   const members = input.memberIds.map((id) => board.nodes.find((node) => node.id === id));
   if (members.some((node) => !node)) return { ok: false, error: "node-missing" };
+  if (board.groups.some((group) => group.id === input.id)) return { ok: false, error: "id-taken" };
   const anchor = members[0];
   return {
     ok: true,

@@ -36,6 +36,7 @@ export function ResumeImport({ onClose, onDone }: { onClose: () => void; onDone:
   const [asides, setAsides] = useState<SetAsideRole[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const filesRef = useRef(files);
   const addChain = useRef(Promise.resolve());
   filesRef.current = files;
@@ -236,7 +237,7 @@ export function ResumeImport({ onClose, onDone }: { onClose: () => void; onDone:
       className="resume-import-dialog"
       isOpen
       onOpenChange={(next) => {
-        if (!next && !locked) onClose();
+        if (!next && !locked && !reviewing) onClose();
       }}
       purpose={locked ? "required" : "form"}
       width={phase === "verify" ? "min(72rem, calc(100vw - 2.5rem))" : 640}
@@ -274,6 +275,7 @@ export function ResumeImport({ onClose, onDone }: { onClose: () => void; onDone:
                   onSetAside={(item) => setAsides((current) => rememberSetAside(current, item))}
                   onForgetAside={(id) => setAsides((current) => current.filter((row) => row.id !== id))}
                   onRows={ignoreRows}
+                  onReviewChange={setReviewing}
                   onDone={(nextHeld, skills) => void confirm(nextHeld, skills)}
                 />
               </div>

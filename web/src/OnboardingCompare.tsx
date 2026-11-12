@@ -292,7 +292,19 @@ function CompareDialog({
   }, []);
   const waiting = confirming && choices.some((choice) => !picks[choice.key]);
   return (
-    <dialog ref={dialog} className="onboarding-review" data-compare="true" onClose={onClose} aria-labelledby="onboarding-compare-title">
+    <dialog
+      ref={dialog}
+      className="onboarding-review"
+      data-compare="true"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") event.stopPropagation();
+      }}
+      onCancel={(event) => {
+        event.stopPropagation();
+      }}
+      onClose={onClose}
+      aria-labelledby="onboarding-compare-title"
+    >
       <div className="onboarding-review-head">
         <p className="onboarding-kicker">Compare</p>
         <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onClose}>
@@ -497,6 +509,7 @@ export function AllResumesVerify({
   onForgetAside,
   onRows,
   onDone,
+  onReviewChange,
   hideHeading = false,
 }: {
   bundles: ResumeBundle[];
@@ -514,6 +527,7 @@ export function AllResumesVerify({
   onForgetAside: (id: string) => void;
   onRows: (rows: OnboardingTimelineRow[], declined: string[]) => void;
   onDone: (held: HeldRole[], skills: HeldSkill[]) => void;
+  onReviewChange?: (open: boolean) => void;
   hideHeading?: boolean;
 }) {
   const [rows, setRows] = useState<OnboardingTimelineRow[]>(
@@ -538,6 +552,12 @@ export function AllResumesVerify({
   useEffect(() => {
     onRows(rows, declined);
   }, [rows, declined, onRows]);
+
+  useEffect(() => {
+    const open = editId !== null || compareId !== null;
+    onReviewChange?.(open);
+    return () => onReviewChange?.(false);
+  }, [editId, compareId, onReviewChange]);
 
   function markOpened(id: string) {
     setOpened((current) => (current.includes(id) ? current : [...current, id]));

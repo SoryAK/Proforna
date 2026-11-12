@@ -86,6 +86,7 @@ type WorkMapResponse = {
     publicMedia: number;
   };
   studyBoards?: CanvasBoard[];
+  studyRevision?: number;
 };
 
 type Publication = {
@@ -599,16 +600,6 @@ export function WorkMap({
     if (!settings) return;
     setPublishing(true);
     setMessage("");
-    const settingsResponse = await fetch("/api/work-map/settings", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    if (!settingsResponse.ok) {
-      setPublishing(false);
-      setMessage("Save valid publication settings before publishing.");
-      return;
-    }
     const response = await fetch("/api/work-map/publish", { method: "POST" });
     setPublishing(false);
     if (response.ok) {
@@ -1018,6 +1009,7 @@ export function WorkMap({
           role={canvasRole}
           roles={canvasAll ? canvasRoles : undefined}
           studyBoards={data?.studyBoards ?? []}
+          studyRevision={data?.studyRevision ?? 0}
           scope={canvasAll ? "all" : "role"}
           minimized={canvasMinimized}
           slot={canvasAll || selectedId !== canvasRole.id ? null : canvasSlot}

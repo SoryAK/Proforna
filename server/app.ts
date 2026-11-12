@@ -209,6 +209,7 @@ import {
   loadWorkMapMediaFile,
   readWorkMap,
   readWorkMapSettings,
+  readWorkMapSettingsUpdatedAt,
   removeWorkMapLocation,
   removeWorkMapRole,
   removeWorkMapMedia,
@@ -1408,6 +1409,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     return c.json({
       settings: readWorkMapSettings(db, occupant.id),
+      updatedAt: readWorkMapSettingsUpdatedAt(db, occupant.id),
       relayOrigin: options.relayPublicOrigin ?? null,
     });
   });
@@ -1420,10 +1422,16 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         occupant.id,
         (await c.req.json()) as Record<string, unknown>,
       );
-      return c.json({ settings });
+      return c.json({
+        settings,
+        updatedAt: readWorkMapSettingsUpdatedAt(db, occupant.id),
+      });
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
-        return c.json({ error: error.code }, 400);
+        return c.json(
+          { error: error.code },
+          error.code === "revision-stale" ? 409 : 400,
+        );
       }
       throw error;
     }

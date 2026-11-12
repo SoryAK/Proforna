@@ -361,6 +361,10 @@ export function Home({
                       onAsk={() => {
                         if (!profornaOpen) togglePanel();
                       }}
+                      onRemoved={(ids) => {
+                        setCareerRevision((n) => n + 1);
+                        setFocusJobId((current) => (current && ids.includes(current) ? null : current));
+                      }}
                       onSelectionChange={setChatRoles}
                       release={chatRelease}
                     />
@@ -422,14 +426,20 @@ export function Home({
 function HomeCanvas({ onClose }: { onClose: () => void }) {
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [studyBoards, setStudyBoards] = useState<CanvasBoard[]>([]);
+  const [studyRevision, setStudyRevision] = useState(0);
 
   useEffect(() => {
     void fetch("/api/work-map")
       .then(async (response) => {
         if (!response.ok) return;
-        const body = (await response.json()) as { roles?: WorkMapRole[]; studyBoards?: CanvasBoard[] };
+        const body = (await response.json()) as {
+          roles?: WorkMapRole[];
+          studyBoards?: CanvasBoard[];
+          studyRevision?: number;
+        };
         setRoles(body.roles ?? []);
         setStudyBoards(body.studyBoards ?? []);
+        setStudyRevision(body.studyRevision ?? 0);
       })
       .catch(() => {
         setRoles([]);
@@ -444,6 +454,7 @@ function HomeCanvas({ onClose }: { onClose: () => void }) {
       role={role}
       roles={roles}
       studyBoards={studyBoards}
+      studyRevision={studyRevision}
       scope="all"
       minimized={false}
       slot={null}
