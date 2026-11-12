@@ -356,6 +356,7 @@ const sharedBoardSinks = new Set<(boards: CanvasBoard[]) => void>();
 let sharedBoardVersion = 0;
 let sharedLatestVersion = 0;
 let sharedLatestRoleIds: string[] | null = null;
+let sharedLatestBoards: CanvasBoard[] | null = null;
 
 type SharedMap = {
   studyRevision: number;
@@ -669,7 +670,7 @@ export function RoleCanvasEntry({
   studyRevision = 0,
   host = null,
 }: {
-  role: WorkMapRole;
+  role?: WorkMapRole;
   roles?: WorkMapRole[];
   scope?: "role" | "all";
   minimized: boolean;
@@ -687,14 +688,18 @@ export function RoleCanvasEntry({
     () => (scope === "all" ? (roles ?? []) : [role]),
     [scope, role, roles],
   );
-  const openingId = scope === "all" ? "" : role.id;
-  const openingViewport = openingId ? readViewport(role.id, openingId) : null;
+  const openingId = scope === "all" ? "" : (role?.id ?? "");
+  const openingViewport = openingId && role ? readViewport(role.id, openingId) : null;
   const loadedStudies = storedStudies(studyBoards);
   const [boards, setBoardsState] = useState(() =>
-    scope === "all" ? loadAllBoards(catalog, loadedStudies) : reflectRole(loadBoards(role, loadedStudies), role),
+    scope === "all"
+      ? loadAllBoards(catalog, loadedStudies)
+      : role
+        ? reflectRole(loadBoards(role, loadedStudies), role)
+        : [],
   );
   function setBoards(update: CanvasBoard[] | ((current: CanvasBoard[]) => CanvasBoard[])) {
-    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     if (typeof update === "function") {
       const requested = ++sharedBoardVersion;
       sharedLatestRoleIds = [...roleIds];
@@ -879,6 +884,7 @@ export function RoleCanvasEntry({
       setBoards((current) => catalog.reduce((next, item) => reflectRole(next, item), current));
       return;
     }
+    if (!role) return;
     setBoards((current) => reflectRole(current, role));
     setDraft((current) => {
       if (!current?.achievementId) return current;
@@ -912,7 +918,7 @@ export function RoleCanvasEntry({
   }, [canvas]);
   const selected = canvas?.nodes.find((node) => node.id === selectedId) ?? null;
   const focusRole = scope === "all" ? (catalog.find((item) => item.id === canvas?.id) ?? null) : role;
-  const roleBoard = boards.find((board) => board.id === (focusRole?.id ?? role.id));
+  const roleBoard = boards.find((board) => board.id === (focusRole?.id ?? role?.id));
   const linkedIds = new Set<string>();
   for (const node of roleBoard?.nodes ?? []) {
     for (const link of node.links) {
@@ -940,9 +946,9 @@ export function RoleCanvasEntry({
   }, []);
 
   useEffect(() => {
-    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     void scheduleSharedSave(boards, roleIds).catch(() => undefined);
-  }, [boards, role.id, scope, catalog]);
+  }, [boards, role, scope, catalog]);
 
   useEffect(() => {
     if (!open || minimized) return;
@@ -1073,11 +1079,11 @@ export function RoleCanvasEntry({
   }
 
   function deleteBoard() {
-    if (!canvas || canvas.id === role.id) return;
+    if (!canvas || canvas.id === role?.id) return;
     const id = canvas.id;
-    const order = boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+    const order = boardGroups(boards, role?.id ?? "", "").flatMap((group) => group.boards);
     const index = order.findIndex((board) => board.id === id);
-    const fallback = order[index - 1]?.id ?? order[index + 1]?.id ?? role.id;
+    const fallback = order[index - 1]?.id ?? order[index + 1]?.id ?? role?.id ?? "";
     setBoardOpen(false);
     setBoards((current) => current.filter((board) => board.id !== id));
     showHome(fallback);
@@ -1143,7 +1149,7 @@ export function RoleCanvasEntry({
   }
 
   function viewOwner(boardId: string) {
-    if (scope !== "all") return role.id;
+    if (scope !== "all") return role?.id ?? "";
     return catalog.some((item) => item.id === boardId) ? boardId : "all";
   }
 
@@ -1276,7 +1282,7 @@ export function RoleCanvasEntry({
   }
 
   function onLinked(node: CanvasNode) {
-    if (scope !== "all" && canvasId !== role.id) showHome(role.id);
+    if (scope !== "all" && role && canvasId !== role.id) showHome(role.id);
     if (node.kind === "Video") {
       openVideo(node);
       return;
@@ -2065,7 +2071,7 @@ export function RoleCanvasEntry({
   }
 
   function snapKey(boardId = canvas?.id ?? "") {
-    return `${role.id}:${boardId}`;
+    return `${role?.id ?? "all"}:${boardId}`;
   }
 
   function savesFor(boardId = canvas?.id ?? "") {
@@ -2087,7 +2093,7 @@ export function RoleCanvasEntry({
     };
     setSnaps((current) => ({ ...current, [snapKey(canvas.id)]: [snap, ...list].slice(0, 30) }));
     setSaveError("");
-    const roleIds = scope === "all" ? catalog.map((item) => item.id) : [role.id];
+    const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     void scheduleSharedSave(boards, roleIds)
       .then(() => {
         setSavedFlash(true);
@@ -3052,23 +3058,25 @@ export function RoleCanvasEntry({
       : { left: frame.left, top: frame.top, width: frame.width, height: frame.height };
 
   const boardOrder =
-    scope === "all" ? [] : boardGroups(boards, role.id, "").flatMap((group) => group.boards);
+    scope === "all" ? [] : boardGroups(boards, role?.id ?? "", "").flatMap((group) => group.boards);
   const boardIndex = boardOrder.findIndex((board) => board.id === canvas?.id);
   const previousBoard = boardIndex > 0 ? boardOrder[boardIndex - 1] : null;
   const nextBoard =
     boardIndex >= 0 && boardIndex < boardOrder.length - 1 ? boardOrder[boardIndex + 1] : null;
 
-  const roleFacts = [
-    role.organization.trim(),
-    formatHistoryPlace({
-      organization: role.organization,
-      locationLabel: role.locationLabel,
-      locations: role.locations.map((location) => ({ address: location.address })),
-    }),
-    formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const roleFacts = role
+    ? [
+        role.organization.trim(),
+        formatHistoryPlace({
+          organization: role.organization,
+          locationLabel: role.locationLabel,
+          locations: role.locations.map((location) => ({ address: location.address })),
+        }),
+        formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   const windowNode = open ? (
     <div
@@ -3118,7 +3126,7 @@ export function RoleCanvasEntry({
           </button>
           {scope === "all" ? (
             <span className="role-canvas-title">Career history</span>
-          ) : role.title.trim() ? (
+          ) : role && role.title.trim() ? (
             <>
               {role.organization.trim() ? (
                 <>
@@ -3222,7 +3230,7 @@ export function RoleCanvasEntry({
           ) : (
             <span className="role-canvas-title">Canvas</span>
           )}
-          {titleOpen && role.title.trim() ? (
+          {titleOpen && role && role.title.trim() ? (
             <div className="role-canvas-title-menu" role="menu">
               {roleFacts ? <p>{roleFacts}</p> : null}
               <button
@@ -3760,9 +3768,9 @@ export function RoleCanvasEntry({
       ) : null}
       <div className="role-canvas-body">
       {railOpen ? (
-        <aside className="role-canvas-rail" aria-label={scope === "all" ? "Boards" : role.organization.trim() || "Boards"}>
+        <aside className="role-canvas-rail" aria-label={scope === "all" ? "Boards" : role?.organization.trim() || "Boards"}>
           <div className="role-canvas-rail-head">
-            <strong>{scope === "all" ? "Boards" : role.organization.trim() || "Boards"}</strong>
+            <strong>{scope === "all" ? "Boards" : role?.organization.trim() || "Boards"}</strong>
           </div>
           <div className="role-canvas-rail-find">
             <input
@@ -3801,7 +3809,7 @@ export function RoleCanvasEntry({
                 onBoard={showHome}
               />
             ) : (
-              boardGroups(boards, role.id, boardQuery).map((group) => (
+              boardGroups(boards, role?.id ?? "", boardQuery).map((group) => (
                 <div key={group.label}>
                   <p>{group.label}</p>
                   {group.boards.map((board) => (

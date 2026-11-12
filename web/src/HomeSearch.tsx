@@ -33,7 +33,7 @@ export function HomeSearch({
   onOpenChange: (open: boolean) => void;
   onPlace: (id: SearchPlace) => void;
   onRole: (id: string) => void;
-  onUpdate: (id: string) => void;
+  onUpdate: (id: string, roleId: string) => void;
 }) {
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
 
@@ -59,7 +59,11 @@ export function HomeSearch({
       return;
     }
     if (kind === "role") onRole(target);
-    if (kind === "update") onUpdate(target);
+    if (kind === "update") {
+      const cut = target.indexOf(":");
+      if (cut === -1) return;
+      onUpdate(target.slice(cut + 1), target.slice(0, cut));
+    }
   }
 
   return (
@@ -103,15 +107,17 @@ function buildPalette(roles: WorkMapRole[]): SearchSource<PaletteHit> {
       },
     };
   });
-  const updateHits: PaletteHit[] = liveUpdates(roles).map((item) => ({
-    id: `update:${item.id}`,
-    label: item.organization,
-    auxiliaryData: {
-      group: "Live updates",
-      detail: `${item.kind} · ${item.text}`,
-      haystack: `${item.organization} ${item.kind} ${item.text}`,
-    },
-  }));
+  const updateHits: PaletteHit[] = roles.flatMap((role) =>
+    liveUpdates([role]).map((item) => ({
+      id: `update:${role.id}:${item.id}`,
+      label: item.organization,
+      auxiliaryData: {
+        group: "Live updates",
+        detail: `${item.kind} · ${item.text}`,
+        haystack: `${item.organization} ${item.kind} ${item.text}`,
+      },
+    })),
+  );
   const all = [...places, ...roleHits, ...updateHits];
   return {
     bootstrap: () => places,

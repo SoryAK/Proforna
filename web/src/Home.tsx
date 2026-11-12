@@ -209,9 +209,9 @@ export function Home({
     goPage("history");
   }
 
-  function openSearchUpdate(id: string) {
+  function openSearchUpdate(id: string, roleId: string) {
     showCenter();
-    setFocusJobId(null);
+    setFocusJobId(roleId);
     setCenterView({ id: Date.now(), updates: true, updateId: id });
   }
 
@@ -426,6 +426,7 @@ export function Home({
                       onAsk={() => {
                         if (!profornaOpen) togglePanel();
                       }}
+                      onAdded={() => setCareerRevision((n) => n + 1)}
                       onRemoved={(ids) => {
                         setCareerRevision((n) => n + 1);
                         setFocusJobId((current) => (current && ids.includes(current) ? null : current));
@@ -489,11 +490,13 @@ export function Home({
 }
 
 function HomeCanvas({ onClose }: { onClose: () => void }) {
+  const [ready, setReady] = useState(false);
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [studyBoards, setStudyBoards] = useState<CanvasBoard[]>([]);
   const [studyRevision, setStudyRevision] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     void fetch("/api/work-map")
       .then(async (response) => {
         if (!response.ok) return;
@@ -502,18 +505,20 @@ function HomeCanvas({ onClose }: { onClose: () => void }) {
           studyBoards?: CanvasBoard[];
           studyRevision?: number;
         };
+        if (cancelled) return;
         setRoles(body.roles ?? []);
         setStudyBoards(body.studyBoards ?? []);
         setStudyRevision(body.studyRevision ?? 0);
+        setReady(true);
       })
-      .catch(() => {
-        setRoles([]);
-        setStudyBoards([]);
-      });
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  if (!ready) return null;
   const role = roles[0];
-  if (!role) return null;
   return (
     <RoleCanvasEntry
       role={role}

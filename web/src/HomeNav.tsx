@@ -78,6 +78,7 @@ export function HomeNav({
 
   function go(next: HomePage) {
     setCustomId(null);
+    onCanvas(false);
     onGoPage(next);
     onCloseMobile();
   }
@@ -91,6 +92,7 @@ export function HomeNav({
       return;
     }
     setCustomId(id);
+    onCanvas(false);
     onCloseMobile();
   }
 
@@ -128,6 +130,7 @@ export function HomeNav({
           slim={slim}
           onSelect={() => {
             setCustomId(null);
+            onCanvas(false);
             onGoHome();
             onCloseMobile();
           }}
@@ -139,6 +142,7 @@ export function HomeNav({
           slim={slim}
           onSelect={() => {
             setCustomId(null);
+            onCanvas(false);
             onGoHistory();
             onCloseMobile();
           }}

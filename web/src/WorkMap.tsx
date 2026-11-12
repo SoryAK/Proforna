@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ResumeImport } from "./ResumeImport";
+import { CareerHistoryAddMenu, createCareerHistoryRole } from "./CareerHistoryAddMenu";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
@@ -684,23 +685,18 @@ export function WorkMap({
   async function addRole(kind: CareerHistorySectionKey) {
     setCreatingKind(kind);
     setMessage("");
-    const response = await fetch("/api/work-map/roles", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind }),
-    });
+    const id = await createCareerHistoryRole(kind);
     setCreatingKind(null);
-    if (!response.ok) {
+    if (!id) {
       setMessage("Could not add that role.");
       return;
     }
-    const body = (await response.json()) as { role: { id: string } };
     setClosedSections((current) => {
       const next = new Set(current);
       next.delete(kind);
       return next;
     });
-    setSelectedId(body.role.id);
+    setSelectedId(id);
     await load();
   }
 
@@ -1245,21 +1241,12 @@ export function WorkMap({
                 +
               </button>
               {ledgerMenu === "add" ? (
-                <div className="history-menu-panel" role="menu" aria-label="Add">
-                  {CAREER_HISTORY_SECTIONS.map((section) => (
-                    <button
-                      key={section.key}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setLedgerMenu(null);
-                        void addRole(section.key);
-                      }}
-                    >
-                      {addKindLabel(section.key)}
-                    </button>
-                  ))}
-                </div>
+                <CareerHistoryAddMenu
+                  onChoose={(kind) => {
+                    setLedgerMenu(null);
+                    void addRole(kind);
+                  }}
+                />
               ) : null}
             </div>
             <button
@@ -2097,12 +2084,6 @@ function asTimelineRole(role: WorkMapRole): CareerTimelineRole {
     milestones: role.details?.milestones ?? [],
     events: role.details?.events ?? [],
   };
-}
-
-function addKindLabel(key: CareerHistorySectionKey): string {
-  if (key === "school") return "Education";
-  if (key === "internship") return "Internship";
-  return "Job";
 }
 
 function ImportIcon() {

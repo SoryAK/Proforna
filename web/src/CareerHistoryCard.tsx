@@ -10,9 +10,15 @@ import {
   formatHistoryGist,
   formatHistoryPeriod,
   formatHistoryPlace,
+  type CareerHistorySectionKey,
 } from "@core/career-history";
 import type { WorkMapRole } from "@core/work-map";
 import { ArrowLeft, Plus, SquareCheck } from "lucide-react";
+import {
+  addKindLabel,
+  CareerHistoryAddMenu,
+  createCareerHistoryRole,
+} from "./CareerHistoryAddMenu";
 import "./career-history-card.css";
 
 export function CareerHistoryCard({
@@ -21,6 +27,7 @@ export function CareerHistoryCard({
   onBack,
   onImport,
   onAsk,
+  onAdded,
   onRemoved,
   onSelectionChange,
   release,
@@ -30,6 +37,7 @@ export function CareerHistoryCard({
   onBack: () => void;
   onImport: () => void;
   onAsk: () => void;
+  onAdded?: () => void;
   onRemoved?: (ids: string[]) => void;
   onSelectionChange?: (roles: WorkMapRole[]) => void;
   release?: { id: string; nonce: number } | null;
@@ -48,8 +56,11 @@ export function CareerHistoryCard({
   const [removing, setRemoving] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(focusRoleId ?? null);
   const [note, setNote] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [creatingKind, setCreatingKind] = useState<CareerHistorySectionKey | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
 
@@ -117,6 +128,36 @@ export function CareerHistoryCard({
       document.removeEventListener("keydown", onKey);
     };
   }, [moreOpen]);
+
+  useEffect(() => {
+    if (!addOpen) return;
+    function onPointer(event: MouseEvent) {
+      if (addRef.current && !addRef.current.contains(event.target as Node)) setAddOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setAddOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [addOpen]);
+
+  async function addRole(kind: CareerHistorySectionKey) {
+    setCreatingKind(kind);
+    setNote("");
+    const id = await createCareerHistoryRole(kind);
+    setCreatingKind(null);
+    if (!id) {
+      setNote("Could not add that role.");
+      return;
+    }
+    setNote(`${addKindLabel(kind)} added.`);
+    await load();
+    onAdded?.();
+  }
 
   const ordered = useMemo(
     () =>
@@ -345,7 +386,32 @@ export function CareerHistoryCard({
                 >
                   <Icon icon={SquareCheck} size="sm" />
                 </button>
-                <Button label="New" icon={<Icon icon={Plus} />} isIconOnly aria-keyshortcuts="Control+N" />
+                <div className="history-tool-group">
+                  <div className="history-menu" ref={addRef}>
+                    <Button
+                      label="New"
+                      icon={<Icon icon={Plus} />}
+                      isIconOnly
+                      aria-keyshortcuts="Control+N"
+                      aria-haspopup="menu"
+                      aria-expanded={addOpen}
+                      isDisabled={creatingKind !== null}
+                      onClick={() => {
+                        setSortOpen(false);
+                        setMoreOpen(false);
+                        setAddOpen((open) => !open);
+                      }}
+                    />
+                    {addOpen ? (
+                      <CareerHistoryAddMenu
+                        onChoose={(kind) => {
+                          setAddOpen(false);
+                          void addRole(kind);
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                </div>
               </>
             }
           />
@@ -394,16 +460,6 @@ export function CareerHistoryCard({
                       />
                     ) : null}
                     <Button label="Ask" variant="ghost" size="sm" isDisabled={checked.size === 0} onClick={onAsk} />
-                    <Button
-                      label="Edit"
-                      variant="ghost"
-                      size="sm"
-                      isDisabled={checked.size !== 1}
-                      onClick={() => {
-                        const id = [...checked][0];
-                        if (id) setFocusId(id);
-                      }}
-                    />
                     <Button
                       label="Remove"
                       variant="destructive"
