@@ -447,7 +447,9 @@ export function CompareColumn({
   const changed = changedFields(item, other);
   const visible = (field: string) => !comparing || showAll || changed.has(field);
   const mark = (field: string) => (comparing && changed.has(field) ? ({ type: "warning" as const }) : undefined);
-  const showDates = visible("startDate") || visible("endDate");
+  const endMarked = changed.has("endDate") || changed.has("isCurrent");
+  const showEnd = visible("endDate") || (comparing && changed.has("isCurrent"));
+  const showDates = visible("startDate") || showEnd;
   const showLines = !comparing || showAll || changed.has("description") || changed.has("achievement");
   return (
     <VStack className="onboarding-review-body" data-work={workFull ? "full" : "split"} gap={2}>
@@ -473,13 +475,13 @@ export function CompareColumn({
                   <TextInput label="Started" value={item.startDate} isReadOnly status={mark("startDate")} onChange={() => undefined} />
                 </VStack>
               ) : null}
-              {visible("endDate") ? (
+              {showEnd ? (
                 <VStack style={{ flex: 1, minWidth: 0 }}>
                   <TextInput
                     label="Ended"
                     value={item.isCurrent ? "Present" : item.endDate}
                     isReadOnly
-                    status={mark("endDate")}
+                    status={comparing && endMarked ? { type: "warning" as const } : undefined}
                     onChange={() => undefined}
                   />
                 </VStack>

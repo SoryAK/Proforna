@@ -480,8 +480,8 @@ function verifyBlocks(cards: VerifyCard[]): Array<{ key: string; cards: VerifyCa
   const blocks: Array<{ key: string; cards: VerifyCard[]; link: VerifyCard | null }> = [];
   for (const card of cards) {
     if (consumed.has(card.key)) continue;
-    const later = cards.find((item) => item.similarTo === card.key && item.onCompare);
-    const earlier = card.similarTo ? byKey.get(card.similarTo) : undefined;
+    const later = cards.find((item) => !consumed.has(item.key) && item.similarTo === card.key && item.onCompare);
+    const earlier = card.similarTo && !consumed.has(card.similarTo) ? byKey.get(card.similarTo) : undefined;
     if (later) {
       consumed.add(card.key);
       consumed.add(later.key);
@@ -546,9 +546,12 @@ function VerifyRow({ card, mark }: { card: VerifyCard; mark?: "circle" }) {
           endContent={badge}
         />
       </List>
-      {card.onKeep || card.onAside || (card.hint && !card.onCompare) ? (
+      {card.onKeep || card.onAside || (card.hint && !card.onCompare) || (mark !== "circle" && card.onCompare) ? (
         <HStack gap={2} wrap="wrap" vAlign="center">
           {card.hint && !card.onCompare ? <Text type="supporting">{card.hint}</Text> : null}
+          {mark !== "circle" && card.onCompare ? (
+            <Button label="Do a full comparison" size="sm" variant="secondary" onClick={() => card.onCompare?.()} />
+          ) : null}
           {card.onKeep ? (
             <Button label={card.keepLabel ?? "Keep as its own role"} size="sm" variant="ghost" onClick={card.onKeep} />
           ) : null}
