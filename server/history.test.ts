@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { openDatabase } from "./db";
+import { setHistoryImportGateForTest } from "./history";
 
 function setup() {
   const db = openDatabase(":memory:");
@@ -1299,6 +1300,32 @@ describe("POST /api/history retry", () => {
 
   it("keeps achievement claims aligned with the stored list when two retries overlap", async () => {
     const ctx = setupUploads();
+    let releaseFacts = () => {};
+    const factsGate = new Promise<void>((resolve) => {
+      releaseFacts = resolve;
+    });
+    let factsEntered = () => {};
+    const firstPaused = new Promise<void>((resolve) => {
+      factsEntered = resolve;
+    });
+    let secondQueued = () => {};
+    const secondWaiting = new Promise<void>((resolve) => {
+      secondQueued = resolve;
+    });
+    let pauses = 0;
+    let queued = 0;
+    setHistoryImportGateForTest({
+      onQueued() {
+        queued += 1;
+        if (queued === 2) secondQueued();
+      },
+      async beforeFacts() {
+        pauses += 1;
+        if (pauses > 1) return;
+        factsEntered();
+        await factsGate;
+      },
+    });
     try {
       const form = new FormData();
       form.append("file", new File(["%PDF-1.4 overlap"], "cv.pdf", { type: "application/pdf" }));
@@ -1324,9 +1351,18 @@ describe("POST /api/history retry", () => {
             resumeId: stored.resume.id,
           }),
         });
-      const [added, removed] = await Promise.all([post(["Hired the crew"]), post([])]);
-      expect(added.status).toBe(201);
-      expect(removed.status).toBe(201);
+      const added = post(["Hired the crew"]);
+      await firstPaused;
+      const removed = post([]);
+      await secondWaiting;
+      const held = ctx.db
+        .prepare("SELECT achievements_json AS achievementsJson FROM work_history")
+        .get() as { achievementsJson: string };
+      expect(JSON.parse(held.achievementsJson)).toEqual(["Hired the crew"]);
+      releaseFacts();
+      const [addedResult, removedResult] = await Promise.all([added, removed]);
+      expect(addedResult.status).toBe(201);
+      expect(removedResult.status).toBe(201);
       const history = await ctx.app.request("/api/history");
       const career = (await history.json()) as { jobs: Array<{ achievements: string[] }> };
       const map = await ctx.app.request("/api/work-map");
@@ -1334,6 +1370,8 @@ describe("POST /api/history retry", () => {
       expect(workMap.roles).toHaveLength(1);
       expect(workMap.roles[0]?.claims.map((claim) => claim.text)).toEqual(career.jobs[0]?.achievements ?? []);
     } finally {
+      releaseFacts();
+      setHistoryImportGateForTest(null);
       ctx.close();
     }
   });

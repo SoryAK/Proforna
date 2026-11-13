@@ -29,6 +29,18 @@ export type ImportEvidence = {
 
 let historyImportTail: Promise<void> = Promise.resolve();
 
+/** Test-only pause so two history saves can be forced to overlap. */
+type HistoryImportGate = {
+  onQueued?: () => void;
+  beforeFacts?: () => Promise<void>;
+};
+
+let historyImportGate: HistoryImportGate | null = null;
+
+export function setHistoryImportGateForTest(gate: HistoryImportGate | null) {
+  historyImportGate = gate;
+}
+
 export function saveExtractedResume(
   db: DatabaseSync,
   occupantId: string,
@@ -37,6 +49,7 @@ export function saveExtractedResume(
   imports?: ImportEvidence | null,
   roleIds?: { experience: readonly string[]; education: readonly string[] } | null,
 ): Promise<{ jobs: number; schools: number; skills: number }> {
+  historyImportGate?.onQueued?.();
   const run = historyImportTail.then(() =>
     importExtractedResume(db, occupantId, extracted, evidenceId, imports, roleIds),
   );
@@ -316,6 +329,8 @@ async function importExtractedResume(
     db.exec("ROLLBACK");
     throw error;
   }
+
+  if (historyImportGate?.beforeFacts) await historyImportGate.beforeFacts();
 
   if ((evidenceId || imports) && (roles.length > 0 || newSkills.length > 0)) {
     const skillEvidenceIds = imports
