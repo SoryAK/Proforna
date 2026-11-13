@@ -282,6 +282,154 @@
   overflow: visible;
 }
 
+.home-bio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.home-bio-id {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.home-bio-id h2 {
+  margin: 0;
+  color: #171717;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.home-bio-id p {
+  margin: 0.1rem 0 0;
+  color: #6b6b70;
+  font-size: 0.875rem;
+}
+
+.home-bio-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.home-bio-socials {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.home-bio-socials a,
+.home-bio-socials span,
+.home-bio-socials button {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #3f3f46;
+}
+
+.home-bio-socials a,
+.home-bio-socials button {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.home-bio-socials a:hover,
+.home-bio-socials a:focus-visible,
+.home-bio-socials button:hover,
+.home-bio-socials button:focus-visible {
+  background: #f3f3f4;
+  color: #171717;
+}
+
+.home-bio-socials svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: currentColor;
+}
+
+.home-bio-socials .home-bio-pin {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.home-bio-pop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(23, 23, 23, 0.28);
+}
+
+.home-bio-pop-card {
+  width: min(32rem, 100%);
+  max-height: min(36rem, calc(100vh - 3rem));
+  padding: 1rem 1.05rem 1.15rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.home-bio-pop header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.home-bio-pop header h2 {
+  margin: 0;
+  color: #171717;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.home-bio-pop-card > p {
+  margin: 0.85rem 0 0;
+  color: #3f3f46;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.home-bio-form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.home-bio-form label {
+  display: grid;
+  gap: 0.25rem;
+  color: #6b6b70;
+  font-size: 0.8rem;
+}
+
+.home-bio-form input,
+.home-bio-form textarea {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  background: #fff;
+  color: #171717;
+  font: inherit;
+}
+
+.home-bio-form button {
+  justify-self: start;
+}
+
 .home-bio .home-file,
 .home-bio .home-file-identity {
   width: auto;

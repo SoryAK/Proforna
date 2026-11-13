@@ -112,11 +112,16 @@ export {
 export {
   prepareCommandMessage,
   prepareCommandSession,
+  prepareCommandSessionChange,
+  prepareCommandSessionRemoval,
   presentCommandHistory,
+  presentCommandRoles,
   titleFromOccupantTurn,
   type CommandMessage,
+  type CommandRoleContext,
   type CommandSession,
   type CommandSessionError,
+  type CommandSessionRemoval,
   type CommandSpeaker,
 } from "./command-session";
 export {

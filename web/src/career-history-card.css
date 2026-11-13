@@ -15,16 +15,9 @@
   min-height: 0;
 }
 
-.pch-bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.35rem;
-}
-
-.pch-history-back {
-  align-self: flex-start;
+.pch-role-scroll {
+  min-height: 0;
+  flex: 1;
 }
 
 .pch-back {

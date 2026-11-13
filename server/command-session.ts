@@ -3,8 +3,12 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   prepareCommandMessage,
   prepareCommandSession,
+  prepareCommandSessionChange,
+  prepareCommandSessionRemoval,
+  presentCommandRoles,
   titleFromOccupantTurn,
   type CommandMessage,
+  type CommandRoleContext,
   type CommandSession,
   type CommandSpeaker,
 } from "../core/index";
@@ -55,6 +59,48 @@ export function createCommandSession(
   return planned.value;
 }
 
+export function updateCommandSession(
+  db: DatabaseSync,
+  occupantId: string,
+  sessionId: string,
+  title: string,
+): CommandSession {
+  const session = loadSession(db, occupantId, sessionId);
+  const planned = prepareCommandSessionChange(session, title);
+  if (!planned.ok) throw new CommandSessionStoreError(planned.error);
+  db.prepare(
+    `UPDATE command_sessions
+        SET title = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(planned.value.title, session.id, occupantId);
+  return loadSession(db, occupantId, session.id);
+}
+
+export function deleteCommandSession(
+  db: DatabaseSync,
+  occupantId: string,
+  sessionId: string,
+): void {
+  const planned = prepareCommandSessionRemoval({ occupantId, sessionId });
+  if (!planned.ok) throw new CommandSessionStoreError(planned.error);
+  const session = loadSession(db, occupantId, planned.value.sessionId);
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `DELETE FROM command_messages
+        WHERE occupant_id = ? AND session_id = ?`,
+    ).run(occupantId, session.id);
+    db.prepare(
+      `DELETE FROM command_sessions
+        WHERE id = ? AND occupant_id = ?`,
+    ).run(session.id, occupantId);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function readCommandSession(
   db: DatabaseSync,
   occupantId: string,
@@ -83,13 +129,15 @@ export async function sendCommandTurn(
 ): Promise<{ session: CommandSession; messages: CommandMessage[] }> {
   const session = loadSession(db, occupantId, sessionId);
   const prior = readCommandSession(db, occupantId, session.id).messages;
+  const body = typeof input.body === "string" ? input.body : "";
+  const roleNote = presentCommandRoles(parseCommandRoles(input.roles));
   const result = await runAgency(
     db,
     occupantId,
     {
       purpose: "command",
       scope: { type: "home" },
-      prompt: input.body,
+      prompt: roleNote ? `${body}\n\n${roleNote}` : body,
       grant: input.grant,
       sessionId: session.id,
       history: prior.map((message) => ({
@@ -132,6 +180,23 @@ export async function sendCommandTurn(
       WHERE id = ? AND occupant_id = ?`,
   ).run(title, occupantTurn.createdAt, session.id, occupantId);
   return readCommandSession(db, occupantId, session.id);
+}
+
+function parseCommandRoles(value: unknown): CommandRoleContext[] {
+  if (!Array.isArray(value)) return [];
+  const roles: CommandRoleContext[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    roles.push({
+      organization: typeof record.organization === "string" ? record.organization : "",
+      title: typeof record.title === "string" ? record.title : "",
+      startDate: typeof record.startDate === "string" ? record.startDate : "",
+      endDate: typeof record.endDate === "string" ? record.endDate : "",
+      isCurrent: record.isCurrent === true,
+    });
+  }
+  return roles;
 }
 
 function persistMessage(

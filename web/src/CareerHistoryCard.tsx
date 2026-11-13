@@ -31,6 +31,7 @@ export function CareerHistoryCard({
   onRemoved,
   onSelectionChange,
   release,
+  attach,
 }: {
   revision?: number;
   focusRoleId?: string | null;
@@ -41,6 +42,7 @@ export function CareerHistoryCard({
   onRemoved?: (ids: string[]) => void;
   onSelectionChange?: (roles: WorkMapRole[]) => void;
   release?: { id: string; nonce: number } | null;
+  attach?: { id: string; nonce: number } | null;
 }) {
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [ready, setReady] = useState(false);
@@ -92,6 +94,17 @@ export function CareerHistoryCard({
       return next;
     });
   }, [release]);
+
+  useEffect(() => {
+    if (!attach) return;
+    setSelecting(true);
+    setChecked((current) => {
+      if (current.has(attach.id)) return current;
+      const next = new Set(current);
+      next.add(attach.id);
+      return next;
+    });
+  }, [attach]);
 
   useEffect(() => {
     onSelectionChangeRef.current?.(roles.filter((role) => checked.has(role.id)));
@@ -244,24 +257,37 @@ export function CareerHistoryCard({
   return (
     <div className="pch">
       {focus ? (
-        <ScrollableArea className="pch-view is-role" label="Role">
-          <div className="pch-bar">
-            <Button label="History" variant="secondary" size="sm" className="pch-history-back" onClick={() => setFocusId(null)} />
-          </div>
-          <article className="pch-role">
-            <h2>{focus.organization || focus.title || "Untitled"}</h2>
-            {focus.organization && focus.title ? <p>{focus.title}</p> : null}
-            <p>
-              {[
-                formatHistoryPlace(focus),
-                formatHistoryPeriod(focus.startDate, focus.endDate, focus.isCurrent),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            {focus.details.summary.trim() ? <p>{focus.details.summary.trim()}</p> : null}
-          </article>
-        </ScrollableArea>
+        <div className="pch-view is-role">
+          <Toolbar
+            className="pch-toolbar"
+            label="History"
+            size="sm"
+            dividers={["bottom"]}
+            startContent={
+              <>
+                <button className="pch-back" type="button" aria-label="Back" onClick={() => setFocusId(null)}>
+                  <Icon icon={ArrowLeft} size="sm" />
+                </button>
+                <Heading level={4}>History</Heading>
+              </>
+            }
+          />
+          <ScrollableArea className="pch-role-scroll" label="Role">
+            <article className="pch-role">
+              <h2>{focus.organization || focus.title || "Untitled"}</h2>
+              {focus.organization && focus.title ? <p>{focus.title}</p> : null}
+              <p>
+                {[
+                  formatHistoryPlace(focus),
+                  formatHistoryPeriod(focus.startDate, focus.endDate, focus.isCurrent),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {focus.details.summary.trim() ? <p>{focus.details.summary.trim()}</p> : null}
+            </article>
+          </ScrollableArea>
+        </div>
       ) : (
         <div className="pch-view">
           <Toolbar
