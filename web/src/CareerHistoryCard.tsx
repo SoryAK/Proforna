@@ -31,6 +31,7 @@ export function CareerHistoryCard({
   onRemoved,
   onSelectionChange,
   release,
+  attach,
 }: {
   revision?: number;
   focusRoleId?: string | null;
@@ -41,6 +42,7 @@ export function CareerHistoryCard({
   onRemoved?: (ids: string[]) => void;
   onSelectionChange?: (roles: WorkMapRole[]) => void;
   release?: { id: string; nonce: number } | null;
+  attach?: { id: string; nonce: number } | null;
 }) {
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [ready, setReady] = useState(false);
@@ -92,6 +94,17 @@ export function CareerHistoryCard({
       return next;
     });
   }, [release]);
+
+  useEffect(() => {
+    if (!attach) return;
+    setSelecting(true);
+    setChecked((current) => {
+      if (current.has(attach.id)) return current;
+      const next = new Set(current);
+      next.add(attach.id);
+      return next;
+    });
+  }, [attach]);
 
   useEffect(() => {
     onSelectionChangeRef.current?.(roles.filter((role) => checked.has(role.id)));

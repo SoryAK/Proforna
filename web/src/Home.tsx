@@ -46,6 +46,7 @@ export function Home({
   const [canvasFromNav, setCanvasFromNav] = useState(false);
   const [chatRoles, setChatRoles] = useState<ChatRole[]>([]);
   const [chatRelease, setChatRelease] = useState<{ id: string; nonce: number } | null>(null);
+  const [chatAttach, setChatAttach] = useState<{ id: string; nonce: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [careerRevision, setCareerRevision] = useState(0);
@@ -439,6 +440,7 @@ export function Home({
                       }}
                       onSelectionChange={setChatRoles}
                       release={chatRelease}
+                      attach={chatAttach}
                     />
                   ) : null
                 }
@@ -482,9 +484,16 @@ export function Home({
           open={profornaOpen}
           onToggle={togglePanel}
           roles={chatRoles}
+          focusRoleId={focusJobId}
           onReleaseRole={(id) => {
             setChatRoles((current) => current.filter((role) => role.id !== id));
             setChatRelease({ id, nonce: Date.now() });
+          }}
+          onAttachRole={(role) => {
+            setChatRoles((current) =>
+              current.some((item) => item.id === role.id) ? current : [...current, role],
+            );
+            setChatAttach({ id: role.id, nonce: Date.now() });
           }}
         />
         {canvasFromNav && page !== "historyReserve" ? (
