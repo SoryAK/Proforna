@@ -88,6 +88,17 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS import_fact_pending (
+      occupant_id TEXT NOT NULL,
+      work_history_id TEXT NOT NULL,
+      evidence_id TEXT NOT NULL,
+      achievement_evidence_json TEXT NOT NULL DEFAULT '[]',
+      retire_missing INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (occupant_id, work_history_id)
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS canvas_library (
       occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
       boards_json TEXT NOT NULL DEFAULT '[]',

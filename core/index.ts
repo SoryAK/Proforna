@@ -208,6 +208,7 @@ export {
   type GovernanceError,
 } from "./governance";
 export {
+  applyCareerFactChanges,
   canonicalFacts,
   commitCareerFactChanges,
   planResumeImportFacts,

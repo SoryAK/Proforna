@@ -1,10 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  applyCareerFactChanges,
   commitCareerFactChanges,
   createApproval,
   hashChangeSet,
+  planWorkMapRoleFactSync,
   prepareEvidence,
+  stableStringify,
+  EMPTY_WORK_MAP_DETAILS,
+  type WorkMapRole,
   type Approval,
   type AuditEvent,
   type CareerFactVersion,
@@ -229,10 +234,210 @@ export function holdImportFactBackfill(
   };
 }
 
+export function queueImportFactSync(
+  db: DatabaseSync,
+  occupantId: string,
+  input: {
+    workHistoryId: string;
+    evidenceId: string;
+    achievementEvidenceIds: readonly string[];
+    retireMissing: boolean;
+    createdAt: string;
+  },
+) {
+  db.prepare(
+    `INSERT INTO import_fact_pending
+      (occupant_id, work_history_id, evidence_id, achievement_evidence_json,
+       retire_missing, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(occupant_id, work_history_id) DO UPDATE SET
+       evidence_id = excluded.evidence_id,
+       achievement_evidence_json = excluded.achievement_evidence_json,
+       retire_missing = excluded.retire_missing,
+       created_at = excluded.created_at`,
+  ).run(
+    occupantId,
+    input.workHistoryId,
+    input.evidenceId,
+    JSON.stringify(input.achievementEvidenceIds),
+    input.retireMissing ? 1 : 0,
+    input.createdAt,
+  );
+}
+
+/** Finish history revisions whose fact sync did not complete. */
+export function replayPendingImportFacts(db: DatabaseSync, occupantId: string) {
+  const pending = db
+    .prepare(
+      `SELECT work_history_id AS workHistoryId, evidence_id AS evidenceId,
+              achievement_evidence_json AS achievementEvidenceJson,
+              retire_missing AS retireMissing
+       FROM import_fact_pending WHERE occupant_id = ?`,
+    )
+    .all(occupantId) as Array<{
+      workHistoryId: string;
+      evidenceId: string;
+      achievementEvidenceJson: string;
+      retireMissing: number;
+    }>;
+  for (const row of pending) {
+    const stored = db
+      .prepare(
+        `SELECT id, kind, title, company, location, start_date, end_date,
+                is_current, description, achievements_json
+         FROM work_history WHERE id = ? AND occupant_id = ?`,
+      )
+      .get(row.workHistoryId, occupantId) as JsonObject | undefined;
+    if (!stored) {
+      deletePendingImportFact(db, occupantId, row.workHistoryId);
+      continue;
+    }
+    const kind = stored.kind === "school" ? "school" : "job";
+    const achievements = row.retireMissing
+      ? roleAchievementStatements(stored.achievements_json)
+      : [];
+    const achievementEvidenceIds = JSON.parse(String(row.achievementEvidenceJson)) as string[];
+    const role = pendingFactRole(stored, kind, achievements);
+    commitFactOperationsNow(
+      db,
+      occupantId,
+      "Finish resume import",
+      planWorkMapRoleFactSync({
+        role,
+        facts: readCareerMemory(db, occupantId).facts,
+        evidenceId: row.evidenceId,
+        achievementEvidenceIds,
+        retireMissingAchievements: row.retireMissing === 1,
+      }),
+      () => deletePendingImportFact(db, occupantId, row.workHistoryId),
+    );
+  }
+}
+
+function deletePendingImportFact(db: DatabaseSync, occupantId: string, workHistoryId: string) {
+  db.prepare(
+    "DELETE FROM import_fact_pending WHERE occupant_id = ? AND work_history_id = ?",
+  ).run(occupantId, workHistoryId);
+}
+
+function pendingFactRole(
+  stored: JsonObject,
+  kind: "job" | "school",
+  achievements: string[],
+): WorkMapRole {
+  return {
+    id: String(stored.id),
+    kind,
+    title: String(stored.title),
+    organization: String(stored.company),
+    locationLabel: String(stored.location),
+    startDate: String(stored.start_date),
+    endDate: String(stored.end_date),
+    isCurrent: Number(stored.is_current) === 1,
+    description: String(stored.description),
+    achievements,
+    factId: null,
+    factVersion: null,
+    evidenceIds: [],
+    claims: [],
+    locations: [],
+    media: [],
+    linkedEvidence: [],
+    details: structuredClone(EMPTY_WORK_MAP_DETAILS),
+  };
+}
+
+function commitFactOperationsNow(
+  db: DatabaseSync,
+  occupantId: string,
+  purpose: string,
+  operations: ChangeSet["operations"],
+  finish: () => void,
+) {
+  if (operations.length === 0) {
+    finish();
+    return;
+  }
+  const now = new Date().toISOString();
+  const changeSet: ChangeSet = {
+    id: randomUUID(),
+    occupantId,
+    purpose,
+    destination: "career-memory",
+    operations,
+    createdAt: now,
+  };
+  const hash = createHash("sha256").update(stableStringify(changeSet)).digest("hex");
+  const approval: Approval = {
+    id: randomUUID(),
+    changeSetId: changeSet.id,
+    changeHash: hash,
+    destination: changeSet.destination,
+    approvedBy: occupantId,
+    approvedAt: now,
+    expiresAt: null,
+  };
+  const committed = applyCareerFactChanges(
+    readCareerMemory(db, occupantId),
+    changeSet,
+    approval,
+    now,
+  );
+  if (!committed.ok) throw new CareerMemoryStoreError(committed.error);
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `INSERT INTO change_sets
+        (id, occupant_id, purpose, destination, operations_json, change_hash,
+         status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'committed', ?)`,
+    ).run(
+      changeSet.id,
+      occupantId,
+      changeSet.purpose,
+      changeSet.destination,
+      JSON.stringify(changeSet.operations),
+      hash,
+      changeSet.createdAt,
+    );
+    db.prepare(
+      `INSERT INTO approvals
+        (id, change_set_id, change_hash, destination, approved_by, approved_at,
+         expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      approval.id,
+      approval.changeSetId,
+      approval.changeHash,
+      approval.destination,
+      approval.approvedBy,
+      approval.approvedAt,
+      approval.expiresAt,
+    );
+    for (const fact of committed.committed) {
+      if (fact.supersedesId) {
+        db.prepare(
+          "UPDATE career_facts SET status = 'superseded' WHERE id = ? AND occupant_id = ?",
+        ).run(fact.supersedesId, occupantId);
+      }
+      insertFact(db, fact);
+    }
+    const state = readCareerMemory(db, occupantId);
+    const newAudit = committed.value.audit.slice(state.audit.length);
+    for (const event of newAudit) insertAudit(db, event);
+    finish();
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function backfillCareerMemory(
   db: DatabaseSync,
   occupantId: string,
 ): { evidence: number; facts: number } {
+  replayPendingImportFacts(db, occupantId);
   const profile = db
     .prepare(
       `SELECT full_name, headline, address, city, state, bio, linkedin_url, github_url,

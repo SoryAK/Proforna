@@ -17,7 +17,7 @@ import {
   type WorkMapRole,
 } from "../core/work-map";
 import { readRoleAchievements, reconcileRoleAchievements, roleAchievementStatements } from "../core/role-achievements";
-import { commitOccupantFactOperations, holdImportFactBackfill, readCareerMemory } from "./career-memory";
+import { commitOccupantFactOperations, holdImportFactBackfill, queueImportFactSync, readCareerMemory, replayPendingImportFacts } from "./career-memory";
 import { evidenceIdForResume } from "./profile";
 import { replaceResumeAsides, type ResumeAside } from "./resume-asides";
 
@@ -178,6 +178,7 @@ async function importExtractedResume(
           evidenceIds: jobEvidence?.evidenceIds,
           achievementEvidenceIds: jobEvidence ? paired.map((row) => row.evidence) : undefined,
         });
+        queueRevisedFacts(db, occupantId, revised[revised.length - 1]!, evidenceId, now);
         jobs += 1;
         continue;
       }
@@ -253,6 +254,7 @@ async function importExtractedResume(
           achievements: [],
           evidenceIds: schoolEvidence?.evidenceIds,
         });
+        queueRevisedFacts(db, occupantId, revised[revised.length - 1]!, evidenceId, now);
         schools += 1;
         continue;
       }
@@ -337,6 +339,8 @@ async function importExtractedResume(
   try {
     if (historyImportGate?.beforeFacts) await historyImportGate.beforeFacts();
 
+    replayPendingImportFacts(db, occupantId);
+
     if ((evidenceId || imports) && (roles.length > 0 || newSkills.length > 0)) {
       const skillEvidenceIds = imports
         ? newSkills.map((name) => {
@@ -353,42 +357,6 @@ async function importExtractedResume(
           roles,
           skills: newSkills,
           skillEvidenceIds,
-        }),
-      );
-    }
-
-    for (const role of revised) {
-      const linkedEvidence =
-        role.evidenceIds?.find((id) => id.trim()) ||
-        role.achievementEvidenceIds?.find((id) => id.trim()) ||
-        evidenceId ||
-        "";
-      if (!linkedEvidence) continue;
-      const achievements = role.kind === "job" ? storedRoleAchievements(db, occupantId, role.id) : role.achievements;
-      await commitOccupantFactOperations(
-        db,
-        occupantId,
-        "Update resume import",
-        planWorkMapRoleFactSync({
-          role: factRole(
-            {
-              id: role.id,
-              kind: role.kind,
-              title: role.title,
-              organization: role.organization,
-              location: role.location,
-              startDate: role.startDate,
-              endDate: role.endDate,
-              isCurrent: role.isCurrent,
-              description: role.description,
-              achievements,
-            },
-            role.kind,
-          ),
-          facts: readCareerMemory(db, occupantId).facts,
-          evidenceId: linkedEvidence,
-          achievementEvidenceIds: role.achievementEvidenceIds,
-          retireMissingAchievements: role.kind === "job",
         }),
       );
     }
@@ -430,11 +398,26 @@ export function resolveImportEvidence(
   return { experience, education, skillEvidenceIds };
 }
 
-function storedRoleAchievements(db: DatabaseSync, occupantId: string, roleId: string): string[] {
-  const row = db
-    .prepare("SELECT achievements_json FROM work_history WHERE id = ? AND occupant_id = ?")
-    .get(roleId, occupantId) as { achievements_json: string } | undefined;
-  return row ? roleAchievementStatements(row.achievements_json) : [];
+function queueRevisedFacts(
+  db: DatabaseSync,
+  occupantId: string,
+  role: ResumeImportRole,
+  evidenceId: string | null | undefined,
+  createdAt: string,
+) {
+  const linked =
+    role.evidenceIds?.find((id) => id.trim()) ||
+    role.achievementEvidenceIds?.find((id) => id.trim()) ||
+    evidenceId ||
+    "";
+  if (!linked) return;
+  queueImportFactSync(db, occupantId, {
+    workHistoryId: role.id,
+    evidenceId: linked,
+    achievementEvidenceIds: role.achievementEvidenceIds ?? [],
+    retireMissing: role.kind === "job",
+    createdAt,
+  });
 }
 
 function importIdentity(id: string | undefined): string {

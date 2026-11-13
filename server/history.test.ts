@@ -1298,6 +1298,91 @@ describe("POST /api/history retry", () => {
     }
   });
 
+  it("finishes a revised import that stopped before its facts were updated", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 recover"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const role = {
+        company: "Acme",
+        title: "Lead",
+        location: "NYC",
+        startDate: "2024-01-01",
+        isCurrent: true,
+        description: "Ran the shop.",
+        achievements: ["Hired the crew", "Cut overtime"],
+      };
+      const post = (body: Record<string, unknown>) =>
+        ctx.app.request("/api/history", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            education: [],
+            skills: [],
+            roleIds: ["file-0-job-0"],
+            resumeId: stored.resume.id,
+            ...body,
+          }),
+        });
+      setHistoryImportGateForTest(null);
+      expect((await post({ experience: [role] })).status).toBe(201);
+      setHistoryImportGateForTest({
+        async beforeFacts() {
+          throw new Error("stopped before facts");
+        },
+      });
+      const stopped = await post({
+        experience: [{ ...role, title: "Director", achievements: ["Cut overtime"] }],
+      });
+      expect(stopped.status).toBe(500);
+      const pending = ctx.db
+        .prepare("SELECT COUNT(*) AS count FROM import_fact_pending")
+        .get() as { count: number };
+      expect(pending.count).toBe(1);
+      const before = ctx.db
+        .prepare(
+          `SELECT status, value_json AS valueJson FROM career_facts
+           WHERE fact_type = 'achievement' AND status = 'canonical'`,
+        )
+        .all() as Array<{ status: string; valueJson: string }>;
+      expect(before.map((fact) => JSON.parse(fact.valueJson).statement).sort()).toEqual([
+        "Cut overtime",
+        "Hired the crew",
+      ]);
+      const memory = await ctx.app.request("/api/memory");
+      expect(memory.status).toBe(200);
+      const after = ctx.db
+        .prepare(
+          `SELECT fact_type AS factType, status, value_json AS valueJson
+           FROM career_facts WHERE fact_type IN ('role', 'achievement')`,
+        )
+        .all() as Array<{ factType: string; status: string; valueJson: string }>;
+      const canonicalAchievements = after
+        .filter((fact) => fact.factType === "achievement" && fact.status === "canonical")
+        .map((fact) => JSON.parse(fact.valueJson).statement);
+      expect(canonicalAchievements).toEqual(["Cut overtime"]);
+      expect(
+        after.some(
+          (fact) =>
+            fact.factType === "achievement" &&
+            fact.status === "superseded" &&
+            JSON.parse(fact.valueJson).statement === "Hired the crew",
+        ),
+      ).toBe(true);
+      const canonicalRole = after.find((fact) => fact.factType === "role" && fact.status === "canonical");
+      expect(JSON.parse(canonicalRole?.valueJson ?? "{}")).toMatchObject({ title: "Director" });
+      const pendingAfter = ctx.db
+        .prepare("SELECT COUNT(*) AS count FROM import_fact_pending")
+        .get() as { count: number };
+      expect(pendingAfter.count).toBe(0);
+    } finally {
+      setHistoryImportGateForTest(null);
+      ctx.close();
+    }
+  });
+
   it("keeps one canonical fact set when a work map read lands during the import", async () => {
     const ctx = setupUploads();
     let releaseFacts = () => {};
