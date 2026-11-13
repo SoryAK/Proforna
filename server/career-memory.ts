@@ -209,6 +209,26 @@ export function readCareerMemory(
   return { evidence, facts, audit };
 }
 
+const pendingImportSubjects = new Set<string>();
+
+function pendingImportKey(occupantId: string, subjectId: string) {
+  return `${occupantId}\n${subjectId}`;
+}
+
+/** Skip backfill for history rows whose import facts are not written yet. */
+export function holdImportFactBackfill(
+  occupantId: string,
+  subjectIds: readonly string[],
+): () => void {
+  const keys = subjectIds
+    .filter((id) => id.trim())
+    .map((id) => pendingImportKey(occupantId, id));
+  for (const key of keys) pendingImportSubjects.add(key);
+  return () => {
+    for (const key of keys) pendingImportSubjects.delete(key);
+  };
+}
+
 export function backfillCareerMemory(
   db: DatabaseSync,
   occupantId: string,
@@ -286,6 +306,7 @@ export function backfillCareerMemory(
   }
   for (const row of rows) {
     const roleId = String(row.id);
+    if (pendingImportSubjects.has(pendingImportKey(occupantId, roleId))) continue;
     const sourceRef = `legacy-history:${roleId}`;
     const existingFacts = db
       .prepare(

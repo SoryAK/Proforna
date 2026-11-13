@@ -17,7 +17,7 @@ import {
   type WorkMapRole,
 } from "../core/work-map";
 import { readRoleAchievements, reconcileRoleAchievements, roleAchievementStatements } from "../core/role-achievements";
-import { commitOccupantFactOperations, readCareerMemory } from "./career-memory";
+import { commitOccupantFactOperations, holdImportFactBackfill, readCareerMemory } from "./career-memory";
 import { evidenceIdForResume } from "./profile";
 import { replaceResumeAsides, type ResumeAside } from "./resume-asides";
 
@@ -330,65 +330,73 @@ async function importExtractedResume(
     throw error;
   }
 
-  if (historyImportGate?.beforeFacts) await historyImportGate.beforeFacts();
+  const releaseBackfill = holdImportFactBackfill(occupantId, [
+    ...roles.map((role) => role.id),
+    ...revised.map((role) => role.id),
+  ]);
+  try {
+    if (historyImportGate?.beforeFacts) await historyImportGate.beforeFacts();
 
-  if ((evidenceId || imports) && (roles.length > 0 || newSkills.length > 0)) {
-    const skillEvidenceIds = imports
-      ? newSkills.map((name) => {
-          const index = extracted.skills.findIndex((skill) => skill.toLowerCase() === name.toLowerCase());
-          return index >= 0 ? (imports.skillEvidenceIds[index] ?? "") : "";
-        })
-      : undefined;
-    await commitOccupantFactOperations(
-      db,
-      occupantId,
-      "Record resume extract",
-      planResumeImportFacts({
-        evidenceId: evidenceId ?? "",
-        roles,
-        skills: newSkills,
-        skillEvidenceIds,
-      }),
-    );
+    if ((evidenceId || imports) && (roles.length > 0 || newSkills.length > 0)) {
+      const skillEvidenceIds = imports
+        ? newSkills.map((name) => {
+            const index = extracted.skills.findIndex((skill) => skill.toLowerCase() === name.toLowerCase());
+            return index >= 0 ? (imports.skillEvidenceIds[index] ?? "") : "";
+          })
+        : undefined;
+      await commitOccupantFactOperations(
+        db,
+        occupantId,
+        "Record resume extract",
+        planResumeImportFacts({
+          evidenceId: evidenceId ?? "",
+          roles,
+          skills: newSkills,
+          skillEvidenceIds,
+        }),
+      );
+    }
+
+    for (const role of revised) {
+      const linkedEvidence =
+        role.evidenceIds?.find((id) => id.trim()) ||
+        role.achievementEvidenceIds?.find((id) => id.trim()) ||
+        evidenceId ||
+        "";
+      if (!linkedEvidence) continue;
+      const achievements = role.kind === "job" ? storedRoleAchievements(db, occupantId, role.id) : role.achievements;
+      await commitOccupantFactOperations(
+        db,
+        occupantId,
+        "Update resume import",
+        planWorkMapRoleFactSync({
+          role: factRole(
+            {
+              id: role.id,
+              kind: role.kind,
+              title: role.title,
+              organization: role.organization,
+              location: role.location,
+              startDate: role.startDate,
+              endDate: role.endDate,
+              isCurrent: role.isCurrent,
+              description: role.description,
+              achievements,
+            },
+            role.kind,
+          ),
+          facts: readCareerMemory(db, occupantId).facts,
+          evidenceId: linkedEvidence,
+          achievementEvidenceIds: role.achievementEvidenceIds,
+          retireMissingAchievements: role.kind === "job",
+        }),
+      );
+    }
+
+    return { jobs, schools, skills };
+  } finally {
+    releaseBackfill();
   }
-
-  for (const role of revised) {
-    const linkedEvidence =
-      role.evidenceIds?.find((id) => id.trim()) ||
-      role.achievementEvidenceIds?.find((id) => id.trim()) ||
-      evidenceId ||
-      "";
-    if (!linkedEvidence) continue;
-    const achievements = role.kind === "job" ? storedRoleAchievements(db, occupantId, role.id) : role.achievements;
-    await commitOccupantFactOperations(
-      db,
-      occupantId,
-      "Update resume import",
-      planWorkMapRoleFactSync({
-        role: factRole(
-          {
-            id: role.id,
-            kind: role.kind,
-            title: role.title,
-            organization: role.organization,
-            location: role.location,
-            startDate: role.startDate,
-            endDate: role.endDate,
-            isCurrent: role.isCurrent,
-            description: role.description,
-            achievements,
-          },
-          role.kind,
-        ),
-        facts: readCareerMemory(db, occupantId).facts,
-        evidenceId: linkedEvidence,
-        achievementEvidenceIds: role.achievementEvidenceIds,
-        retireMissingAchievements: role.kind === "job",
-      }),
-    );
-  }
-
-  return { jobs, schools, skills };
 }
 
 export function resolveImportEvidence(

@@ -1298,6 +1298,94 @@ describe("POST /api/history retry", () => {
     }
   });
 
+  it("keeps one canonical fact set when a work map read lands during the import", async () => {
+    const ctx = setupUploads();
+    let releaseFacts = () => {};
+    const factsGate = new Promise<void>((resolve) => {
+      releaseFacts = resolve;
+    });
+    let factsEntered = () => {};
+    const paused = new Promise<void>((resolve) => {
+      factsEntered = resolve;
+    });
+    setHistoryImportGateForTest({
+      async beforeFacts() {
+        factsEntered();
+        await factsGate;
+      },
+    });
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 gap"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const saved = ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          resumeId: stored.resume.id,
+          experience: [
+            {
+              company: "Acme",
+              title: "Lead",
+              location: "NYC",
+              startDate: "2024-01-01",
+              isCurrent: true,
+              description: "Ran the shop.",
+              achievements: ["Hired the crew"],
+            },
+          ],
+          education: [],
+          skills: [],
+          roleIds: ["file-0-job-0"],
+        }),
+      });
+      await paused;
+      const during = await ctx.app.request("/api/work-map");
+      expect(during.status).toBe(200);
+      const legacyDuring = ctx.db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM evidence
+           WHERE source_type = 'import' AND source_ref LIKE 'legacy-history:%'`,
+        )
+        .get() as { count: number };
+      const factsDuring = ctx.db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM career_facts
+           WHERE status = 'canonical' AND fact_type IN ('role', 'achievement')`,
+        )
+        .get() as { count: number };
+      expect(legacyDuring.count).toBe(0);
+      expect(factsDuring.count).toBe(0);
+      releaseFacts();
+      expect((await saved).status).toBe(201);
+      const after = await ctx.app.request("/api/work-map");
+      expect(after.status).toBe(200);
+      const facts = ctx.db
+        .prepare(
+          `SELECT fact_type AS factType, status, value_json AS valueJson
+           FROM career_facts
+           WHERE fact_type IN ('role', 'achievement')
+           ORDER BY fact_type`,
+        )
+        .all() as Array<{ factType: string; status: string; valueJson: string }>;
+      const canonical = facts.filter((fact) => fact.status === "canonical");
+      expect(canonical.map((fact) => fact.factType)).toEqual(["achievement", "role"]);
+      expect(JSON.parse(canonical[0]?.valueJson ?? "{}")).toMatchObject({ statement: "Hired the crew" });
+      const legacyAfter = ctx.db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM evidence
+           WHERE source_type = 'import' AND source_ref LIKE 'legacy-history:%'`,
+        )
+        .get() as { count: number };
+      expect(legacyAfter.count).toBe(0);
+    } finally {
+      releaseFacts();
+      setHistoryImportGateForTest(null);
+      ctx.close();
+    }
+  });
+
   it("keeps achievement claims aligned with the stored list when two retries overlap", async () => {
     const ctx = setupUploads();
     let releaseFacts = () => {};
