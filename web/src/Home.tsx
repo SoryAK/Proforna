@@ -499,6 +499,7 @@ export function Home({
               current.some((item) => item.id === role.id) ? current : [...current, role],
             );
             setChatAttach({ id: role.id, nonce: Date.now() });
+            setChatRelease((current) => (current?.id === role.id ? null : current));
           }}
         />
         {canvasFromNav && page !== "historyReserve" ? (
