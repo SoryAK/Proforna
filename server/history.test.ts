@@ -1296,4 +1296,128 @@ describe("POST /api/history retry", () => {
       ctx.close();
     }
   });
+
+  it("keeps achievement claims aligned with the stored list when two retries overlap", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 overlap"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const role = {
+        company: "Acme",
+        title: "Lead",
+        location: "NYC",
+        startDate: "2024-01-01",
+        isCurrent: true,
+        description: "Ran the shop.",
+      };
+      const post = (achievements: string[]) =>
+        ctx.app.request("/api/history", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            experience: [{ ...role, achievements }],
+            education: [],
+            skills: [],
+            roleIds: ["file-0-job-0"],
+            resumeId: stored.resume.id,
+          }),
+        });
+      const [added, removed] = await Promise.all([post(["Hired the crew"]), post([])]);
+      expect(added.status).toBe(201);
+      expect(removed.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: Array<{ achievements: string[] }> };
+      const map = await ctx.app.request("/api/work-map");
+      const workMap = (await map.json()) as { roles: Array<{ claims: Array<{ text: string }> }> };
+      expect(workMap.roles).toHaveLength(1);
+      expect(workMap.roles[0]?.claims.map((claim) => claim.text)).toEqual(career.jobs[0]?.achievements ?? []);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("keeps a school's stored achievements when the resume is saved again", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 school"], "cv.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      const stored = (await uploaded.json()) as { resume: { id: string } };
+      const school = {
+        institution: "City College",
+        degree: "AAS",
+        location: "Philadelphia, PA",
+        startDate: "2016-01-01",
+        endDate: "2018-05-01",
+        description: "Studied the shop.",
+      };
+      const first = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [],
+          education: [school],
+          skills: [],
+          educationRoleIds: ["file-0-school-0"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(first.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { schools: Array<{ id: string }> };
+      const schoolId = career.schools[0]?.id;
+      expect(schoolId).toBeTruthy();
+      const sample = ctx.db
+        .prepare(
+          `SELECT occupant_id AS occupantId, evidence_ids_json AS evidenceIdsJson, sensitivity
+           FROM career_facts WHERE fact_type = 'education' LIMIT 1`,
+        )
+        .get() as { occupantId: string; evidenceIdsJson: string; sensitivity: string };
+      ctx.db.prepare("UPDATE work_history SET achievements_json = ? WHERE id = ?").run(
+        JSON.stringify(["Dean's list"]),
+        schoolId,
+      );
+      ctx.db.prepare(
+        `INSERT INTO career_facts
+          (id, occupant_id, fact_type, subject_id, value_json, evidence_ids_json,
+           sensitivity, version, status, supersedes_id, created_at)
+         VALUES (?, ?, 'achievement', ?, ?, ?, ?, 1, 'canonical', NULL, ?)`,
+      ).run(
+        "school-achievement",
+        sample.occupantId,
+        schoolId,
+        JSON.stringify({ statement: "Dean's list" }),
+        sample.evidenceIdsJson,
+        sample.sensitivity,
+        new Date().toISOString(),
+      );
+      const replay = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [],
+          education: [school],
+          skills: [],
+          educationRoleIds: ["file-0-school-0"],
+          resumeId: stored.resume.id,
+        }),
+      });
+      expect(replay.status).toBe(201);
+      const kept = ctx.db
+        .prepare("SELECT achievements_json AS achievementsJson FROM work_history WHERE id = ?")
+        .get(schoolId) as { achievementsJson: string };
+      expect(JSON.parse(kept.achievementsJson)).toEqual(["Dean's list"]);
+      const memory = await ctx.app.request("/api/memory");
+      const facts = (await memory.json()) as {
+        facts: Array<{ status: string; value: { statement?: string } }>;
+      };
+      expect(
+        facts.facts.some((fact) => fact.status === "canonical" && fact.value.statement === "Dean's list"),
+      ).toBe(true);
+    } finally {
+      ctx.close();
+    }
+  });
 });

@@ -27,7 +27,27 @@ export type ImportEvidence = {
   skillEvidenceIds: string[];
 };
 
-export async function saveExtractedResume(
+let historyImportTail: Promise<void> = Promise.resolve();
+
+export function saveExtractedResume(
+  db: DatabaseSync,
+  occupantId: string,
+  extracted: ExtractedResume,
+  evidenceId?: string | null,
+  imports?: ImportEvidence | null,
+  roleIds?: { experience: readonly string[]; education: readonly string[] } | null,
+): Promise<{ jobs: number; schools: number; skills: number }> {
+  const run = historyImportTail.then(() =>
+    importExtractedResume(db, occupantId, extracted, evidenceId, imports, roleIds),
+  );
+  historyImportTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function importExtractedResume(
   db: DatabaseSync,
   occupantId: string,
   extracted: ExtractedResume,
@@ -324,6 +344,7 @@ export async function saveExtractedResume(
       evidenceId ||
       "";
     if (!linkedEvidence) continue;
+    const achievements = role.kind === "job" ? storedRoleAchievements(db, occupantId, role.id) : role.achievements;
     await commitOccupantFactOperations(
       db,
       occupantId,
@@ -340,14 +361,14 @@ export async function saveExtractedResume(
             endDate: role.endDate,
             isCurrent: role.isCurrent,
             description: role.description,
-            achievements: role.achievements,
+            achievements,
           },
           role.kind,
         ),
         facts: readCareerMemory(db, occupantId).facts,
         evidenceId: linkedEvidence,
         achievementEvidenceIds: role.achievementEvidenceIds,
-        retireMissingAchievements: true,
+        retireMissingAchievements: role.kind === "job",
       }),
     );
   }
@@ -384,6 +405,13 @@ export function resolveImportEvidence(
     skillEvidenceIds.push(evidenceId);
   }
   return { experience, education, skillEvidenceIds };
+}
+
+function storedRoleAchievements(db: DatabaseSync, occupantId: string, roleId: string): string[] {
+  const row = db
+    .prepare("SELECT achievements_json FROM work_history WHERE id = ? AND occupant_id = ?")
+    .get(roleId, occupantId) as { achievements_json: string } | undefined;
+  return row ? roleAchievementStatements(row.achievements_json) : [];
 }
 
 function importIdentity(id: string | undefined): string {
