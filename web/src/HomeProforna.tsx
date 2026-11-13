@@ -769,8 +769,22 @@ function messageWhen(iso: string): { short: string; full: string } | null {
   return { short, full };
 }
 
+const PROTECTED_REPLY = /```[\s\S]*?(?:```|$)|`[^`\n]*`|!\[[^\]]*\]\([^()\n]*(?:\([^()\n]*\)[^()\n]*)*\)|\[[^\]]*\]\([^()\n]*(?:\([^()\n]*\)[^()\n]*)*\)|\[[^\]]*\]\[[^\]]*\]|https?:\/\/[^\s<>)]+|<https?:\/\/[^>\s]+>/g;
+
 function chatReply(body: string): string {
-  return body.replace(/(\d)-(\d)/g, "$1\u2011$2");
+  let result = "";
+  let cursor = 0;
+  for (const match of body.matchAll(PROTECTED_REPLY)) {
+    const index = match.index ?? 0;
+    result += softenNumberHyphens(body.slice(cursor, index));
+    result += match[0];
+    cursor = index + match[0].length;
+  }
+  return result + softenNumberHyphens(body.slice(cursor));
+}
+
+function softenNumberHyphens(text: string): string {
+  return text.replace(/(\d)-(\d)/g, "$1\u2011$2");
 }
 
 function roleContextLabel(role: ChatRole): string {

@@ -267,6 +267,8 @@
   margin: 0;
   padding: 8px 16px 20px;
   pointer-events: none;
+  max-height: 30vh;
+  overflow: hidden;
   background: #fff;
   -webkit-mask-image: linear-gradient(#000 0 calc(100% - 8px), transparent);
   mask-image: linear-gradient(#000 0 calc(100% - 8px), transparent);
@@ -274,6 +276,8 @@
 
 .home-chat-sticky p {
   max-width: 90%;
+  max-height: calc(30vh - 28px);
+  overflow: hidden;
   margin: 0;
   padding: 8px 12px;
   border-radius: 12px;
