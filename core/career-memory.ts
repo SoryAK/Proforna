@@ -123,6 +123,7 @@ export async function commitCareerFactChanges(
         ? facts.find((fact) => fact.id === operation.entityId)
         : undefined;
     if (previous) previous.status = "superseded";
+    const retire = operation.values.retire === true;
     const next: CareerFactVersion = {
       id: String(raw.id ?? `${changeSet.id}:fact:${index}`),
       occupantId: changeSet.occupantId,
@@ -132,7 +133,7 @@ export async function commitCareerFactChanges(
       evidenceIds: raw.evidenceIds ?? previous?.evidenceIds ?? [],
       sensitivity: raw.sensitivity ?? previous?.sensitivity ?? "private",
       version: (previous?.version ?? 0) + 1,
-      status: "canonical",
+      status: retire ? "superseded" : "canonical",
       supersedesId: previous?.id ?? null,
       createdAt: now,
     };

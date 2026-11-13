@@ -47,15 +47,35 @@ export async function saveExtractedResume(
       (occupant_id, evidence_id, item_key, work_history_id, created_at)
      VALUES (?, ?, ?, ?, ?)`,
   );
+  const markerRow = db.prepare(
+    `SELECT work_history_id AS workHistoryId FROM resume_import_markers
+     WHERE occupant_id = ? AND evidence_id = ? AND item_key = ?`,
+  );
+  const markerRetarget = db.prepare(
+    `UPDATE resume_import_markers SET work_history_id = ?
+     WHERE occupant_id = ? AND evidence_id = ? AND item_key = ?`,
+  );
 
   db.exec("BEGIN IMMEDIATE");
   try {
     const indexed = loadImportIndex(db, occupantId);
     const imported = indexed.keys;
     const importRows = indexed.rows;
+    const keyRows = indexed.keyRows;
+    const historyIds = indexed.historyIds;
     const remember = (evidenceIds: string[], key: string, workHistoryId: string | null) => {
       for (const id of evidenceIds) {
-        marker.run(occupantId, id, key, workHistoryId, now);
+        const existing = markerRow.get(occupantId, id, key) as { workHistoryId: string | null } | undefined;
+        const currentLive = Boolean(existing?.workHistoryId && historyIds.has(existing.workHistoryId));
+        if (!existing) {
+          marker.run(occupantId, id, key, workHistoryId, now);
+        } else if (workHistoryId && !currentLive) {
+          markerRetarget.run(workHistoryId, occupantId, id, key);
+        }
+        if (workHistoryId && (!existing || !currentLive)) {
+          historyIds.add(workHistoryId);
+          keyRows.set(`${id}\n${key}`, workHistoryId);
+        }
         const keys = imported.get(id) ?? new Set<string>();
         keys.add(key);
         imported.set(id, keys);
@@ -63,7 +83,21 @@ export async function saveExtractedResume(
     };
     const rememberImport = (evidenceIds: string[], importId: string, workHistoryId: string) => {
       remember(evidenceIds, `import\n${importId}`, workHistoryId);
-      importRows.set(importId, workHistoryId);
+      for (const id of evidenceIds) importRows.set(`${id}\n${importId}`, workHistoryId);
+    };
+    const rowForImport = (evidenceIds: string[], importId: string) => {
+      for (const id of evidenceIds) {
+        const rowId = importRows.get(`${id}\n${importId}`);
+        if (rowId) return rowId;
+      }
+      return undefined;
+    };
+    const rowForKey = (evidenceIds: string[], key: string) => {
+      for (const id of evidenceIds) {
+        const rowId = keyRows.get(`${id}\n${key}`);
+        if (rowId) return rowId;
+      }
+      return undefined;
     };
     const known = (evidenceIds: string[], key: string) =>
       evidenceIds.some((id) => imported.get(id)?.has(key));
@@ -84,7 +118,8 @@ export async function saveExtractedResume(
       const jobEvidence = imports?.experience[index];
       const linked = itemEvidenceIds(jobEvidence?.evidenceIds, evidenceId);
       const importId = importIdentity(roleIds?.experience[index]);
-      const storedId = importId ? importRows.get(importId) : undefined;
+      const storedId = importId ? rowForImport(linked, importId) : undefined;
+      const matchedId = storedId ?? (importId ? rowForKey(linked, key) : undefined);
       const paired = job.achievements
         .map((line, achievementIndex) => ({
           line: line.trim(),
@@ -92,12 +127,12 @@ export async function saveExtractedResume(
         }))
         .filter((row) => row.line);
       const achievements = paired.map((row) => row.line);
-      if (storedId) {
-        reviseImportedJob(db, occupantId, storedId, job, achievements);
-        remember(linked, key, storedId);
-        rememberImport(linked, importId, storedId);
+      if (matchedId) {
+        reviseImportedJob(db, occupantId, matchedId, job, achievements);
+        remember(linked, key, matchedId);
+        if (importId) rememberImport(linked, importId, matchedId);
         revised.push({
-          id: storedId,
+          id: matchedId,
           kind: "job",
           title: job.title,
           organization: job.company,
@@ -113,7 +148,7 @@ export async function saveExtractedResume(
         jobs += 1;
         continue;
       }
-      if (!importId && known(linked, key)) {
+      if (rowForKey(linked, key)) {
         jobs += 1;
         continue;
       }
@@ -166,13 +201,14 @@ export async function saveExtractedResume(
       const schoolEvidence = imports?.education[index];
       const linked = itemEvidenceIds(schoolEvidence?.evidenceIds, evidenceId);
       const importId = importIdentity(roleIds?.education[index]);
-      const storedId = importId ? importRows.get(importId) : undefined;
-      if (storedId) {
-        reviseImportedSchool(db, occupantId, storedId, school);
-        remember(linked, key, storedId);
-        rememberImport(linked, importId, storedId);
+      const storedId = importId ? rowForImport(linked, importId) : undefined;
+      const matchedId = storedId ?? (importId ? rowForKey(linked, key) : undefined);
+      if (matchedId) {
+        reviseImportedSchool(db, occupantId, matchedId, school);
+        remember(linked, key, matchedId);
+        if (importId) rememberImport(linked, importId, matchedId);
         revised.push({
-          id: storedId,
+          id: matchedId,
           kind: "school",
           title: school.degree || "Education",
           organization: school.institution,
@@ -187,7 +223,7 @@ export async function saveExtractedResume(
         schools += 1;
         continue;
       }
-      if (!importId && known(linked, key)) {
+      if (rowForKey(linked, key)) {
         schools += 1;
         continue;
       }
@@ -282,7 +318,11 @@ export async function saveExtractedResume(
   }
 
   for (const role of revised) {
-    const linkedEvidence = role.evidenceIds?.find((id) => id.trim()) || evidenceId || "";
+    const linkedEvidence =
+      role.evidenceIds?.find((id) => id.trim()) ||
+      role.achievementEvidenceIds?.find((id) => id.trim()) ||
+      evidenceId ||
+      "";
     if (!linkedEvidence) continue;
     await commitOccupantFactOperations(
       db,
@@ -306,6 +346,8 @@ export async function saveExtractedResume(
         ),
         facts: readCareerMemory(db, occupantId).facts,
         evidenceId: linkedEvidence,
+        achievementEvidenceIds: role.achievementEvidenceIds,
+        retireMissingAchievements: true,
       }),
     );
   }
@@ -383,6 +425,7 @@ function reviseImportedJob(
     roleId,
     occupantId,
   );
+  if (job.site) reviseImportedSite(db, occupantId, roleId, job.site);
 }
 
 function reviseImportedSchool(
@@ -405,6 +448,44 @@ function reviseImportedSchool(
     school.degree,
     school.field,
     roleId,
+    occupantId,
+  );
+  if (school.site) reviseImportedSite(db, occupantId, roleId, school.site);
+}
+
+function reviseImportedSite(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  site: { label: string; address: string; latitude: number; longitude: number },
+) {
+  const prepared = prepareWorkMapLocation({
+    ...site,
+    kind: "primary",
+    isPublic: false,
+  });
+  if (!prepared.ok) return;
+  const existing = db
+    .prepare(
+      `SELECT id FROM work_history_locations
+       WHERE work_history_id = ? AND occupant_id = ? AND kind = 'primary'
+       ORDER BY created_at LIMIT 1`,
+    )
+    .get(roleId, occupantId) as { id: string } | undefined;
+  if (!existing) {
+    persistExtractedSite(db, occupantId, roleId, site);
+    return;
+  }
+  db.prepare(
+    `UPDATE work_history_locations
+     SET label = ?, address = ?, latitude = ?, longitude = ?
+     WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    prepared.value.label,
+    prepared.value.address,
+    prepared.value.latitude,
+    prepared.value.longitude,
+    existing.id,
     occupantId,
   );
 }
@@ -434,13 +515,22 @@ function itemEvidenceIds(own: readonly string[] | undefined, fallback?: string |
 function loadImportIndex(
   db: DatabaseSync,
   occupantId: string,
-): { keys: Map<string, Set<string>>; rows: Map<string, string> } {
+): {
+  keys: Map<string, Set<string>>;
+  rows: Map<string, string>;
+  keyRows: Map<string, string>;
+  historyIds: Set<string>;
+} {
   const keys = new Map<string, Set<string>>();
   const rows = new Map<string, string>();
-  const add = (evidenceId: string, key: string) => {
+  const keyRows = new Map<string, string>();
+  const add = (evidenceId: string, key: string, rowId?: string | null) => {
     const knownKeys = keys.get(evidenceId) ?? new Set<string>();
     knownKeys.add(key);
     keys.set(evidenceId, knownKeys);
+    if (!rowId) return;
+    const slot = `${evidenceId}\n${key}`;
+    if (!keyRows.has(slot)) keyRows.set(slot, rowId);
   };
   const historyIds = new Set(
     (
@@ -459,12 +549,12 @@ function loadImportIndex(
     if (row.itemKey.startsWith("import\n")) {
       const importId = row.itemKey.slice("import\n".length);
       if (importId && row.workHistoryId && historyIds.has(row.workHistoryId)) {
-        rows.set(importId, row.workHistoryId);
+        rows.set(`${row.evidenceId}\n${importId}`, row.workHistoryId);
       }
       continue;
     }
     if (row.itemKey.startsWith("skill\n") || (row.workHistoryId && historyIds.has(row.workHistoryId))) {
-      add(row.evidenceId, row.itemKey);
+      add(row.evidenceId, row.itemKey, row.workHistoryId);
     }
   }
   const facts = db
@@ -507,10 +597,10 @@ function loadImportIndex(
           : null;
     if (!itemKey) continue;
     for (const id of ids) {
-      if (typeof id === "string" && id) add(id, itemKey);
+      if (typeof id === "string" && id) add(id, itemKey, row.factType === "skill" ? null : row.subjectId);
     }
   }
-  return { keys, rows };
+  return { keys, rows, keyRows, historyIds };
 }
 
 function resolveResumeEvidence(

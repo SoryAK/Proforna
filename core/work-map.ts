@@ -802,6 +802,10 @@ export function planWorkMapRoleFactSync(input: {
   role: WorkMapRole;
   facts: CareerFactVersion[];
   evidenceId: string;
+  /** Parallel to role.achievements. A blank entry uses evidenceId. */
+  achievementEvidenceIds?: readonly string[];
+  /** A resume retry's achievement list replaces the role's achievement claims. */
+  retireMissingAchievements?: boolean;
 }): ChangeOperation[] {
   if (!input.evidenceId) return [];
   const canonical = canonicalFacts(input.facts);
@@ -853,7 +857,7 @@ export function planWorkMapRoleFactSync(input: {
       )
       .map((fact) => factStatement(fact).toLowerCase()),
   );
-  for (const raw of input.role.achievements) {
+  for (const [index, raw] of input.role.achievements.entries()) {
     const statement = raw.trim();
     if (!statement || existingStatements.has(statement.toLowerCase())) continue;
     operations.push({
@@ -863,12 +867,43 @@ export function planWorkMapRoleFactSync(input: {
         factType: "achievement",
         subjectId: input.role.id,
         value: { statement },
-        evidenceIds: [input.evidenceId],
+        evidenceIds: [achievementEvidence(input, index)],
       },
     });
     existingStatements.add(statement.toLowerCase());
   }
+  if (input.retireMissingAchievements) {
+    const kept = new Set(
+      input.role.achievements.map((line) => line.trim().toLowerCase()).filter(Boolean),
+    );
+    for (const fact of canonical) {
+      if (fact.factType !== "achievement" || fact.subjectId !== input.role.id) continue;
+      const statement = factStatement(fact).toLowerCase();
+      if (!statement || kept.has(statement)) continue;
+      const evidenceIds = fact.evidenceIds.length > 0 ? fact.evidenceIds : [input.evidenceId];
+      operations.push({
+        action: "supersede",
+        entityType: "career-fact",
+        entityId: fact.id,
+        values: {
+          factType: "achievement",
+          subjectId: input.role.id,
+          value: fact.value,
+          evidenceIds,
+          retire: true,
+        },
+      });
+    }
+  }
   return operations;
+}
+
+function achievementEvidence(
+  input: { evidenceId: string; achievementEvidenceIds?: readonly string[] },
+  index: number,
+): string {
+  const explicit = input.achievementEvidenceIds?.[index]?.trim();
+  return explicit || input.evidenceId;
 }
 
 type LinkedEvidenceBacking = {
