@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   prepareCommandMessage,
   prepareCommandSession,
+  prepareCommandSessionChange,
+  prepareCommandSessionRemoval,
   presentCommandHistory,
+  presentCommandRoles,
   titleFromOccupantTurn,
 } from "./command-session";
 
@@ -68,6 +71,50 @@ describe("command session", () => {
         "Help me decide which Worklog entries still need measured outcomes before I publish.",
       ),
     ).toBe("Help me decide which Worklog entries still need…");
+  });
+
+  it("changes a session through the same title field", () => {
+    const session = {
+      id: "session-1",
+      occupantId: "local",
+      title: "What should I capture next?",
+      createdAt: "2026-09-21T15:00:00.000Z",
+      updatedAt: "2026-09-21T15:00:00.000Z",
+    };
+    expect(prepareCommandSessionChange(session, "  Interviews  ")).toMatchObject({
+      ok: true,
+      value: { id: "session-1", title: "Interviews" },
+    });
+    expect(prepareCommandSessionChange(session, "  ")).toMatchObject({
+      ok: true,
+      value: { title: "New conversation" },
+    });
+  });
+
+  it("requires a session before removing one", () => {
+    expect(prepareCommandSessionRemoval({ occupantId: "local", sessionId: "  " })).toEqual({
+      ok: false,
+      error: "session-required",
+    });
+    expect(prepareCommandSessionRemoval({ occupantId: " local ", sessionId: " session-1 " })).toEqual({
+      ok: true,
+      value: { occupantId: "local", sessionId: "session-1" },
+    });
+  });
+
+  it("lists the roles attached to a question", () => {
+    expect(presentCommandRoles([])).toBe("");
+    expect(
+      presentCommandRoles([
+        {
+          organization: "Giants Direct",
+          title: "Technician",
+          startDate: "2024-06",
+          endDate: "",
+          isCurrent: true,
+        },
+      ]),
+    ).toBe("Roles in this question:\n- Giants Direct, Technician, 2024-06 – present");
   });
 
   it("presents recent turns for the model", () => {

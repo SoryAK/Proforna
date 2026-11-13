@@ -20,6 +20,19 @@ export type CommandMessage = {
 
 export type CommandSessionError = "session-required" | "body-required";
 
+export type CommandRoleContext = {
+  organization: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+};
+
+export type CommandSessionRemoval = {
+  occupantId: string;
+  sessionId: string;
+};
+
 const DEFAULT_TITLE = "New conversation";
 const TITLE_LIMIT = 48;
 const HISTORY_LIMIT = 12;
@@ -41,6 +54,47 @@ export function prepareCommandSession(
       title,
     },
   };
+}
+
+export function prepareCommandSessionChange(
+  session: CommandSession,
+  title: string,
+):
+  | { ok: true; value: CommandSession }
+  | { ok: false; error: CommandSessionError } {
+  return prepareCommandSession({ ...session, title });
+}
+
+export function prepareCommandSessionRemoval(
+  input: CommandSessionRemoval,
+):
+  | { ok: true; value: CommandSessionRemoval }
+  | { ok: false; error: CommandSessionError } {
+  if (!input.occupantId.trim() || !input.sessionId.trim()) {
+    return { ok: false, error: "session-required" };
+  }
+  return {
+    ok: true,
+    value: {
+      occupantId: input.occupantId.trim(),
+      sessionId: input.sessionId.trim(),
+    },
+  };
+}
+
+export function presentCommandRoles(roles: CommandRoleContext[]): string {
+  const lines = roles.map((role) => {
+    const organization = role.organization.trim();
+    const title = role.title.trim();
+    const name = organization || title || "Untitled";
+    const position = organization && title ? title : "";
+    const period = role.isCurrent
+      ? [role.startDate.trim(), "present"].filter(Boolean).join(" – ")
+      : [role.startDate.trim(), role.endDate.trim()].filter(Boolean).join(" – ");
+    return [name, position, period].filter(Boolean).join(", ");
+  });
+  if (lines.length === 0) return "";
+  return `Roles in this question:\n${lines.map((line) => `- ${line}`).join("\n")}`;
 }
 
 export function prepareCommandMessage(
