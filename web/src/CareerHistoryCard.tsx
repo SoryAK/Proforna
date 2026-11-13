@@ -31,6 +31,9 @@ export function CareerHistoryCard({
   onRemoved,
   onSelectionChange,
   release,
+  attach,
+  selectedRoleIds,
+  onAttachApplied,
 }: {
   revision?: number;
   focusRoleId?: string | null;
@@ -41,6 +44,9 @@ export function CareerHistoryCard({
   onRemoved?: (ids: string[]) => void;
   onSelectionChange?: (roles: WorkMapRole[]) => void;
   release?: { id: string; nonce: number } | null;
+  attach?: { id: string; nonce: number } | null;
+  selectedRoleIds?: readonly string[];
+  onAttachApplied?: (nonce: number) => void;
 }) {
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [ready, setReady] = useState(false);
@@ -50,8 +56,8 @@ export function CareerHistoryCard({
   const [moreOpen, setMoreOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [selecting, setSelecting] = useState(false);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [selecting, setSelecting] = useState((selectedRoleIds?.length ?? 0) > 0);
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(selectedRoleIds ?? []));
   const [removeAsk, setRemoveAsk] = useState<{ ids: string[]; detail: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(focusRoleId ?? null);
@@ -63,6 +69,8 @@ export function CareerHistoryCard({
   const addRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
+  const onAttachAppliedRef = useRef(onAttachApplied);
+  onAttachAppliedRef.current = onAttachApplied;
 
   async function load() {
     const response = await fetch("/api/work-map");
@@ -94,8 +102,21 @@ export function CareerHistoryCard({
   }, [release]);
 
   useEffect(() => {
+    if (!attach) return;
+    setSelecting(true);
+    setChecked((current) => {
+      if (current.has(attach.id)) return current;
+      const next = new Set(current);
+      next.add(attach.id);
+      return next;
+    });
+    onAttachAppliedRef.current?.(attach.nonce);
+  }, [attach]);
+
+  useEffect(() => {
+    if (!ready) return;
     onSelectionChangeRef.current?.(roles.filter((role) => checked.has(role.id)));
-  }, [checked, roles]);
+  }, [checked, roles, ready]);
 
   useEffect(() => {
     if (!sortOpen) return;

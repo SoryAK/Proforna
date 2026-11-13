@@ -34,9 +34,11 @@ import {
 import {
   CommandSessionStoreError,
   createCommandSession,
+  deleteCommandSession,
   listCommandSessions,
   readCommandSession,
   sendCommandTurn,
+  updateCommandSession,
 } from "./command-session";
 import { ensureOccupant, readProfile, type ProfileRow } from "./occupant";
 import {
@@ -436,6 +438,52 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     try {
       return c.json(readCommandSession(db, occupant.id, c.req.param("id")));
+    } catch (error) {
+      if (error instanceof CommandSessionStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "session-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/command/sessions/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    let input: unknown;
+    try {
+      input = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    const title =
+      typeof (input as Record<string, unknown>).title === "string"
+        ? ((input as Record<string, unknown>).title as string)
+        : "";
+    try {
+      return c.json({
+        session: updateCommandSession(db, occupant.id, c.req.param("id"), title),
+      });
+    } catch (error) {
+      if (error instanceof CommandSessionStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "session-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/command/sessions/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteCommandSession(db, occupant.id, c.req.param("id"));
+      return c.body(null, 204);
     } catch (error) {
       if (error instanceof CommandSessionStoreError) {
         return c.json(
