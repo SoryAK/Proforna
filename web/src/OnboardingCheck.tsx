@@ -160,6 +160,7 @@ export function CheckOverview({
 function ReviewCarousel({
   open,
   items,
+  rowIds,
   file,
   files,
   index,
@@ -170,6 +171,7 @@ function ReviewCarousel({
 }: {
   open: boolean;
   items: OnboardingCheckItem[];
+  rowIds?: string[];
   file: File | null;
   files?: Array<File | null>;
   index: number;
@@ -180,6 +182,7 @@ function ReviewCarousel({
 }) {
   const item = items[index];
   const slideFile = files?.[index] ?? file;
+  const rowId = rowIds?.[index] ?? `row-${index}-${item?.source ?? "role"}-${item?.sourceIndex ?? 0}`;
   return (
     <Dialog
       isOpen={open && Boolean(item)}
@@ -197,6 +200,7 @@ function ReviewCarousel({
       {item ? (
         <ReviewSlide
           item={item}
+          rowId={rowId}
           file={slideFile}
           index={index}
           total={items.length}
@@ -216,6 +220,7 @@ function ReviewCarousel({
 
 function ReviewSlide({
   item,
+  rowId,
   file,
   index,
   total,
@@ -226,6 +231,7 @@ function ReviewSlide({
   onClose,
 }: {
   item: OnboardingCheckItem;
+  rowId: string;
   file: File | null;
   index: number;
   total: number;
@@ -335,7 +341,7 @@ function ReviewSlide({
                     ) : null}
                   </>
                 <DutyEditor
-                  key={`${item.source}-${item.sourceIndex}`}
+                  key={rowId}
                   item={item}
                   label={job ? "What you did" : "Description"}
                   onChange={onChange}
@@ -684,6 +690,7 @@ export function WorkList({
 export function CheckReview(props: {
   open: boolean;
   items: OnboardingCheckItem[];
+  rowIds?: string[];
   file: File | null;
   files?: Array<File | null>;
   index: number;
@@ -747,13 +754,22 @@ export function workLines(item: OnboardingCheckItem): string[] {
 }
 
 function withWorkLines(item: OnboardingCheckItem, lines: string[]): OnboardingCheckItem {
-  const description = (lines[0] ?? "").trim();
-  const achievements = lines.slice(1);
+  const kept = lines.map((line) => line.trim()).filter(Boolean);
+  if (item.source === "school") {
+    return {
+      ...item,
+      description: kept.join("\n\n"),
+      achievements: [],
+      lines: kept,
+    };
+  }
+  const description = kept[0] ?? "";
+  const achievements = kept.slice(1);
   return {
     ...item,
     description,
     achievements,
-    lines: [description, ...achievements.map((line) => line.trim())].filter(Boolean),
+    lines: [description, ...achievements].filter(Boolean),
   };
 }
 
@@ -761,11 +777,19 @@ function dutyMarkdown(item: OnboardingCheckItem): string {
   return workLines(item).join("\n\n");
 }
 
+function plainDutyLine(line: string): string {
+  return line
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^[-*+]\s+/, "")
+    .replace(/^\d+[.)]\s+/, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[*_~`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function linesFromDutyMarkdown(markdown: string): string[] {
-  return markdown
-    .split("\n")
-    .map((line) => line.replace(/^[-*]\s+/, "").trim())
-    .filter(Boolean);
+  return markdown.split("\n").map(plainDutyLine).filter(Boolean);
 }
 
 function DutyEditor({

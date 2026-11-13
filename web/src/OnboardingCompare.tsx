@@ -241,6 +241,7 @@ export function ResumeCompare({
         <CheckReview
           open
           items={[draftItems[editIndex]]}
+          rowIds={[`file-${fileIndex}-${draftItems[editIndex].source}-${draftItems[editIndex].sourceIndex}`]}
           file={file}
           index={0}
           onIndex={() => undefined}
@@ -919,6 +920,7 @@ export function AllResumesVerify({
         <CheckReview
           open
           items={visible.map((row) => row.item)}
+          rowIds={visible.map((row) => row.id)}
           file={null}
           files={visible.map((row) => bundles.find((bundle) => bundle.fileIndex === row.fileIndex)?.file ?? null)}
           index={editIndex}

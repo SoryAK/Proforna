@@ -2303,7 +2303,7 @@ button.onboarding-verify-row {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .onboarding-review-compare > .onboarding-review-body[data-work="split"] {
