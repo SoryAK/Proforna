@@ -499,6 +499,54 @@ describe("Work Map career-fact attachment", () => {
         }),
       }),
     ]);
+
+    const retired = planWorkMapRoleFactSync({
+      role: sampleRole({ achievements: ["Reduced recovery time."] }),
+      facts: [
+        sampleFact({
+          id: "role-fact",
+          factType: "role",
+          subjectId: "role-1",
+          value: {
+            title: "Systems Technician",
+            company: "Current Co",
+            organization: "Current Co",
+            location: "Philadelphia",
+            startDate: "2024-01-01",
+            endDate: "",
+            isCurrent: true,
+            description: "Maintained automated systems.",
+          },
+        }),
+        sampleFact({
+          id: "claim-kept",
+          factType: "achievement",
+          subjectId: "role-1",
+          evidenceIds: ["ev-kept"],
+          value: { statement: "Reduced recovery time." },
+        }),
+        sampleFact({
+          id: "claim-gone",
+          factType: "achievement",
+          subjectId: "role-1",
+          evidenceIds: ["ev-gone"],
+          value: { statement: "Hired the crew." },
+        }),
+      ],
+      evidenceId: "ev-role",
+      achievementEvidenceIds: ["ev-duty"],
+      retireMissingAchievements: true,
+    });
+    expect(retired).toEqual([
+      expect.objectContaining({
+        action: "supersede",
+        entityId: "claim-gone",
+        values: expect.objectContaining({
+          evidenceIds: ["ev-gone"],
+          retire: true,
+        }),
+      }),
+    ]);
   });
 });
 

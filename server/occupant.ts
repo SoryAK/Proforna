@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { joinPersonName, splitPersonName } from "../core/profile";
 
 export const LOCAL_OCCUPANT_ID = "local";
 
@@ -7,6 +8,8 @@ export type OccupantRow = {
 };
 
 export type ProfileRow = {
+  firstName: string;
+  lastName: string;
   fullName: string;
   headline: string;
   address: string;
@@ -52,6 +55,8 @@ export function readProfile(db: DatabaseSync, occupantId: string): ProfileRow {
     .prepare(
       `SELECT
         full_name AS fullName,
+        first_name AS firstName,
+        last_name AS lastName,
         headline,
         address,
         address_latitude AS addressLatitude,
@@ -69,6 +74,8 @@ export function readProfile(db: DatabaseSync, occupantId: string): ProfileRow {
     .get(occupantId) as
     | {
         fullName: string;
+        firstName: string;
+        lastName: string;
         headline: string;
         address: string;
         addressLatitude: number | null;
@@ -86,9 +93,16 @@ export function readProfile(db: DatabaseSync, occupantId: string): ProfileRow {
   if (!row) {
     throw new Error("profile missing for occupant");
   }
-  const { avatarStoredName, ...fields } = row;
+  const { avatarStoredName, fullName, firstName, lastName, ...fields } = row;
+  const parts =
+    firstName.trim() || lastName.trim()
+      ? { firstName, lastName }
+      : splitPersonName(fullName);
   return {
     ...fields,
+    firstName: parts.firstName,
+    lastName: parts.lastName,
+    fullName: joinPersonName(parts.firstName, parts.lastName),
     avatarUrl: avatarStoredName ? "/api/profile/avatar" : null,
   };
 }

@@ -105,7 +105,17 @@ export async function commitCareerFactChanges(
   if (!approval) return { ok: false, error: "approval-required" };
   const authorization = await authorizeChangeSet(changeSet, approval, now);
   if (!authorization.ok) return { ok: false, error: "approval-required" };
+  return applyCareerFactChanges(state, changeSet, approval, now);
+}
 
+export function applyCareerFactChanges(
+  state: CareerMemoryState,
+  changeSet: ChangeSet,
+  approval: Approval,
+  now: string,
+):
+  | { ok: true; value: CareerMemoryState; committed: CareerFactVersion[] }
+  | { ok: false; error: CareerMemoryError } {
   const facts = state.facts.map((fact) => ({ ...fact }));
   const committed: CareerFactVersion[] = [];
   const audit = [...state.audit];
@@ -123,6 +133,7 @@ export async function commitCareerFactChanges(
         ? facts.find((fact) => fact.id === operation.entityId)
         : undefined;
     if (previous) previous.status = "superseded";
+    const retire = operation.values.retire === true;
     const next: CareerFactVersion = {
       id: String(raw.id ?? `${changeSet.id}:fact:${index}`),
       occupantId: changeSet.occupantId,
@@ -132,7 +143,7 @@ export async function commitCareerFactChanges(
       evidenceIds: raw.evidenceIds ?? previous?.evidenceIds ?? [],
       sensitivity: raw.sensitivity ?? previous?.sensitivity ?? "private",
       version: (previous?.version ?? 0) + 1,
-      status: "canonical",
+      status: retire ? "superseded" : "canonical",
       supersedesId: previous?.id ?? null,
       createdAt: now,
     };

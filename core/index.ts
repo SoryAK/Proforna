@@ -10,6 +10,16 @@ export {
   type OnboardingProfile,
 } from "./onboarding";
 export {
+  finishSignature,
+  finishDraftStamp,
+  parseFinishReceipt,
+  receiptMatchesDraft,
+  recoverPendingFinish,
+  releaseFinishDraft,
+  reuseSavedHistory,
+  type OnboardingFinishReceipt,
+} from "./onboarding-finish";
+export {
   blankOnboardingCheckItem,
   isBlankOnboardingCheckItem,
   keptOnboardingHistory,
@@ -39,6 +49,7 @@ export {
   historyFromHeld,
   holdVerifiedRoles,
   parseHistoryEvidence,
+  parseHistoryRoleIds,
   hintNextResume,
   queuedResumeDuplicate,
   resumesToQueue,
@@ -197,6 +208,7 @@ export {
   type GovernanceError,
 } from "./governance";
 export {
+  applyCareerFactChanges,
   canonicalFacts,
   commitCareerFactChanges,
   planResumeImportFacts,

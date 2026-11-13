@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Icon } from "@astryxdesign/core/Icon";
+import { CodeBracketIcon, EnvelopeIcon, LinkIcon } from "@heroicons/react/24/outline";
 import { GmailSettingsForm } from "./GmailSettings";
 import "./home.css";
 
@@ -21,11 +23,18 @@ type ListedIntegration = {
   signIn: boolean;
 };
 
-export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
+export function IntegrationSettings({
+  nested = false,
+  previewConnected = false,
+}: {
+  nested?: boolean;
+  previewConnected?: boolean;
+}) {
   const [rows, setRows] = useState<ListedIntegration[] | null>(null);
   const [query, setQuery] = useState("");
   const [openName, setOpenName] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [previewEnabled, setPreviewEnabled] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -185,7 +194,8 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return (rows ?? [])
+    const source = previewConnected ? connectedPreviewRows(rows, previewEnabled) : (rows ?? []);
+    return source
       .filter((row) => {
         if (!row.available || !row.signIn) return false;
         if (!needle) return true;
@@ -202,7 +212,7 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
         if (b.name === "gmail") return 1;
         return a.displayName.localeCompare(b.displayName);
       });
-  }, [query, rows]);
+  }, [previewConnected, previewEnabled, query, rows]);
 
   return (
     <>
@@ -233,18 +243,27 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
             return (
               <li key={row.name} className="integration-row">
                 <div className="integration-row-main">
-                  <button
-                    type="button"
-                    className="integration-open"
-                    aria-expanded={open}
-                    onClick={() => toggleOpen(row)}
-                  >
-                    <span className="integration-name">{row.displayName}</span>
-                    <span className="integration-summary">{row.description}</span>
-                  </button>
+                  {previewConnected ? (
+                    <span className="integration-preview-name">
+                      <Icon icon={integrationMark(row.name)} size="sm" color="secondary" />
+                      {row.displayName}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="integration-open"
+                      aria-expanded={open}
+                      onClick={() => toggleOpen(row)}
+                    >
+                      <span className="integration-name">{row.displayName}</span>
+                      <span className="integration-summary">{row.description}</span>
+                    </button>
+                  )}
                   {row.configured ? (
                     <>
-                      <span className="integration-state">{integrationStatus(row)}</span>
+                      {previewConnected ? null : (
+                        <span className="integration-state">{integrationStatus(row)}</span>
+                      )}
                       <button
                         type="button"
                         className="integration-switch"
@@ -252,7 +271,13 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
                         aria-checked={row.enabled}
                         aria-label={`${row.displayName} ${row.enabled ? "on" : "off"}`}
                         disabled={busy}
-                        onClick={() => void setEnabled(row, !row.enabled)}
+                        onClick={() => {
+                          if (previewConnected) {
+                            setPreviewEnabled((current) => ({ ...current, [row.name]: !row.enabled }));
+                            return;
+                          }
+                          void setEnabled(row, !row.enabled);
+                        }}
                       />
                     </>
                   ) : (
@@ -266,13 +291,14 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
                     </button>
                   )}
                 </div>
-                {open ? (
+                {previewConnected || !open ? null : (
                   <div className="integration-panel">
                     {row.name === "gmail" ? (
                       <GmailSettingsForm
                         nested
                         signIn={row.signIn}
                         listedEnabled={row.enabled}
+                        previewConnected={previewConnected}
                         onAccountChange={() => void load()}
                       />
                     ) : row.signIn ? (
@@ -282,7 +308,17 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
                         </p>
                         {row.configured ? (
                           <div className="integration-actions">
-                            <button type="button" disabled={busy} onClick={() => void remove(row.name)}>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => {
+                                if (previewConnected) {
+                                  setMessage("Preview only. Nothing was removed.");
+                                  return;
+                                }
+                                void remove(row.name);
+                              }}
+                            >
                               Remove
                             </button>
                           </div>
@@ -327,7 +363,17 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
                             {row.configured ? "Save changes" : "Connect"}
                           </button>
                           {row.configured ? (
-                            <button type="button" disabled={busy} onClick={() => void remove(row.name)}>
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => {
+                                if (previewConnected) {
+                                  setMessage("Preview only. Nothing was removed.");
+                                  return;
+                                }
+                                void remove(row.name);
+                              }}
+                            >
                               Remove
                             </button>
                           ) : null}
@@ -335,7 +381,7 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
                       </form>
                     )}
                   </div>
-                ) : null}
+                )}
               </li>
             );
           })}
@@ -349,6 +395,61 @@ export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
       ) : null}
     </>
   );
+}
+
+function integrationMark(name: string) {
+  if (name === "gmail") return EnvelopeIcon;
+  if (name === "github") return CodeBracketIcon;
+  if (name === "linkedin") return LinkIcon;
+  return LinkIcon;
+}
+
+/** Temporary design preview. Remove with the onboarding preview=connected flag. */
+const CONNECTED_PREVIEW_ROWS: ListedIntegration[] = [
+  {
+    name: "gmail",
+    displayName: "Gmail",
+    description: "Search mail and save a draft. Proforna does not send mail.",
+    available: true,
+    fields: [],
+    configured: true,
+    enabled: true,
+    signIn: true,
+  },
+  {
+    name: "github",
+    displayName: "GitHub",
+    description: "Manage repos, issues, pull requests, and Actions.",
+    available: true,
+    fields: [],
+    configured: true,
+    enabled: true,
+    signIn: true,
+  },
+  {
+    name: "linkedin",
+    displayName: "LinkedIn",
+    description: "Read your LinkedIn name, headline, and email.",
+    available: true,
+    fields: [],
+    configured: true,
+    enabled: true,
+    signIn: true,
+  },
+];
+
+function connectedPreviewRows(
+  rows: ListedIntegration[] | null,
+  enabled: Record<string, boolean>,
+): ListedIntegration[] {
+  const source = rows && rows.length > 0 ? rows : CONNECTED_PREVIEW_ROWS;
+  return source.map((row) => ({
+    ...row,
+    available: true,
+    signIn: true,
+    configured: true,
+    enabled: enabled[row.name] ?? true,
+  }));
 }
 
 function integrationRank(row: ListedIntegration): number {

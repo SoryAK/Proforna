@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
 import { formatCareerSpan } from "@core/career-file";
 import {
   addHeldRole,
@@ -139,12 +141,14 @@ export function ResumeCompare({
           Nothing new in <em>{fileName}</em>
         </h1>
         <div className="onboarding-actions" data-split="true">
-          <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
-            Back
-          </button>
-          <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={() => onDone(draftHeld, acceptSkills)}>
-            {busy ? "Saving…" : "Continue"}
-          </button>
+          <Button className="onboarding-nav" label="Back" variant="ghost" onClick={onBack} />
+          <Button
+            className="onboarding-nav"
+            label={busy ? "Saving…" : "Continue"}
+            variant="primary"
+            isDisabled={busy}
+            onClick={() => onDone(draftHeld, acceptSkills)}
+          />
         </div>
       </>
     );
@@ -209,17 +213,17 @@ export function ResumeCompare({
         schools={[...heldCards("school"), ...incomingCards("school")]}
       />
       {error ? (
-        <p className="onboarding-alert" role="alert">
-          {error}
-        </p>
+        <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" disabled={busy} onClick={onBack}>
-          Back
-        </button>
-        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={() => finish(draftHeld, acceptSkills)}>
-          {busy ? "Saving…" : "Continue"}
-        </button>
+        <Button className="onboarding-nav" label="Back" variant="ghost" isDisabled={busy} onClick={onBack} />
+        <Button
+          className="onboarding-nav"
+          label={busy ? "Saving…" : "Continue"}
+          variant="primary"
+          isDisabled={busy}
+          onClick={() => finish(draftHeld, acceptSkills)}
+        />
       </div>
       {editIndex != null && draftItems[editIndex] ? (
         <CheckReview
@@ -782,9 +786,7 @@ export function AllResumesVerify({
         </button>
       </div>
       {error ? (
-        <p className="onboarding-alert" role="alert">
-          {error}
-        </p>
+        <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       {unopenedCount > 0 ? (
         <p className="onboarding-quiet" role="status">
@@ -792,12 +794,14 @@ export function AllResumesVerify({
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" disabled={busy} onClick={onBack}>
-          Back
-        </button>
-        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={finish}>
-          {busy ? "Saving…" : "Continue"}
-        </button>
+        <Button className="onboarding-nav" label="Back" variant="ghost" isDisabled={busy} onClick={onBack} />
+        <Button
+          className="onboarding-nav"
+          label={busy ? "Saving…" : "Continue"}
+          variant="primary"
+          isDisabled={busy}
+          onClick={finish}
+        />
       </div>
       {editIndex >= 0 ? (
         <CheckReview

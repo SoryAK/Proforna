@@ -1,3 +1,5 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
 import { roleTookFile, type HeldRole, type SetAsideRole } from "@core/resume-compare";
 
 export function ResumeReview({
@@ -50,17 +52,17 @@ export function ResumeReview({
         </p>
       ) : null}
       {error ? (
-        <p className="onboarding-alert" role="alert">
-          {error}
-        </p>
+        <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
-          Back
-        </button>
-        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={onContinue}>
-          {busy ? "Saving…" : "Continue"}
-        </button>
+        <Button className="onboarding-nav" label="Back" variant="ghost" onClick={onBack} />
+        <Button
+          className="onboarding-nav"
+          label={busy ? "Saving…" : "Continue"}
+          variant="primary"
+          isDisabled={busy}
+          onClick={onContinue}
+        />
       </div>
     </>
   );

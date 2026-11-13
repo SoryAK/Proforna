@@ -3,14 +3,7 @@
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
-  background:
-    radial-gradient(
-      ellipse 72% 58% at 50% 42%,
-      rgba(167, 139, 113, 0.32),
-      rgba(167, 139, 113, 0.08) 42%,
-      transparent 70%
-    ),
-    #0a0a0a;
+  background: none;
 }
 
 .onboarding-stage {
@@ -222,6 +215,29 @@
 
 .onboarding-actions[data-end="true"] {
   justify-content: flex-end;
+}
+
+.onboarding-nav {
+  border-radius: 999px !important;
+}
+
+.onboarding-card .integration-list-scroll {
+  max-height: none;
+  overflow: visible;
+}
+
+.onboarding-card .integration-list-scroll .integration-row {
+  padding: 1rem 1.15rem 1.05rem;
+}
+
+.onboarding-card .integration-preview-name {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 0;
+  color: #f5f2ee;
+  font-weight: 600;
 }
 
 .onboarding-action-pair {
@@ -578,6 +594,17 @@
   font-size: 12px;
 }
 
+.onboarding-file-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.onboarding-file-title .onboarding-file-add {
+  margin-top: 0;
+  flex: none;
+}
+
 .onboarding-file-list {
   display: grid;
   gap: 0.55rem;
@@ -591,9 +618,6 @@
   margin-top: 0;
 }
 
-.onboarding-file-add {
-  margin-top: 0.75rem;
-}
 
 .onboarding-file-state {
   color: var(--gold-light);
@@ -1161,6 +1185,34 @@
   }
 }
 
+.onboarding-stepper {
+  width: min(40rem, 100%);
+  margin: 0 0 1rem;
+}
+
+/* The on-track stepper draws each gap as the piece leaving one circle plus the
+   piece arriving at the next. Keep the arriving piece for spacing, and let the
+   leaving piece paint the whole gap so each transition is one segment. */
+.onboarding-stepper .astryx-step,
+.onboarding-stepper .astryx-step > div,
+.onboarding-stepper .astryx-step > div > div:first-child {
+  overflow: visible;
+}
+
+.onboarding-stepper .astryx-step:not(:first-child) > div > div:first-child > .astryx-step-connector:first-child {
+  background-color: transparent;
+}
+
+.onboarding-stepper .astryx-step:not(:first-child) > div > div:first-child > .astryx-step-connector:first-child::before {
+  opacity: 0;
+}
+
+.onboarding-stepper .astryx-step:not(:last-child) > div > div:first-child > .astryx-step-connector:last-child {
+  transform: scaleX(2);
+  transform-origin: left center;
+  z-index: 0;
+}
+
 .onboarding-steps {
   display: flex;
   flex-wrap: wrap;
@@ -1341,6 +1393,55 @@
 
 .onboarding-add-address {
   margin-top: 1rem;
+}
+
+.onboarding-badge {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 0.85rem 1.15rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.onboarding-badge-portrait {
+  display: grid;
+  gap: 0.65rem;
+  align-content: start;
+  justify-items: stretch;
+}
+
+.onboarding-badge-identity {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.onboarding-badge-identity .onboarding-group {
+  margin: 0;
+}
+
+.onboarding-badge-address {
+  margin-left: calc(-1 * (9.5rem + 1.15rem));
+  width: calc(100% + 9.5rem + 1.15rem);
+}
+
+.onboarding-badge-address .onboarding-group {
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .onboarding-badge {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-badge-portrait {
+    width: min(100%, 16rem);
+  }
+
+  .onboarding-badge-address {
+    margin-left: 0;
+    width: auto;
+  }
 }
 
 .onboarding-group {

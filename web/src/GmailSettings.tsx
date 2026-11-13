@@ -8,11 +8,13 @@ export function GmailSettingsForm({
   nested = false,
   signIn = false,
   listedEnabled,
+  previewConnected = false,
   onAccountChange,
 }: {
   nested?: boolean;
   signIn?: boolean;
   listedEnabled?: boolean;
+  previewConnected?: boolean;
   onAccountChange?: () => void;
 }) {
   const [account, setAccount] = useState<GmailAccount | null>(null);
@@ -28,8 +30,12 @@ export function GmailSettingsForm({
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (previewConnected) {
+      setAccount({ connected: true, email: "you@example.com", enabled: listedEnabled ?? true });
+      return;
+    }
     void load();
-  }, []);
+  }, [previewConnected, listedEnabled]);
 
   async function load() {
     const response = await fetch("/api/gmail");
@@ -39,6 +45,10 @@ export function GmailSettingsForm({
 
   async function connect(event: FormEvent) {
     event.preventDefault();
+    if (previewConnected) {
+      setMessage("Preview only. Nothing was connected.");
+      return;
+    }
     setError("");
     setMessage("");
     if (signIn) {
@@ -125,6 +135,10 @@ export function GmailSettingsForm({
 
   async function search(event: FormEvent) {
     event.preventDefault();
+    if (previewConnected) {
+      setMessage("Preview only. Nothing was searched.");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -146,6 +160,10 @@ export function GmailSettingsForm({
 
   async function draft(event: FormEvent) {
     event.preventDefault();
+    if (previewConnected) {
+      setMessage("Preview only. No draft was saved.");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -176,6 +194,10 @@ export function GmailSettingsForm({
   }
 
   async function disconnect() {
+    if (previewConnected) {
+      setMessage("Preview only. Nothing was disconnected.");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
