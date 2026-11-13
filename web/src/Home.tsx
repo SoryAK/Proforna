@@ -441,6 +441,10 @@ export function Home({
                       onSelectionChange={setChatRoles}
                       release={chatRelease}
                       attach={chatAttach}
+                      selectedRoleIds={chatRoles.map((role) => role.id)}
+                      onAttachApplied={(nonce) => {
+                        setChatAttach((current) => (current?.nonce === nonce ? null : current));
+                      }}
                     />
                   ) : null
                 }
@@ -488,6 +492,7 @@ export function Home({
           onReleaseRole={(id) => {
             setChatRoles((current) => current.filter((role) => role.id !== id));
             setChatRelease({ id, nonce: Date.now() });
+            setChatAttach((current) => (current?.id === id ? null : current));
           }}
           onAttachRole={(role) => {
             setChatRoles((current) =>
