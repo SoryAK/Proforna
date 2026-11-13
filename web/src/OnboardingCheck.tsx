@@ -3,14 +3,19 @@ import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Divider } from "@astryxdesign/core/Divider";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
 import { RadioIndicator } from "@astryxdesign/core/Indicator";
+import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
 import { List, ListItem } from "@astryxdesign/core/List";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
 import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
+import { RichTextEditor, RichTextEditorToolbar, editorStateJSONToMarkdown, markdownToEditorStateJSON } from "@astryxdesign/richtext";
 import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { formatCareerSpan } from "@core/career-file";
 import {
@@ -22,7 +27,7 @@ import {
   type OnboardingCheckItem,
 } from "@core/onboarding-review";
 import { classifyResumePreview } from "@core/resume-preview";
-import { Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { reversePlace, searchPlaces, splitPlaceAddress, type PlaceHit } from "./place-search";
@@ -173,36 +178,23 @@ function ReviewCarousel({
   onRemove: (index: number) => void;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const item = items[index];
   const slideFile = files?.[index] ?? file;
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    const node = dialog.current;
-    if (!node) return;
-    if (open) {
-      if (!node.open) node.showModal();
-      setShown(true);
-      return;
-    }
-    setShown(false);
-    if (node.open) node.close();
-  }, [open]);
   return (
-    <dialog
-      ref={dialog}
-      className="onboarding-review"
-      data-compare={slideFile ? "true" : undefined}
+    <Dialog
+      isOpen={open && Boolean(item)}
+      purpose="form"
+      width="min(72rem, calc(100vw - 2.5rem))"
+      maxHeight="min(85dvh, 44rem)"
+      padding={0}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") event.stopPropagation();
       }}
-      onCancel={(event) => {
-        event.stopPropagation();
-      }}
-      onClose={onClose}
-      aria-labelledby="onboarding-review-title"
     >
-      {shown && item ? (
+      {item ? (
         <ReviewSlide
           item={item}
           file={slideFile}
@@ -218,7 +210,7 @@ function ReviewCarousel({
           onClose={onClose}
         />
       ) : null}
-    </dialog>
+    </Dialog>
   );
 }
 
@@ -244,151 +236,127 @@ function ReviewSlide({
   onClose: () => void;
 }) {
   const [streetOpen, setStreetOpen] = useState(false);
-  const [workFull, setWorkFull] = useState(false);
   useEffect(() => {
     setStreetOpen(false);
-    setWorkFull(false);
   }, [index, item.org]);
   const placed = item.lat != null && item.lng != null;
   const job = item.kind === "Job";
   const prompt = placePrompt(item.kind);
   const last = index + 1 >= total;
   return (
-    <>
-      <div className="onboarding-review-head">
-        <p className="onboarding-kicker">
-          {index + 1} of {total}
-        </p>
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onClose}>
-          Close
-        </button>
-      </div>
-      <h2 id="onboarding-review-title">
-        Verify <em>{headerTitle(item)}</em>
-      </h2>
-      <div className="onboarding-review-compare">
-        {file ? (
-          <section className="onboarding-review-source" aria-label="Uploaded resume">
-            <h3>Resume</h3>
-            <ResumePreview file={file} />
-          </section>
-        ) : null}
-        <div className="onboarding-review-body" data-work={workFull ? "full" : "split"}>
-          <p className="onboarding-kicker">{item.sourceIndex < 0 ? "Added" : "Extracted"}</p>
-        {workFull ? null : (
-        <>
-        <label className="onboarding-field">
-          <span>{item.kind === "School" ? "Degree" : "Title"}</span>
-          <input
-            value={item.title}
-            onChange={(event) => onChange({ ...item, title: event.target.value })}
-          />
-        </label>
-        {item.kind === "School" ? (
-          <label className="onboarding-field">
-            <span>Field</span>
-            <input value={item.field} onChange={(event) => onChange({ ...item, field: event.target.value })} />
-          </label>
-        ) : null}
-        <label className="onboarding-field">
-          <span>{item.kind === "School" ? "School" : "Company"}</span>
-          <input value={item.org} onChange={(event) => onChange({ ...item, org: event.target.value })} />
-        </label>
-        <div className="onboarding-field-row">
-          <label className="onboarding-field">
-            <span>Started</span>
-            <input
-              value={item.startDate}
-              placeholder="YYYY-MM"
-              onChange={(event) => onChange({ ...item, startDate: event.target.value })}
-            />
-          </label>
-          <label className="onboarding-field">
-            <span>Ended</span>
-            <input
-              value={item.isCurrent ? "" : item.endDate}
-              placeholder={item.isCurrent ? "Present" : "YYYY-MM"}
-              disabled={item.isCurrent}
-              onChange={(event) => onChange({ ...item, endDate: event.target.value })}
-            />
-          </label>
-        </div>
-        {item.kind === "Job" ? (
-          <label className="onboarding-current">
-            <input
-              type="checkbox"
-              checked={item.isCurrent}
-              onChange={(event) => onChange({ ...item, isCurrent: event.target.checked })}
-            />
-            Current role
-          </label>
-        ) : null}
-        <div className="onboarding-place">
-          <span className="onboarding-pin" data-set={placed ? "true" : "false"} aria-hidden="true" />
-          <div>
-            <strong>{item.place}</strong>
-            <span>{placed ? "On the map" : "No pin yet"}</span>
-          </div>
-          <button
-            type="button"
-            className="onboarding-place-action"
-            onClick={() => setStreetOpen((open) => !open)}
-          >
-            {streetOpen ? "Close" : placed ? "Change" : prompt.add}
-          </button>
-        </div>
-        {streetOpen ? (
-          <RolePlacePicker
-            key={`${index}-${item.source}-${item.sourceIndex}`}
-            seed={item.place}
-            searching={streetOpen}
-            pinned={placed ? [item.lat as number, item.lng as number] : null}
-            prompt={prompt}
-            onChoose={(place, lat, lng) => {
-              onChange({ ...item, place, lat, lng });
-              setStreetOpen(false);
-            }}
-          />
-        ) : null}
-        </>
-        )}
-        {job ? (
-          <WorkList
-            lines={workLines(item)}
-            expanded={workFull}
-            onToggle={() => setWorkFull((value) => !value)}
-            onChange={(lines) => onChange(withWorkLines(item, lines))}
-          />
-        ) : (
-          <label className="onboarding-field">
-            <span>Description</span>
-            <textarea
-              value={item.description}
-              onChange={(event) => onChange({ ...item, description: event.target.value })}
-            />
-          </label>
-        )}
-        </div>
-      </div>
-      <div className="onboarding-actions" data-split="true">
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-ghost"
-          disabled={index === 0}
-          onClick={onPrevious}
-        >
-          Previous
-        </button>
-        <div className="onboarding-action-pair">
-          <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onRemove}>
-            Not this one
-          </button>
-          <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={onNext}>
-            {last ? "Done" : "Next"}
-          </button>
-        </div>
-      </div>
-    </>
+    <Layout
+      padding={4}
+      header={
+        <DialogHeader
+          title={`Verify ${headerTitle(item)}`}
+          hasDivider
+          onOpenChange={() => onClose()}
+          style={{ paddingBottom: "0.75rem" }}
+        />
+      }
+      content={
+        <LayoutContent isScrollable label="Review role" padding={4}>
+          <VStack gap={3}>
+            <Text type="supporting" display="block">
+              {index + 1} of {total}
+            </Text>
+            <div className="onboarding-review-compare" data-side-by-side={file ? "true" : undefined}>
+              {file ? (
+                <section className="onboarding-review-source" aria-label="Uploaded resume">
+                  <ResumePreview file={file} paged />
+                </section>
+              ) : null}
+              <VStack className="onboarding-review-body" gap={2}>
+                <Text type="supporting">{item.sourceIndex < 0 ? "Added" : "Extracted"}</Text>
+                <>
+                    <TextInput
+                      label={item.kind === "School" ? "Degree" : "Title"}
+                      value={item.title}
+                      onChange={(title) => onChange({ ...item, title })}
+                    />
+                    {item.kind === "School" ? (
+                      <TextInput label="Field" value={item.field} onChange={(field) => onChange({ ...item, field })} />
+                    ) : null}
+                    <TextInput
+                      label={item.kind === "School" ? "School" : "Company"}
+                      value={item.org}
+                      onChange={(org) => onChange({ ...item, org })}
+                    />
+                    <HStack gap={2}>
+                      <VStack style={{ flex: 1, minWidth: 0 }}>
+                        <TextInput
+                          label="Started"
+                          value={item.startDate}
+                          placeholder="YYYY-MM"
+                          onChange={(startDate) => onChange({ ...item, startDate })}
+                        />
+                      </VStack>
+                      <VStack style={{ flex: 1, minWidth: 0 }}>
+                        <TextInput
+                          label="Ended"
+                          value={item.isCurrent ? "" : item.endDate}
+                          placeholder={item.isCurrent ? "Present" : "YYYY-MM"}
+                          isDisabled={item.isCurrent}
+                          onChange={(endDate) => onChange({ ...item, endDate })}
+                        />
+                      </VStack>
+                    </HStack>
+                    {item.kind === "Job" ? (
+                      <CheckboxInput
+                        label="Current role"
+                        value={item.isCurrent}
+                        onChange={(isCurrent) => onChange({ ...item, isCurrent })}
+                      />
+                    ) : null}
+                    <HStack gap={2} align="center" justify="between">
+                      <HStack gap={2} align="center">
+                        <Badge label={placed ? "On the map" : "No pin yet"} variant={placed ? "success" : "neutral"} />
+                        <Text>{item.place}</Text>
+                      </HStack>
+                      <Button
+                        label={streetOpen ? "Close" : placed ? "Change" : prompt.add}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setStreetOpen((open) => !open)}
+                      />
+                    </HStack>
+                    {streetOpen ? (
+                      <RolePlacePicker
+                        key={`${index}-${item.source}-${item.sourceIndex}`}
+                        seed={item.place}
+                        searching={streetOpen}
+                        pinned={placed ? [item.lat as number, item.lng as number] : null}
+                        prompt={prompt}
+                        onChoose={(place, lat, lng) => {
+                          onChange({ ...item, place, lat, lng });
+                          setStreetOpen(false);
+                        }}
+                      />
+                    ) : null}
+                  </>
+                <DutyEditor
+                  key={`${item.source}-${item.sourceIndex}`}
+                  item={item}
+                  label={job ? "What you did" : "Description"}
+                  onChange={onChange}
+                />
+              </VStack>
+            </div>
+          </VStack>
+        </LayoutContent>
+      }
+      footer={
+        <LayoutFooter hasDivider style={{ paddingTop: "0.75rem" }}>
+          <HStack gap={2} justify="between">
+            <Button label="Previous" variant="ghost" isDisabled={index === 0} onClick={onPrevious} />
+            <HStack gap={2}>
+              <Button label="Not this one" variant="ghost" onClick={onRemove} />
+              <Button label={last ? "Done" : "Next"} variant="primary" onClick={onNext} />
+            </HStack>
+          </HStack>
+        </LayoutFooter>
+      }
+    />
   );
 }
 
@@ -792,6 +760,46 @@ function withWorkLines(item: OnboardingCheckItem, lines: string[]): OnboardingCh
   };
 }
 
+function dutyMarkdown(item: OnboardingCheckItem): string {
+  return workLines(item).join("\n\n");
+}
+
+function linesFromDutyMarkdown(markdown: string): string[] {
+  return markdown
+    .split("\n")
+    .map((line) => line.replace(/^[-*]\s+/, "").trim())
+    .filter(Boolean);
+}
+
+function DutyEditor({
+  item,
+  label,
+  onChange,
+}: {
+  item: OnboardingCheckItem;
+  label: string;
+  onChange: (item: OnboardingCheckItem) => void;
+}) {
+  const itemRef = useRef(item);
+  itemRef.current = item;
+  return (
+    <RichTextEditor
+      label={label}
+      width="100%"
+      minHeight="8rem"
+      defaultValue={markdownToEditorStateJSON(dutyMarkdown(item))}
+      toolbar={<RichTextEditorToolbar />}
+      onChange={(state) => {
+        const current = itemRef.current;
+        const markdown = editorStateJSONToMarkdown(JSON.stringify(state.toJSON()));
+        const nextLines = linesFromDutyMarkdown(markdown);
+        if (nextLines.join("\n") === workLines(current).join("\n")) return;
+        onChange(withWorkLines(current, nextLines));
+      }}
+    />
+  );
+}
+
 function checkItemKey(item: OnboardingCheckItem): string {
   return `${item.source}-${item.sourceIndex}`;
 }
@@ -838,17 +846,22 @@ function stamped(item: OnboardingCheckItem): OnboardingCheckItem {
   };
 }
 
-export function ResumePreview({ file }: { file: File }) {
+export function ResumePreview({ file, paged = false }: { file: File; paged?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const [textPreview, setTextPreview] = useState<string | null>(null);
   const [pdfNote, setPdfNote] = useState<string | null>(null);
+  const [pageCount, setPageCount] = useState(0);
+  const [page, setPage] = useState(0);
   const kind = classifyResumePreview(file);
+  const showPager = paged && pageCount > 1;
 
   useEffect(() => {
     if (kind !== "pdf") return;
     const target = host.current;
     if (!target) return;
     let cancel = false;
+    setPage(0);
+    setPageCount(0);
     setPdfNote("Reading the resume…");
     const taskPromise = file.arrayBuffer().then((buffer) => getDocument({ data: new Uint8Array(buffer) }));
     void taskPromise
@@ -859,18 +872,22 @@ export function ResumePreview({ file }: { file: File }) {
           target.replaceChildren();
           for (let number = 1; number <= doc.numPages; number += 1) {
             if (cancel) break;
-            const page = await doc.getPage(number);
-            const unscaled = page.getViewport({ scale: 1 });
+            const pageView = await doc.getPage(number);
+            const unscaled = pageView.getViewport({ scale: 1 });
             const width = target.clientWidth || unscaled.width;
             const scale = Math.min(2, ((width - 2) / unscaled.width) * (window.devicePixelRatio || 1));
-            const viewport = page.getViewport({ scale });
+            const viewport = pageView.getViewport({ scale });
             const canvas = document.createElement("canvas");
             canvas.width = Math.floor(viewport.width);
             canvas.height = Math.floor(viewport.height);
-            await page.render({ canvas, viewport }).promise;
+            if (paged && number === 1) canvas.dataset.active = "true";
+            await pageView.render({ canvas, viewport }).promise;
             if (!cancel) target.appendChild(canvas);
           }
-          if (!cancel) setPdfNote(null);
+          if (!cancel) {
+            setPageCount(doc.numPages);
+            setPdfNote(null);
+          }
         } catch {
           if (!cancel) setPdfNote("The resume could not be shown here.");
         }
@@ -882,7 +899,17 @@ export function ResumePreview({ file }: { file: File }) {
       cancel = true;
       void taskPromise.then((task) => task.destroy()).catch(() => undefined);
     };
-  }, [file, kind]);
+  }, [file, kind, paged]);
+
+  useEffect(() => {
+    const target = host.current;
+    if (!target || !paged) return;
+    target.querySelectorAll("canvas").forEach((canvas, index) => {
+      if (index === page) canvas.dataset.active = "true";
+      else delete canvas.dataset.active;
+    });
+    target.scrollTop = 0;
+  }, [page, pageCount, paged]);
 
   useEffect(() => {
     if (kind !== "text") return;
@@ -896,11 +923,36 @@ export function ResumePreview({ file }: { file: File }) {
   }, [file, kind]);
 
   return (
-    <div className="onboarding-preview">
+    <div className="onboarding-preview" data-paged={paged ? "true" : undefined}>
       {kind === "pdf" ? (
         <>
-          <div className="onboarding-preview-pages" ref={host} />
+          <div className="onboarding-preview-pages" ref={host} data-paging={showPager ? "true" : undefined} />
           {pdfNote ? <p className="onboarding-preview-fallback">{pdfNote}</p> : null}
+          {showPager ? (
+            <HStack className="onboarding-preview-pager" gap={2} align="center" justify="between">
+              <Button
+                label="Previous page"
+                variant="ghost"
+                size="sm"
+                isIconOnly
+                icon={<Icon icon={ChevronLeft} size="sm" />}
+                isDisabled={page === 0}
+                onClick={() => setPage((current) => Math.max(0, current - 1))}
+              />
+              <Text type="supporting">
+                {page + 1} of {pageCount}
+              </Text>
+              <Button
+                label="Next page"
+                variant="ghost"
+                size="sm"
+                isIconOnly
+                icon={<Icon icon={ChevronRight} size="sm" />}
+                isDisabled={page + 1 >= pageCount}
+                onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+              />
+            </HStack>
+          ) : null}
         </>
       ) : null}
       {kind === "text" ? <pre className="onboarding-preview-text">{textPreview ?? "Reading…"}</pre> : null}
