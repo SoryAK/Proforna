@@ -6,7 +6,7 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { FileInput } from "@astryxdesign/core/FileInput";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Stepper, Step } from "@astryxdesign/core/Stepper";
-import { Text } from "@astryxdesign/core/Text";
+import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { isHttpUrl, OPENAI_BASE_URL, type ModelHosting } from "@core/model-connection";
 import {
@@ -962,14 +962,14 @@ export function Onboarding({
 
           {step === "model" ? (
             <>
-              <p className="onboarding-kicker">Model</p>
-              <h1>
+              <Text type="label" display="block">Model</Text>
+              <Heading level={1}>
                 Should a model process <em>your resume?</em>
-              </h1>
-              <p className="onboarding-lead">
+              </Heading>
+              <Text type="body" display="block">
                 A model reads your resume and lists your jobs and schools for you to check. You can also skip this and
                 add them yourself.
-              </p>
+              </Text>
               <div className="onboarding-choices onboarding-host" role="group" aria-label="Where the model runs">
                 <Button
                   label="Local"
@@ -1142,13 +1142,13 @@ export function Onboarding({
 
           {step === "integrations" ? (
             <>
-              <h1>
+              <Heading level={1}>
                 Connect an <em>account?</em>
-              </h1>
-              <p className="onboarding-lead">
+              </Heading>
+              <Text type="body" display="block">
                 Optional. Turn one on if you want Proforna to use it when you ask. It does not file mail into
                 Opportunities on its own.
-              </p>
+              </Text>
               {import.meta.env.DEV ? (
                 <p className="onboarding-quiet">
                   <label>
@@ -1186,9 +1186,9 @@ export function Onboarding({
           {step === "file" ? (
             <>
               <div className="onboarding-file-head">
-                <p className="onboarding-kicker">Resume</p>
+                <Text type="label" display="block">Resume</Text>
                 <div className="onboarding-file-title">
-                  <h1>
+                  <Heading level={1}>
                     {extracting ? (
                       <>
                         Reading <em>{files[cursor]?.file.name ?? "the resume"}.</em>
@@ -1198,7 +1198,7 @@ export function Onboarding({
                         Import your <em>resumes.</em>
                       </>
                     )}
-                  </h1>
+                  </Heading>
                   {files.length > 0 ? (
                     <Button
                       className="onboarding-file-add"
@@ -1211,9 +1211,9 @@ export function Onboarding({
                 </div>
               </div>
               {extracting ? (
-                <p className="onboarding-meta">
+                <Text type="supporting" display="block">
                   {cursor + 1} of {files.length}. The questions start after every file is read.
-                </p>
+                </Text>
               ) : null}
               {extracting ? <ReadProgress model={presentModelId(selected)} /> : null}
               {files.length === 0 ? (
@@ -1423,7 +1423,7 @@ export function Onboarding({
         {notes.length > 0 ? (
           <div className="onboarding-footnote">
             {notes.map((line) => (
-              <p key={line}>{line}</p>
+              <Text key={line} type="supporting" display="block">{line}</Text>
             ))}
           </div>
         ) : null}
@@ -1660,10 +1660,10 @@ function DoneStep({
 
   return (
     <>
-      <p className="onboarding-kicker">Done</p>
-      <h1>
+      <Text type="label" display="block">Done</Text>
+      <Heading level={1}>
         Your history <em>is in.</em>
-      </h1>
+      </Heading>
       <ul className="onboarding-counts">
         {summary.tiles.map((tile) => (
           <li key={tile.label}>
@@ -1672,7 +1672,7 @@ function DoneStep({
           </li>
         ))}
       </ul>
-      {summary.setAside ? <p className="onboarding-lead">{summary.setAside}</p> : null}
+      {summary.setAside ? <Text type="body" display="block">{summary.setAside}</Text> : null}
       {saved.length > 0 ? (
         <div className="onboarding-saved">
           <p>These were saved with your profile. A blank field took the value from a resume.</p>
@@ -1841,11 +1841,11 @@ function ProfileStep({
 }) {
   return (
     <>
-      <p className="onboarding-kicker">Profile</p>
-      <h1>
+      <Text type="label" display="block">Profile</Text>
+      <Heading level={1}>
         Let's start with <em>your profile.</em>
-      </h1>
-      <p className="onboarding-lead">Proforna runs on this computer. Nothing here leaves it unless you publish.</p>
+      </Heading>
+      <Text type="body" display="block">Proforna runs on this computer. Nothing here leaves it unless you publish.</Text>
       <div className="onboarding-badge">
         <div className="onboarding-badge-portrait">
           <Avatar

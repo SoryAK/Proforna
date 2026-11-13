@@ -1,6 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
+import { Switch } from "@astryxdesign/core/Switch";
+import { RadioList, RadioListItem } from "@astryxdesign/core/RadioList";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { VStack } from "@astryxdesign/core/VStack";
 import { formatCareerSpan } from "@core/career-file";
 import {
   addHeldRole,
@@ -11,7 +23,6 @@ import {
   followSkillEdits,
   rememberSkills,
   roleFieldDiffs,
-  skillLines,
   type SkillEdit,
   roleTookFile,
   type HeldRole,
@@ -136,10 +147,10 @@ export function ResumeCompare({
   if (incoming.length === 0) {
     return (
       <>
-        <p className="onboarding-kicker">Resume</p>
-        <h1>
+        <Text type="label" display="block">Resume</Text>
+        <Heading level={1}>
           Nothing new in <em>{fileName}</em>
-        </h1>
+        </Heading>
         <div className="onboarding-actions" data-split="true">
           <Button className="onboarding-nav" label="Back" variant="ghost" onClick={onBack} />
           <Button
@@ -182,6 +193,7 @@ export function ResumeCompare({
           start: row.item.startDate,
           opened: seen.includes(row.index),
           hint: role ? hintCopy(hint?.reason ?? "employer", role.item) : asideHit ? "You set this aside before." : undefined,
+          similarTo: role ? role.id : undefined,
           keepLabel: asideHit && !role ? "Add this role" : undefined,
           onOpen: () => {
             setSeen((current) => (current.includes(row.index) ? current : [...current, row.index]));
@@ -202,12 +214,12 @@ export function ResumeCompare({
 
   return (
     <>
-      <p className="onboarding-kicker">Resume</p>
-      <h1>
+      <Text type="label" display="block">Resume</Text>
+      <Heading level={1}>
         Here's what was <em>extracted.</em>
-      </h1>
-      <p className="onboarding-meta">{fileName}</p>
-      <p className="onboarding-meta">Compare a role when it might be one you already have. A role this file never mentions stays.</p>
+      </Heading>
+      <Text type="supporting" display="block">{fileName}</Text>
+      <Text type="supporting" display="block">Compare a role when it might be one you already have. A role this file never mentions stays.</Text>
       <VerifyBoard
         jobs={[...heldCards("job"), ...incomingCards("job")]}
         schools={[...heldCards("school"), ...incomingCards("school")]}
@@ -288,64 +300,130 @@ function CompareDialog({
   onKeep: () => void;
   onMerge: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const node = dialog.current;
-    if (!node) return;
-    if (!node.open) node.showModal();
-  }, []);
   const waiting = confirming && choices.some((choice) => !picks[choice.key]);
+  const title = confirming ? "Which value stays?" : "Are these the same role?";
+  const [showAll, setShowAll] = useState(false);
   return (
-    <dialog
-      ref={dialog}
-      className="onboarding-review"
-      data-compare="true"
+    <Dialog
+      isOpen
+      purpose="form"
+      width="min(72rem, calc(100vw - 2.5rem))"
+      maxHeight="min(85dvh, 44rem)"
+      padding={0}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") event.stopPropagation();
       }}
-      onCancel={(event) => {
-        event.stopPropagation();
-      }}
-      onClose={onClose}
-      aria-labelledby="onboarding-compare-title"
     >
-      <div className="onboarding-review-head">
-        <p className="onboarding-kicker">Compare</p>
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onClose}>
-          Close
-        </button>
-      </div>
-      <h2 id="onboarding-compare-title">{confirming ? "Which value stays?" : "Are these the same role?"}</h2>
-      {confirming ? (
-        <div className="onboarding-review-body">
-          <p className="onboarding-meta">These differ. Choose one for each. Both sets of lines stay on the role.</p>
-          {choices.map((choice) => (
-            <fieldset key={choice.key} className="onboarding-stay">
-              <legend>{choice.label}</legend>
-              <button type="button" aria-pressed={picks[choice.key] === "kept"} onClick={() => onPick(choice.key, "kept")}>
-                {choice.kept}
-              </button>
-              <button type="button" aria-pressed={picks[choice.key] === "incoming"} onClick={() => onPick(choice.key, "incoming")}>
-                {choice.incoming}
-              </button>
-            </fieldset>
-          ))}
-        </div>
+      <Layout
+        padding={4}
+        header={<DialogHeader title={title} hasDivider onOpenChange={() => onClose()} style={{ paddingBottom: "0.75rem" }} />}
+        content={
+          <LayoutContent isScrollable label="Compare roles" padding={4}>
+            <VStack gap={3}>
+              {confirming ? (
+                <VStack gap={3}>
+                  <Text type="supporting">Compare</Text>
+                  <Text type="supporting">These differ. Choose one for each. Both sets of lines stay on the role.</Text>
+                  {choices.map((choice) => (
+                    <RadioList
+                      key={choice.key}
+                      label={choice.label}
+                      htmlName={`stay-${choice.key}`}
+                      value={picks[choice.key] ?? ""}
+                      onChange={(side) => onPick(choice.key, side === "incoming" ? "incoming" : "kept")}
+                    >
+                      <RadioListItem value="kept" label={choice.kept} />
+                      <RadioListItem value="incoming" label={choice.incoming} />
+                    </RadioList>
+                  ))}
+                </VStack>
+              ) : (
+                <>
+                  <HStack justify="between" align="center">
+                    <Text type="supporting">Compare</Text>
+                    <Switch label="Show all fields" value={showAll} onChange={setShowAll} />
+                  </HStack>
+                  <div className="onboarding-compare-columns">
+                    <CompareColumn item={kept} fileLabel="Kept role" other={incoming} showAll={showAll} />
+                    <CompareColumn item={incoming} fileLabel={fileName} other={kept} showAll={showAll} />
+                  </div>
+                </>
+              )}
+            </VStack>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter hasDivider style={{ paddingTop: "0.75rem" }}>
+            <HStack gap={2} justify="between">
+              <Button
+                label={confirming ? "Back" : "Keep different"}
+                variant="ghost"
+                isDisabled={busy}
+                onClick={confirming ? onBack : onKeep}
+              />
+              <Button
+                label={confirming ? "Confirm merge" : "Merge"}
+                variant="primary"
+                isDisabled={busy || waiting}
+                onClick={onMerge}
+              />
+            </HStack>
+          </LayoutFooter>
+        }
+      />
+    </Dialog>
+  );
+}
+
+const LINE_PREVIEW = 3;
+
+function changedFields(item: OnboardingCheckItem, other: OnboardingCheckItem | undefined): Set<string> {
+  const changed = new Set<string>();
+  if (!other) return changed;
+  for (const diff of roleFieldDiffs(item, other)) changed.add(diff.field);
+  for (const diff of roleFieldDiffs(other, item)) changed.add(diff.field);
+  return changed;
+}
+
+function CompareLines({ label, lines, otherLines }: { label: string; lines: string[]; otherLines: string[] }) {
+  const [open, setOpen] = useState(false);
+  const known = new Set(otherLines.map((line) => line.trim().toLowerCase()).filter(Boolean));
+  const long = lines.length > LINE_PREVIEW;
+  const shown = long && !open ? lines.slice(0, LINE_PREVIEW) : lines;
+  const missing = lines.length === 0 && otherLines.some((line) => line.trim());
+  return (
+    <VStack gap={1}>
+      <Text type="supporting">{label}</Text>
+      {missing ? (
+        <HStack gap={1} align="center">
+          <Icon icon="warning" color="warning" size="sm" aria-hidden />
+          <Text>Blank</Text>
+        </HStack>
       ) : (
-        <div className="onboarding-compare-columns">
-          <CompareColumn item={kept} fileLabel="Kept role" />
-          <CompareColumn item={incoming} fileLabel={fileName} />
-        </div>
+        shown.map((line, index) => {
+          const different = !known.has(line.trim().toLowerCase());
+          return (
+            <HStack key={`${index}-${line}`} gap={1} align="center">
+              {different ? <Icon icon="warning" color="warning" size="sm" aria-hidden /> : null}
+              <Text>{line}</Text>
+            </HStack>
+          );
+        })
       )}
-      <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" disabled={busy} onClick={confirming ? onBack : onKeep}>
-          {confirming ? "Back" : "Keep different"}
-        </button>
-        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy || waiting} onClick={onMerge}>
-          {confirming ? "Confirm merge" : "Merge"}
-        </button>
-      </div>
-    </dialog>
+      {lines.length === 0 && !missing ? <Text type="supporting">Blank</Text> : null}
+      {long ? (
+        <Button
+          label={open ? "Collapse" : "Expand"}
+          size="sm"
+          variant="ghost"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        />
+      ) : null}
+    </VStack>
   );
 }
 
@@ -353,68 +431,92 @@ export function CompareColumn({
   item,
   fileLabel,
   kicker = "Extracted",
+  other,
+  showAll = true,
 }: {
   item: OnboardingCheckItem;
   fileLabel: string;
   kicker?: string;
+  other?: OnboardingCheckItem;
+  showAll?: boolean;
 }) {
   const [workFull, setWorkFull] = useState(false);
   const job = item.kind === "Job";
   const placed = item.lat != null && item.lng != null;
+  const comparing = other != null;
+  const changed = changedFields(item, other);
+  const visible = (field: string) => !comparing || showAll || changed.has(field);
+  const mark = (field: string) => (comparing && changed.has(field) ? ({ type: "warning" as const }) : undefined);
+  const showDates = visible("startDate") || visible("endDate");
+  const showLines = !comparing || showAll || changed.has("description") || changed.has("achievement");
   return (
-    <div className="onboarding-review-body" data-work={workFull ? "full" : "split"}>
-      <p className="onboarding-kicker">{kicker}</p>
-      <p className="onboarding-meta">{fileLabel}</p>
-      {workFull ? null : (
+    <VStack className="onboarding-review-body" data-work={workFull ? "full" : "split"} gap={2}>
+      <VStack gap={0}>
+        <Text type="supporting">{kicker}</Text>
+        <Text type="supporting">{fileLabel}</Text>
+      </VStack>
+      {workFull && !comparing ? null : (
         <>
-          <label className="onboarding-field">
-            <span>{job ? "Title" : "Degree"}</span>
-            <input readOnly value={item.title} />
-          </label>
-          {job ? null : (
-            <label className="onboarding-field">
-              <span>Field</span>
-              <input readOnly value={item.field} />
-            </label>
-          )}
-          <label className="onboarding-field">
-            <span>{job ? "Company" : "School"}</span>
-            <input readOnly value={item.org} />
-          </label>
-          <div className="onboarding-field-row">
-            <label className="onboarding-field">
-              <span>Started</span>
-              <input readOnly value={item.startDate} />
-            </label>
-            <label className="onboarding-field">
-              <span>Ended</span>
-              <input readOnly value={item.isCurrent ? "Present" : item.endDate} />
-            </label>
-          </div>
-          {job ? (
-            <label className="onboarding-current">
-              <input type="checkbox" checked={item.isCurrent} readOnly />
-              Current role
-            </label>
+          {visible("title") ? (
+            <TextInput label={job ? "Title" : "Degree"} value={item.title} isReadOnly status={mark("title")} onChange={() => undefined} />
           ) : null}
-          <div className="onboarding-place">
-            <span className="onboarding-pin" data-set={placed ? "true" : "false"} aria-hidden="true" />
-            <div>
-              <strong>{item.place === ONBOARDING_NO_PLACE ? "No place yet" : item.place}</strong>
-              <span>{placed ? "On the map" : "No pin yet"}</span>
-            </div>
-          </div>
+          {!job && visible("field") ? (
+            <TextInput label="Field" value={item.field} isReadOnly status={mark("field")} onChange={() => undefined} />
+          ) : null}
+          {visible("org") ? (
+            <TextInput label={job ? "Company" : "School"} value={item.org} isReadOnly status={mark("org")} onChange={() => undefined} />
+          ) : null}
+          {showDates ? (
+            <HStack gap={2}>
+              {visible("startDate") ? (
+                <VStack style={{ flex: 1, minWidth: 0 }}>
+                  <TextInput label="Started" value={item.startDate} isReadOnly status={mark("startDate")} onChange={() => undefined} />
+                </VStack>
+              ) : null}
+              {visible("endDate") ? (
+                <VStack style={{ flex: 1, minWidth: 0 }}>
+                  <TextInput
+                    label="Ended"
+                    value={item.isCurrent ? "Present" : item.endDate}
+                    isReadOnly
+                    status={mark("endDate")}
+                    onChange={() => undefined}
+                  />
+                </VStack>
+              ) : null}
+            </HStack>
+          ) : null}
+          {job && visible("isCurrent") ? (
+            <CheckboxInput label="Current role" value={item.isCurrent} isReadOnly onChange={() => undefined} />
+          ) : null}
+          {visible("place") ? (
+            comparing ? (
+              <TextInput
+                label="Place"
+                value={item.place === ONBOARDING_NO_PLACE ? "No place yet" : item.place}
+                isReadOnly
+                status={mark("place")}
+                onChange={() => undefined}
+              />
+            ) : (
+              <HStack gap={2} align="center">
+                <Badge label={placed ? "On the map" : "No pin yet"} variant={placed ? "success" : "neutral"} />
+                <Text>{item.place === ONBOARDING_NO_PLACE ? "No place yet" : item.place}</Text>
+              </HStack>
+            )
+          ) : null}
         </>
       )}
-      {job ? (
+      {comparing ? (
+        showLines ? (
+          <CompareLines label={job ? "What you did" : "Description"} lines={workLines(item)} otherLines={other ? workLines(other) : []} />
+        ) : null
+      ) : job ? (
         <WorkList lines={workLines(item)} expanded={workFull} onToggle={() => setWorkFull((value) => !value)} />
       ) : (
-        <label className="onboarding-field">
-          <span>Description</span>
-          <textarea readOnly value={item.description} />
-        </label>
+        <TextArea label="Description" value={item.description} isReadOnly onChange={() => undefined} />
       )}
-    </div>
+    </VStack>
   );
 }
 
@@ -545,6 +647,7 @@ export function AllResumesVerify({
   const [confirming, setConfirming] = useState(false);
   const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
   const [skillEdit, setSkillEdit] = useState<SkillEdit | null>(null);
+  const [continueWarned, setContinueWarned] = useState(false);
   const visible = rows.filter((row) => !row.removed);
   const summary = onboardingExtractSummary(
     bundles.flatMap((bundle) => bundle.items),
@@ -704,6 +807,7 @@ export function AllResumesVerify({
             : asideHit && !row.adopted
               ? "You set this aside before."
               : undefined,
+          similarTo: match && !match.fromCareer ? match.earlierId : undefined,
           keepLabel: asideHit && !row.adopted && !match ? "Add this role" : undefined,
           onOpen: () => {
             markOpened(row.id);
@@ -724,6 +828,7 @@ export function AllResumesVerify({
       });
 
   const editIndex = visible.findIndex((row) => row.id === editId);
+  const unreviewedSimilar = [...cards("job"), ...cards("school")].filter((card) => card.onCompare && !card.opened).length;
   const unopenedCount = visible.filter(
     (row) => !isBlankOnboardingCheckItem(row.item) && !opened.includes(row.id),
   ).length;
@@ -732,66 +837,31 @@ export function AllResumesVerify({
     <>
       {hideHeading ? null : (
         <>
-          <p className="onboarding-kicker">Verify</p>
-          <h1>
+          <Text type="label" display="block">Verify</Text>
+          <Heading level={1}>
             Here's what was <em>extracted.</em>
-          </h1>
+          </Heading>
         </>
       )}
-      <p className="onboarding-meta">{summary}</p>
-      <p className="onboarding-meta">
+      <Text type="supporting" display="block">{summary}</Text>
+      <Text type="supporting" display="block">
         {bundles.length > 1 || prior.length > 0
           ? "Open a job or a school to review it. Compare a role when it might be the same as another."
           : "Open a job or a school to review it against the resume."}
-      </p>
-      <VerifyBoard jobs={cards("job")} schools={cards("school")} />
-      {editSkills ? (
-        <label className="onboarding-field">
-          <span>Skills, one per line</span>
-          <textarea
-            rows={4}
-            value={skillLines(shownSkills())}
-            placeholder="Skills from a kept job show here."
-            onChange={(event) => {
-              const found = foundSkills(keptRoles());
-              const shown = followSkillEdits(found, skillEdit);
-              setSkillEdit({
-                lines: event.target.value.split("\n"),
-                seen: shown.map((skill) => skill.name),
-              });
-            }}
-          />
-          <small className="onboarding-field-note">A skill you add is yours. It is not tied to a resume.</small>
-        </label>
-      ) : null}
-      <div className="onboarding-verify-actions">
-        <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
-          Add a job
-        </button>
-        <button type="button" className="onboarding-verify-btn" onClick={() => add("School")}>
-          Add a school
-        </button>
-        <button
-          type="button"
-          className="onboarding-verify-btn"
-          disabled={visible.length === 0}
-          onClick={() => {
-            const first = visible[0];
-            if (!first) return;
-            markOpened(first.id);
-            setEditId(first.id);
-          }}
-        >
-          Review each one
-        </button>
-      </div>
+      </Text>
+      <VerifyBoard
+        jobs={cards("job")}
+        schools={cards("school")}
+        onAddJob={() => add("Job")}
+        onAddSchool={() => add("School")}
+      />
       {error ? (
         <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       {unopenedCount > 0 ? (
-        <p className="onboarding-quiet" role="status">
+        <Text type="supporting" display="block" role="status">
           {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Worth a look before you continue.
-        </p>
+        </Text>
       ) : null}
       <div className="onboarding-actions" data-split="true">
         <Button className="onboarding-nav" label="Back" variant="ghost" isDisabled={busy} onClick={onBack} />
@@ -800,9 +870,51 @@ export function AllResumesVerify({
           label={busy ? "Saving…" : "Continue"}
           variant="primary"
           isDisabled={busy}
-          onClick={finish}
+          onClick={() => {
+            if (unreviewedSimilar > 0) {
+              setContinueWarned(true);
+              return;
+            }
+            finish();
+          }}
         />
       </div>
+      <Dialog
+        isOpen={continueWarned}
+        purpose="form"
+        width={440}
+        onOpenChange={(next) => {
+          if (!next) setContinueWarned(false);
+        }}
+      >
+        <Layout
+          padding={4}
+          header={<DialogHeader title="Before you continue" hasDivider onOpenChange={() => setContinueWarned(false)} />}
+          content={
+            <LayoutContent>
+              <Text type="body" display="block">
+                {unreviewedSimilar === 1 ? "1 has not been opened." : `${unreviewedSimilar} have not been opened.`} It&apos;s worth a look before you continue.
+              </Text>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <HStack gap={2} justify="between">
+                <Button label="Go back" variant="ghost" onClick={() => setContinueWarned(false)} />
+                <Button
+                  label="Continue anyways"
+                  variant="primary"
+                  isDisabled={busy}
+                  onClick={() => {
+                    setContinueWarned(false);
+                    finish();
+                  }}
+                />
+              </HStack>
+            </LayoutFooter>
+          }
+        />
+      </Dialog>
       {editIndex >= 0 ? (
         <CheckReview
           open

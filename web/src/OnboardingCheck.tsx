@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Divider } from "@astryxdesign/core/Divider";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { RadioIndicator } from "@astryxdesign/core/Indicator";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { VStack } from "@astryxdesign/core/VStack";
 import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { formatCareerSpan } from "@core/career-file";
 import {
@@ -12,6 +22,7 @@ import {
   type OnboardingCheckItem,
 } from "@core/onboarding-review";
 import { classifyResumePreview } from "@core/resume-preview";
+import { Plus } from "lucide-react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { reversePlace, searchPlaces, splitPlaceAddress, type PlaceHit } from "./place-search";
@@ -91,12 +102,12 @@ export function CheckOverview({
 
   return (
     <>
-      <p className="onboarding-kicker">Verify</p>
-      <h1>
+      <Text type="label" display="block">Verify</Text>
+      <Heading level={1}>
         Here's what was <em>extracted.</em>
-      </h1>
-      <p className="onboarding-meta">{summary}</p>
-      <p className="onboarding-meta">Open a job or a school to review it against the resume.</p>
+      </Heading>
+      <Text type="supporting" display="block">{summary}</Text>
+      <Text type="supporting" display="block">Open a job or a school to review it against the resume.</Text>
       <VerifyBoard
         jobs={sectionCards(items, "Job", openedKeys, false, file?.name ?? null, (index) => {
           setReviewIndex(index);
@@ -106,33 +117,16 @@ export function CheckOverview({
           setReviewIndex(index);
           setReviewOpen(true);
         })}
+        onAddJob={() => add("Job")}
+        onAddSchool={() => add("School")}
       />
-      <div className="onboarding-verify-actions">
-        <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
-          Add a job
-        </button>
-        <button type="button" className="onboarding-verify-btn" onClick={() => add("School")}>
-          Add a school
-        </button>
-        <button
-          type="button"
-          className="onboarding-verify-btn"
-          disabled={items.length === 0}
-          onClick={() => {
-            setReviewIndex(0);
-            setReviewOpen(true);
-          }}
-        >
-          Review each one
-        </button>
-      </div>
       {error ? (
         <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}
       {unopenedCount > 0 ? (
-        <p className="onboarding-quiet" role="status">
+        <Text type="supporting" display="block" role="status">
           {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Worth a look before you continue.
-        </p>
+        </Text>
       ) : null}
       <div className="onboarding-actions" data-split="true">
         <Button className="onboarding-nav" label="Back" variant="ghost" isDisabled={busy} onClick={onBack} />
@@ -408,6 +402,8 @@ export type VerifyCard = {
   stateLabel?: string;
   pending?: boolean;
   hint?: string;
+  /** Key of the other row in this list that this one might match. */
+  similarTo?: string;
   keepLabel?: string;
   onOpen?: () => void;
   onCompare?: () => void;
@@ -415,87 +411,264 @@ export type VerifyCard = {
   onAside?: () => void;
 };
 
-export function VerifyBoard({ jobs, schools }: { jobs: VerifyCard[]; schools: VerifyCard[] }) {
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+function countWord(count: number): string {
+  return COUNT_WORDS[count] ?? String(count);
+}
+
+function isInternshipTitle(title: string): boolean {
+  return /\bintern(ship)?\b/i.test(title);
+}
+
+function pairKind(earlier: VerifyCard, later: VerifyCard, section: "job" | "school"): "job" | "school" | "internship" {
+  if (section === "school") return "school";
+  if (isInternshipTitle(earlier.title) && isInternshipTitle(later.title)) return "internship";
+  return "job";
+}
+
+function similarityReviewLine(jobs: VerifyCard[], schools: VerifyCard[]): string | null {
+  const counts = { job: 0, school: 0, internship: 0 };
+  const countSection = (cards: VerifyCard[], section: "job" | "school") => {
+    for (const block of verifyBlocks(cards)) {
+      if (!block.link || block.link.opened) continue;
+      counts[pairKind(block.cards[0], block.cards[1], section)] += 2;
+    }
+  };
+  countSection(jobs, "job");
+  countSection(schools, "school");
+  const parts = [
+    counts.job ? `${countWord(counts.job)} job ${counts.job === 1 ? "role" : "roles"}` : "",
+    counts.school ? `${countWord(counts.school)} ${counts.school === 1 ? "school" : "schools"}` : "",
+    counts.internship ? `${countWord(counts.internship)} ${counts.internship === 1 ? "internship" : "internships"}` : "",
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  const subject = parts.length === 1 ? parts[0] : parts.length === 2 ? `${parts[0]} and ${parts[1]}` : `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+  const total = counts.job + counts.school + counts.internship;
+  const claim = total === 1 ? "has a high similarity and needs" : "have high similarities and need";
+  return `${subject.charAt(0).toUpperCase()}${subject.slice(1)} ${claim} to be reviewed.`;
+}
+
+export function VerifyBoard({
+  jobs,
+  schools,
+  onAddJob,
+  onAddSchool,
+}: {
+  jobs: VerifyCard[];
+  schools: VerifyCard[];
+  onAddJob?: () => void;
+  onAddSchool?: () => void;
+}) {
+  const reviewLine = similarityReviewLine(jobs, schools);
   return (
     <div className="onboarding-verify">
-      <VerifySection heading="Jobs" cards={jobs} />
-      <VerifySection heading="Schools" cards={schools} />
+      {reviewLine ? (
+        <Text type="supporting" role="status">
+          {reviewLine}
+        </Text>
+      ) : null}
+      <VerifySection heading="Jobs" cards={jobs} addLabel="Add job" onAdd={onAddJob} />
+      <VerifySection heading="Schools" cards={schools} addLabel="Add school" onAdd={onAddSchool} />
     </div>
   );
 }
 
-function VerifySection({ heading, cards }: { heading: string; cards: VerifyCard[] }) {
-  const ordered = [...cards].sort((left, right) => left.start.localeCompare(right.start) || left.title.localeCompare(right.title));
-  const years = [...new Set(ordered.map((card) => card.year))];
+function verifyBlocks(cards: VerifyCard[]): Array<{ key: string; cards: VerifyCard[]; link: VerifyCard | null }> {
+  const byKey = new Map(cards.map((card) => [card.key, card]));
+  const consumed = new Set<string>();
+  const blocks: Array<{ key: string; cards: VerifyCard[]; link: VerifyCard | null }> = [];
+  for (const card of cards) {
+    if (consumed.has(card.key)) continue;
+    const later = cards.find((item) => item.similarTo === card.key && item.onCompare);
+    const earlier = card.similarTo ? byKey.get(card.similarTo) : undefined;
+    if (later) {
+      consumed.add(card.key);
+      consumed.add(later.key);
+      blocks.push({ key: card.key, cards: [card, later], link: later });
+    } else if (earlier && card.onCompare) {
+      consumed.add(card.key);
+      consumed.add(earlier.key);
+      blocks.push({ key: earlier.key, cards: [earlier, card], link: card });
+    } else {
+      consumed.add(card.key);
+      blocks.push({ key: card.key, cards: [card], link: null });
+    }
+  }
+  return blocks;
+}
+
+function openCompare(card: VerifyCard, event: { preventDefault?: () => void; stopPropagation: () => void }) {
+  event.preventDefault?.();
+  event.stopPropagation();
+  card.onCompare?.();
+}
+
+function needsLook(card: VerifyCard): boolean {
+  return Boolean(card.onCompare) && !card.opened && !card.stateLabel;
+}
+
+function VerifyRow({ card, mark }: { card: VerifyCard; mark?: "circle" }) {
+  const flagged = mark !== "circle" && needsLook(card);
+  const badge = card.stateLabel ? (
+    <Badge label={card.stateLabel} variant="neutral" />
+  ) : flagged ? (
+    <Badge
+      label="Needs a look"
+      variant="warning"
+      role={card.onCompare ? "button" : undefined}
+      tabIndex={card.onCompare ? 0 : undefined}
+      aria-label={card.hint ? `Needs a look. ${card.hint}` : "Needs a look. Not opened."}
+      onClick={card.onCompare ? (event) => openCompare(card, event) : undefined}
+      onKeyDown={
+        card.onCompare
+          ? (event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              openCompare(card, event);
+            }
+          : undefined
+      }
+    />
+  ) : (
+    <span role="img" aria-label={card.opened ? "Opened" : "Not opened"}>
+      <RadioIndicator state={card.opened ? "checked" : "unchecked"} size="sm" />
+    </span>
+  );
   return (
-    <section className="onboarding-verify-section" aria-label={heading}>
-      <h2>{heading}</h2>
-      <div className="onboarding-verify-box" tabIndex={0}>
-        {cards.length === 0 ? <p className="onboarding-meta">None extracted.</p> : null}
-        <ol className="onboarding-verify-rail">
-          {years.map((year) => (
-            <li key={year}>
-              <span className="onboarding-verify-year">{year}</span>
-              {ordered
-                .filter((card) => card.year === year)
-                .map((card) => (
-                  <div key={card.key}>
-                    {card.onOpen ? (
-                      <button
-                        type="button"
-                        className="onboarding-verify-row"
-                        data-opened={card.opened ? "true" : "false"}
-                        data-pending={card.pending ? "true" : undefined}
-                        onClick={card.onOpen}
-                      >
-                        <VerifyRowText card={card} />
-                      </button>
-                    ) : (
-                      <div className="onboarding-verify-row" data-opened={card.opened ? "true" : "false"}>
-                        <VerifyRowText card={card} />
-                      </div>
-                    )}
-                    {card.hint || card.onCompare || card.onKeep || card.onAside ? (
-                      <div className="onboarding-verify-hint">
-                        {card.hint ? <p>{card.hint}</p> : null}
-                        <div className="onboarding-verify-hint-actions">
-                          {card.onCompare ? (
-                            <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={card.onCompare}>
-                              Compare
-                            </button>
-                          ) : null}
-                          {card.onKeep ? (
-                            <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={card.onKeep}>
-                              {card.keepLabel ?? "Keep as its own role"}
-                            </button>
-                          ) : null}
-                          {card.onAside ? (
-                            <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={card.onAside}>
-                              Not this one
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
+    <VStack gap={1}>
+      <List density="compact" edge="padded" aria-label={card.title}>
+        <ListItem
+          itemKey={card.key}
+          label={card.title}
+          description={card.meta}
+          isSelected={Boolean(card.pending)}
+          onClick={card.onOpen}
+          endContent={badge}
+        />
+      </List>
+      {card.onKeep || card.onAside || (card.hint && !card.onCompare) ? (
+        <HStack gap={2} wrap="wrap" vAlign="center">
+          {card.hint && !card.onCompare ? <Text type="supporting">{card.hint}</Text> : null}
+          {card.onKeep ? (
+            <Button label={card.keepLabel ?? "Keep as its own role"} size="sm" variant="ghost" onClick={card.onKeep} />
+          ) : null}
+          {card.onAside ? <Button label="Not this one" size="sm" variant="ghost" onClick={card.onAside} /> : null}
+        </HStack>
+      ) : null}
+    </VStack>
   );
 }
 
-function VerifyRowText({ card }: { card: VerifyCard }) {
+function VerifyLink({
+  link,
+  earlier,
+  later,
+  summary,
+  startOpen = false,
+}: {
+  link: VerifyCard;
+  earlier: VerifyCard;
+  later: VerifyCard;
+  summary: string;
+  startOpen?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(startOpen);
+  const rootRef = useRef<HTMLElement>(null);
+  const openedOnArrival = useRef(false);
+  useEffect(() => {
+    if (!startOpen || openedOnArrival.current) return;
+    openedOnArrival.current = true;
+    setExpanded(true);
+  }, [startOpen]);
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (event.target instanceof Element && event.target.closest("dialog, [role='dialog']")) return;
+      setExpanded(false);
+    };
+    const onPointer = (event: PointerEvent) => {
+      const root = rootRef.current;
+      const target = event.target;
+      if (!(target instanceof Node) || root?.contains(target)) return;
+      if (target instanceof Element && target.closest("dialog, [role='dialog']")) return;
+      setExpanded(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [expanded]);
   return (
-    <>
-      <strong>{card.title}</strong>
-      <span className="onboarding-verify-meta">{card.meta}</span>
-      <span className="onboarding-roster-state" data-opened={card.opened ? "true" : "false"}>
-        {card.stateLabel ?? (card.opened ? "Opened" : "Not opened")}
-      </span>
-    </>
+    <VStack ref={rootRef} gap={1}>
+      <List density="compact" edge="padded" aria-label={summary}>
+        <ListItem
+          itemKey={link.key}
+          label={summary}
+          isSelected
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+          startContent={<Icon icon="warning" color="warning" size="sm" aria-hidden />}
+          endContent={<Badge label={needsLook(link) ? "Needs a look" : "Similar"} variant="warning" />}
+        />
+      </List>
+      {expanded ? (
+        <VStack gap={1}>
+          <VerifyRow card={earlier} mark="circle" />
+          <VerifyRow card={later} mark="circle" />
+          <Button label="Do a full comparison" size="sm" variant="secondary" onClick={() => link.onCompare?.()} />
+        </VStack>
+      ) : null}
+    </VStack>
+  );
+}
+
+function VerifySection({
+  heading,
+  cards,
+  addLabel,
+  onAdd,
+}: {
+  heading: string;
+  cards: VerifyCard[];
+  addLabel?: string;
+  onAdd?: () => void;
+}) {
+  const ordered = [...cards].sort((left, right) => left.start.localeCompare(right.start) || left.title.localeCompare(right.title));
+  const blocks = verifyBlocks(ordered).sort((left, right) => Number(Boolean(right.link)) - Number(Boolean(left.link)));
+  const onlyPair = blocks.length === 1 && Boolean(blocks[0]?.link);
+  return (
+    <VStack as="section" aria-label={heading} className="onboarding-verify-section" gap={2}>
+      <HStack justify="between" align="center" width="100%">
+        <Heading level={2}>{heading}</Heading>
+        {onAdd && addLabel ? <Button label={addLabel} icon={<Icon icon={Plus} />} onClick={onAdd} /> : null}
+      </HStack>
+      <Card variant="muted">
+        <ScrollableArea label={heading} padding={3} style={{ maxHeight: "18rem" }}>
+          {cards.length === 0 ? <Text type="supporting">None extracted.</Text> : null}
+          <VStack gap={0}>
+            {blocks.map((block, index) => (
+              <VStack key={block.key} gap={1}>
+                {index > 0 ? <Divider /> : null}
+                {block.link ? (
+                  <VerifyLink
+                    link={block.link}
+                    earlier={block.cards[0]}
+                    later={block.cards[1]}
+                    summary={heading === "Schools" ? "Two similar schools" : "Two similar roles"}
+                    startOpen={onlyPair}
+                  />
+                ) : (
+                  <VerifyRow card={block.cards[0]} />
+                )}
+              </VStack>
+            ))}
+          </VStack>
+        </ScrollableArea>
+      </Card>
+    </VStack>
   );
 }
 
@@ -511,13 +684,11 @@ export function WorkList({
   onChange?: (lines: string[]) => void;
 }) {
   return (
-    <div className="onboarding-field onboarding-did">
-      <div className="onboarding-field-head">
-        <span>What you did</span>
-        <button type="button" className="onboarding-field-toggle" aria-expanded={expanded} onClick={onToggle}>
-          {expanded ? "Collapse" : "Expand"}
-        </button>
-      </div>
+    <div className="onboarding-did">
+      <HStack justify="between" align="center">
+        <Text type="supporting">What you did</Text>
+        <Button label={expanded ? "Collapse" : "Expand"} variant="ghost" size="sm" aria-expanded={expanded} onClick={onToggle} />
+      </HStack>
       <ul className="onboarding-did-lines">
         {lines.map((line, index) => (
           <li key={index}>
