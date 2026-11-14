@@ -540,6 +540,10 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [jobs, setJobs] = useState(false);
   const [networks, setNetworks] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [jobName, setJobName] = useState("");
+  const [jobRole, setJobRole] = useState("");
+  const [jobCompany, setJobCompany] = useState("");
+  const [jobLocation, setJobLocation] = useState("");
   const [jobPost, setJobPost] = useState("");
   const [firstError, setFirstError] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -556,6 +560,10 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setJobs(false);
     setNetworks(false);
     setPosting(false);
+    setJobName("");
+    setJobRole("");
+    setJobCompany("");
+    setJobLocation("");
     setJobPost("");
     setFirstError(null);
     setLastError(null);
@@ -599,10 +607,16 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         content={
           <LayoutContent label="Contact">
             {posting ? (
-              <VStack gap={2}>
+              <VStack gap={4}>
                 <Text type="label">Job opportunity</Text>
+                <Grid columns={2} gap={3}>
+                  <TextInput label="Name" isLabelHidden placeholder="Name" value={jobName} onChange={setJobName} />
+                  <TextInput label="Role" isLabelHidden placeholder="Role" value={jobRole} onChange={setJobRole} />
+                  <TextInput label="Company" isLabelHidden placeholder="Company" value={jobCompany} onChange={setJobCompany} />
+                  <TextInput label="Location" isLabelHidden placeholder="Location" value={jobLocation} onChange={setJobLocation} />
+                </Grid>
                 <TextArea
-                  label="Job posting"
+                  label="Description"
                   isLabelHidden
                   placeholder="Describe the job opportunity"
                   value={jobPost}
