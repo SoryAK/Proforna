@@ -221,6 +221,11 @@
   border-radius: 999px !important;
 }
 
+.onboarding-card .onboarding-actions button[data-variant="ghost"] {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px !important;
+}
+
 .onboarding-card .integration-list-scroll {
   max-height: none;
   overflow: visible;
