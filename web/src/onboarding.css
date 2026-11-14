@@ -221,6 +221,11 @@
   border-radius: 999px !important;
 }
 
+.onboarding-card .onboarding-actions button[data-variant="ghost"] {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px !important;
+}
+
 .onboarding-card .integration-list-scroll {
   max-height: none;
   overflow: visible;
@@ -2293,15 +2298,17 @@ button.onboarding-verify-row {
   overflow: hidden;
 }
 
-.onboarding-review[data-compare="true"] .onboarding-review-compare {
+.onboarding-review[data-compare="true"] .onboarding-review-compare,
+.onboarding-review-compare[data-side-by-side="true"] {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  height: min(32rem, calc(85dvh - 13rem));
 }
 
 .onboarding-review-compare > .onboarding-review-body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .onboarding-review-compare > .onboarding-review-body[data-work="split"] {
@@ -2355,6 +2362,34 @@ button.onboarding-verify-row {
   color-scheme: light;
 }
 
+.onboarding-review-source .onboarding-preview[data-paged="true"] .onboarding-preview-pages {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.onboarding-preview-pages[data-paging="true"] {
+  overflow: auto;
+}
+
+.onboarding-preview-pages[data-paging="true"] canvas {
+  display: none;
+}
+
+.onboarding-preview-pages[data-paging="true"] canvas[data-active="true"] {
+  display: block;
+}
+
+.onboarding-preview-pager {
+  flex: none;
+  padding: 0.35rem 0.15rem 0;
+}
+
+.onboarding-preview-pager svg {
+  color: #111;
+  stroke: #111;
+}
+
 .onboarding-review-body {
   min-height: 0;
   margin-top: 0;
@@ -2367,13 +2402,16 @@ button.onboarding-verify-row {
 }
 
 @media (max-width: 800px) {
-  .onboarding-review[data-compare="true"] .onboarding-review-compare {
+  .onboarding-review[data-compare="true"] .onboarding-review-compare,
+  .onboarding-review-compare[data-side-by-side="true"] {
     grid-template-columns: 1fr;
+    height: auto;
     overflow: auto;
   }
 
   .onboarding-review-source {
     min-height: 16rem;
+    height: 22rem;
   }
 
   .onboarding-review-source .onboarding-preview-frame,
