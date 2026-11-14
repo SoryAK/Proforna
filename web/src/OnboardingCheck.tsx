@@ -782,11 +782,18 @@ function dutyMarkdown(item: OnboardingCheckItem): string {
 
 function plainDutyLine(line: string): string {
   return line
+    .replace(/\\_/g, "_")
     .replace(/^#{1,6}\s+/, "")
     .replace(/^[-*+]\s+/, "")
     .replace(/^\d+[.)]\s+/, "")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[*_~`]/g, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/~~(.+?)~~/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/(^|[\s([{])\*(.+?)\*(?=$|[\s)\]}.,;:!?])/g, "$1$2")
+    .replace(/(^|[\s([{])_(.+?)_(?=$|[\s)\]}.,;:!?])/g, "$1$2")
+    .replace(/[*~`]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
