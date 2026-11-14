@@ -4,12 +4,15 @@ import type { WorkMapRole } from "@core/work-map";
 import type { CareerFile } from "@core/career-file";
 import { Avatar } from "@astryxdesign/core/Avatar";
 import { Button } from "@astryxdesign/core/Button";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Grid } from "@astryxdesign/core/Grid";
+import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
 import { Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { MapPin } from "lucide-react";
@@ -534,6 +537,10 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [company, setCompany] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [phone, setPhone] = useState("");
+  const [jobs, setJobs] = useState(false);
+  const [networks, setNetworks] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [jobPost, setJobPost] = useState("");
   const [firstError, setFirstError] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -546,6 +553,10 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setCompany("");
     setJobTitle("");
     setPhone("");
+    setJobs(false);
+    setNetworks(false);
+    setPosting(false);
+    setJobPost("");
     setFirstError(null);
     setLastError(null);
     setEmailError(null);
@@ -558,8 +569,16 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setFirstError(missingFirst ? "Required" : null);
     setLastError(missingLast ? "Required" : null);
     setEmailError(missingEmail ? "Required" : null);
-    if (missingFirst || missingLast || missingEmail) return;
+    if (missingFirst || missingLast || missingEmail) {
+      setPosting(false);
+      return;
+    }
     onClose();
+  }
+
+  function chooseJobs(next: boolean) {
+    setJobs(next);
+    if (next) setPosting(true);
   }
 
   return (
@@ -579,49 +598,74 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         header={<DialogHeader title="Contact" onOpenChange={onClose} hasDivider={false} />}
         content={
           <LayoutContent label="Contact">
-            <VStack gap={4}>
-              <Text type="label">Your details</Text>
-              <Grid columns={2} gap={3}>
-                <TextInput
-                  label="First name"
+            {posting ? (
+              <VStack gap={2}>
+                <Text type="label">Job opportunity</Text>
+                <TextArea
+                  label="Job posting"
                   isLabelHidden
-                  placeholder="First name*"
-                  value={firstName}
-                  onChange={setFirstName}
-                  status={firstError ? { type: "error", message: firstError } : undefined}
+                  placeholder="Describe the job opportunity"
+                  value={jobPost}
+                  onChange={setJobPost}
                 />
-                <TextInput
-                  label="Last name"
-                  isLabelHidden
-                  placeholder="Last name*"
-                  value={lastName}
-                  onChange={setLastName}
-                  status={lastError ? { type: "error", message: lastError } : undefined}
-                />
-                <TextInput
-                  label="Email"
-                  isLabelHidden
-                  placeholder="Email*"
-                  value={email}
-                  onChange={setEmail}
-                  status={emailError ? { type: "error", message: emailError } : undefined}
-                />
-                <TextInput
-                  label="Company name"
-                  isLabelHidden
-                  placeholder="Company name"
-                  value={company}
-                  onChange={setCompany}
-                />
-                <TextInput label="Job title" isLabelHidden placeholder="Job title" value={jobTitle} onChange={setJobTitle} />
-                <TextInput label="Phone number" isLabelHidden placeholder="Phone number" value={phone} onChange={setPhone} />
-              </Grid>
-            </VStack>
+              </VStack>
+            ) : (
+              <VStack gap={4}>
+                <Text type="label">Your details</Text>
+                <Grid columns={2} gap={3}>
+                  <TextInput
+                    label="First name"
+                    isLabelHidden
+                    placeholder="First name*"
+                    value={firstName}
+                    onChange={setFirstName}
+                    status={firstError ? { type: "error", message: firstError } : undefined}
+                  />
+                  <TextInput
+                    label="Last name"
+                    isLabelHidden
+                    placeholder="Last name*"
+                    value={lastName}
+                    onChange={setLastName}
+                    status={lastError ? { type: "error", message: lastError } : undefined}
+                  />
+                  <TextInput
+                    label="Email"
+                    isLabelHidden
+                    placeholder="Email*"
+                    value={email}
+                    onChange={setEmail}
+                    status={emailError ? { type: "error", message: emailError } : undefined}
+                  />
+                  <TextInput
+                    label="Company name"
+                    isLabelHidden
+                    placeholder="Company name"
+                    value={company}
+                    onChange={setCompany}
+                  />
+                  <TextInput label="Job title" isLabelHidden placeholder="Job title" value={jobTitle} onChange={setJobTitle} />
+                  <TextInput label="Phone number" isLabelHidden placeholder="Phone number" value={phone} onChange={setPhone} />
+                </Grid>
+                <VStack gap={2}>
+                  <Text type="label">What are you interested in?</Text>
+                  <CheckboxInput label="Job opportunities" value={jobs} onChange={chooseJobs} />
+                  <CheckboxInput label="Connecting networks" value={networks} onChange={setNetworks} />
+                </VStack>
+              </VStack>
+            )}
           </LayoutContent>
         }
         footer={
           <LayoutFooter>
-            <Button label="Let's connect" variant="primary" onClick={submit} />
+            {posting ? (
+              <HStack gap={2} vAlign="center">
+                <Button label="Back" variant="secondary" onClick={() => setPosting(false)} />
+                <Button label="Let's connect" variant="primary" onClick={submit} />
+              </HStack>
+            ) : (
+              <Button label="Let's connect" variant="primary" onClick={submit} />
+            )}
           </LayoutFooter>
         }
       />
