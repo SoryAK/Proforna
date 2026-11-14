@@ -6,15 +6,10 @@ import { Avatar } from "@astryxdesign/core/Avatar";
 import { Button } from "@astryxdesign/core/Button";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Grid } from "@astryxdesign/core/Grid";
-import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
-import { Layout, LayoutContent, LayoutFooter, LayoutHeader, StackItem } from "@astryxdesign/core/Layout";
+import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
-import { Selector } from "@astryxdesign/core/Selector";
-import { Step, Stepper } from "@astryxdesign/core/Stepper";
 import { Text } from "@astryxdesign/core/Text";
-import { Token } from "@astryxdesign/core/Token";
-import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { MapPin } from "lucide-react";
@@ -532,82 +527,40 @@ export function Home({
   );
 }
 
-const CONTACT_STEPS = ["Details", "Inquiry", "Project"];
-
-const INQUIRY_REASONS = [
-  "New business",
-  "General inquiry",
-  "Press & media",
-  "Partnerships",
-  "Product feedback",
-  "Technical support",
-  "Other",
-];
-
-const BUDGET_OPTIONS = ["Under $10k", "$10k – $50k", "$50k – $100k", "$100k – $500k", "$500k+", "Not sure yet"];
-
 function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [step, setStep] = useState(0);
-  const [noted, setNoted] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [phone, setPhone] = useState("");
-  const [inquiryReason, setInquiryReason] = useState("");
-  const [budget, setBudget] = useState("");
-  const [details, setDetails] = useState("");
   const [firstError, setFirstError] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) return;
-    setStep(0);
-    setNoted(false);
     setFirstName("");
     setLastName("");
     setEmail("");
     setCompany("");
     setJobTitle("");
     setPhone("");
-    setInquiryReason("");
-    setBudget("");
-    setDetails("");
     setFirstError(null);
     setLastError(null);
     setEmailError(null);
-    setDetailsError(null);
   }, [isOpen]);
 
-  function goNext() {
-    if (step === 0) {
-      const missingFirst = !firstName.trim();
-      const missingLast = !lastName.trim();
-      const missingEmail = !email.trim();
-      setFirstError(missingFirst ? "Required" : null);
-      setLastError(missingLast ? "Required" : null);
-      setEmailError(missingEmail ? "Required" : null);
-      if (missingFirst || missingLast || missingEmail) return;
-      setStep(1);
-      return;
-    }
-    if (step === 1) {
-      setStep(2);
-      return;
-    }
-    if (!details.trim()) {
-      setDetailsError("Required");
-      return;
-    }
-    setDetailsError(null);
-    setNoted(true);
+  function submit() {
+    const missingFirst = !firstName.trim();
+    const missingLast = !lastName.trim();
+    const missingEmail = !email.trim();
+    setFirstError(missingFirst ? "Required" : null);
+    setLastError(missingLast ? "Required" : null);
+    setEmailError(missingEmail ? "Required" : null);
+    if (missingFirst || missingLast || missingEmail) return;
+    onClose();
   }
-
-  const stepError = (index: number) =>
-    (index === 0 && (firstError || lastError || emailError)) || (index === 2 && detailsError) ? "error" : undefined;
 
   return (
     <Dialog
@@ -623,116 +576,52 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         height="fill"
         padding={4}
         defaultHasDividers
-        header={
-          <>
-            <DialogHeader title="Contact" onOpenChange={onClose} hasDivider={false} />
-            {noted ? null : (
-              <LayoutHeader hasDivider={false}>
-                <Stepper activeStep={step} orientation="horizontal" density="compact" label="Contact progress">
-                  {CONTACT_STEPS.map((label, index) => (
-                    <Step key={label} step={index} label={label} status={stepError(index)} />
-                  ))}
-                </Stepper>
-              </LayoutHeader>
-            )}
-          </>
-        }
+        header={<DialogHeader title="Contact" onOpenChange={onClose} hasDivider={false} />}
         content={
           <LayoutContent label="Contact">
-            {noted ? (
-              <Text type="body">Noted.</Text>
-            ) : step === 0 ? (
-              <VStack gap={4}>
-                <Text type="label">Your details</Text>
-                <Grid columns={2} gap={3}>
-                  <TextInput
-                    label="First name"
-                    isLabelHidden
-                    placeholder="First name*"
-                    value={firstName}
-                    onChange={setFirstName}
-                    status={firstError ? { type: "error", message: firstError } : undefined}
-                  />
-                  <TextInput
-                    label="Last name"
-                    isLabelHidden
-                    placeholder="Last name*"
-                    value={lastName}
-                    onChange={setLastName}
-                    status={lastError ? { type: "error", message: lastError } : undefined}
-                  />
-                  <TextInput
-                    label="Email"
-                    isLabelHidden
-                    placeholder="Email*"
-                    value={email}
-                    onChange={setEmail}
-                    status={emailError ? { type: "error", message: emailError } : undefined}
-                  />
-                  <TextInput
-                    label="Company name"
-                    isLabelHidden
-                    placeholder="Company name"
-                    value={company}
-                    onChange={setCompany}
-                  />
-                  <TextInput label="Job title" isLabelHidden placeholder="Job title" value={jobTitle} onChange={setJobTitle} />
-                  <TextInput label="Phone number" isLabelHidden placeholder="Phone number" value={phone} onChange={setPhone} />
-                </Grid>
-              </VStack>
-            ) : step === 1 ? (
-              <VStack gap={4}>
-                <VStack gap={2}>
-                  <Text type="label">What are you reaching out about?</Text>
-                  <HStack gap={2} wrap="wrap">
-                    {INQUIRY_REASONS.map((reason) => (
-                      <Token
-                        key={reason}
-                        label={reason}
-                        color={inquiryReason === reason ? "blue" : "default"}
-                        onClick={() => setInquiryReason((current) => (current === reason ? "" : reason))}
-                      />
-                    ))}
-                  </HStack>
-                </VStack>
-                <Selector
-                  label="Budget range"
-                  options={BUDGET_OPTIONS}
-                  value={budget}
-                  onChange={setBudget}
-                  placeholder="Select a budget range..."
+            <VStack gap={4}>
+              <Text type="label">Your details</Text>
+              <Grid columns={2} gap={3}>
+                <TextInput
+                  label="First name"
+                  isLabelHidden
+                  placeholder="First name*"
+                  value={firstName}
+                  onChange={setFirstName}
+                  status={firstError ? { type: "error", message: firstError } : undefined}
                 />
-              </VStack>
-            ) : (
-              <TextArea
-                label="Project details"
-                isLabelHidden
-                placeholder="Project details*"
-                value={details}
-                onChange={setDetails}
-                status={detailsError ? { type: "error", message: detailsError } : undefined}
-              />
-            )}
+                <TextInput
+                  label="Last name"
+                  isLabelHidden
+                  placeholder="Last name*"
+                  value={lastName}
+                  onChange={setLastName}
+                  status={lastError ? { type: "error", message: lastError } : undefined}
+                />
+                <TextInput
+                  label="Email"
+                  isLabelHidden
+                  placeholder="Email*"
+                  value={email}
+                  onChange={setEmail}
+                  status={emailError ? { type: "error", message: emailError } : undefined}
+                />
+                <TextInput
+                  label="Company name"
+                  isLabelHidden
+                  placeholder="Company name"
+                  value={company}
+                  onChange={setCompany}
+                />
+                <TextInput label="Job title" isLabelHidden placeholder="Job title" value={jobTitle} onChange={setJobTitle} />
+                <TextInput label="Phone number" isLabelHidden placeholder="Phone number" value={phone} onChange={setPhone} />
+              </Grid>
+            </VStack>
           </LayoutContent>
         }
         footer={
           <LayoutFooter>
-            <HStack gap={2} vAlign="center">
-              {noted ? (
-                <Button label="Close" variant="primary" onClick={onClose} />
-              ) : (
-                <>
-                  <Button
-                    label="Back"
-                    variant="secondary"
-                    isDisabled={step === 0}
-                    onClick={() => setStep((current) => Math.max(0, current - 1))}
-                  />
-                  <StackItem size="fill" />
-                  <Button label={step === CONTACT_STEPS.length - 1 ? "Let's connect" : "Continue"} variant="primary" onClick={goNext} />
-                </>
-              )}
-            </HStack>
+            <Button label="Let's connect" variant="primary" onClick={submit} />
           </LayoutFooter>
         }
       />
