@@ -58,7 +58,11 @@ export async function completeOpenAiChat(input: {
       return await generateCompatibleText(input);
     } catch (err) {
       if (jsonObject && APICallError.isInstance(err) && err.statusCode === 400) {
-        return await generateCompatibleText({ ...input, jsonObject: false });
+        try {
+          return await generateCompatibleText({ ...input, jsonObject: false });
+        } catch (fallbackErr) {
+          throw asModelError(fallbackErr);
+        }
       }
       throw asModelError(err);
     }
@@ -79,9 +83,11 @@ async function generateCompatibleText(input: {
   keepAlive?: number;
   contextTokens?: number;
 }): Promise<CompleteResult> {
+  const prompt = promptParts(input.messages);
   const result = await generateText({
     model: openAiCompatibleModel(input),
-    messages: input.messages,
+    system: prompt.system,
+    messages: prompt.messages,
     temperature: 0,
     maxRetries: 0,
     abortSignal: chatAbortSignal(input.signal),
@@ -90,6 +96,23 @@ async function generateCompatibleText(input: {
   const text = result.text.trim();
   if (!text) throw new Error("The model returned an empty reply.");
   return { text, model: result.response.modelId ?? input.model };
+}
+
+function promptParts(messages: ChatMessage[]): {
+  system?: string;
+  messages: Array<{ role: "user"; content: string }>;
+} {
+  const system = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  return {
+    system: system || undefined,
+    messages: messages
+      .filter((message) => message.role === "user")
+      .map((message) => ({ role: "user", content: message.content })),
+  };
 }
 
 function asModelError(err: unknown): Error {

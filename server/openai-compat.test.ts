@@ -84,4 +84,29 @@ describe("OpenAI-compatible complete", () => {
       undefined,
     );
   });
+
+  it("sends a system prompt beside the question and keeps a failed fallback's error", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "response_format is unsupported" }, 400))
+      .mockResolvedValueOnce(jsonResponse({ error: "context length exceeded" }, 400));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      completeOpenAiChat({
+        baseUrl: "http://127.0.0.1:11434/v1",
+        apiKey: null,
+        model: "qwen",
+        messages: [
+          { role: "system", content: "Stay with the career record." },
+          { role: "user", content: "What is next?" },
+        ],
+      }),
+    ).rejects.toThrow("context length exceeded");
+
+    const sent = JSON.stringify(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body)));
+    expect(sent).toContain("Stay with the career record.");
+    expect(sent).toContain("What is next?");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });
