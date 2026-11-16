@@ -220,16 +220,17 @@ export function planContactSubmission(
   if (!title) return { ok: false, error: "title-required" };
   if (!organization) return { ok: false, error: "organization-required" };
   const notes = [
+    name ? `Name: ${name}` : "",
     input.email.trim() ? `Email: ${input.email.trim()}` : "",
     input.phone.trim() ? `Phone: ${input.phone.trim()}` : "",
     input.jobTitle.trim() ? `Title: ${input.jobTitle.trim()}` : "",
     input.company.trim() ? `Company: ${input.company.trim()}` : "",
     input.jobs ? "Interested in a job opportunity." : "",
     input.networks ? "Interested in connecting networks." : "",
-    input.jobName.trim() ? `Job: ${input.jobName.trim()}` : "",
-    input.jobPost.trim(),
-    input.jobSalary.trim() ? `Salary: ${input.jobSalary.trim()}` : "",
-    input.meetWhen.trim() ? `Meet: ${input.meetWhen.trim()}` : "",
+    input.jobs && input.jobName.trim() ? `Job: ${input.jobName.trim()}` : "",
+    input.jobs ? input.jobPost.trim() : "",
+    input.jobs && input.jobSalary.trim() ? `Salary: ${input.jobSalary.trim()}` : "",
+    input.jobs && input.meetWhen.trim() ? `Meet: ${input.meetWhen.trim()}` : "",
   ].filter(Boolean);
   return {
     ok: true,
@@ -237,7 +238,7 @@ export function planContactSubmission(
       kind: input.jobs ? "role" : "connection",
       title,
       organization,
-      sourceUrl: input.jobLink.trim(),
+      sourceUrl: input.jobs ? input.jobLink.trim() : "",
       location: input.jobs ? input.jobLocation.trim() : "",
       fitSummary: notes.join("\n"),
     },

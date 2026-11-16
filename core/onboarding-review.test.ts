@@ -373,6 +373,7 @@ describe("onboardingDone", () => {
   it("keeps literal characters in a duty and drops formatting", () => {
     expect(plainDutyLines("Kept snake_case and `code`")).toEqual(["Kept snake_case and code"]);
     expect(plainDutyLines("**Bold** and a \\_literal\\_ mark")).toEqual(["Bold and a _literal_ mark"]);
+    expect(plainDutyLines("*Led*, then _built_.")).toEqual(["Led, then built."]);
     expect(plainDutyLines("- First\n2. Second")).toEqual(["First", "Second"]);
   });
 });

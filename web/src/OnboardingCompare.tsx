@@ -649,6 +649,7 @@ export function AllResumesVerify({
   const [confirming, setConfirming] = useState(false);
   const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
   const [skillEdit, setSkillEdit] = useState<SkillEdit | null>(null);
+  const [skillText, setSkillText] = useState<string | null>(null);
   const [continueWarned, setContinueWarned] = useState(false);
   const visible = rows.filter((row) => !row.removed);
   const summary = onboardingExtractSummary(
@@ -860,8 +861,9 @@ export function AllResumesVerify({
       {editSkills ? (
         <TextArea
           label="Skills"
-          value={skillLines(shownSkills())}
+          value={skillText ?? skillLines(shownSkills())}
           onChange={(value) => {
+            setSkillText(value);
             const found = foundSkills(keptRoles());
             setSkillEdit({
               lines: value.split("\n"),

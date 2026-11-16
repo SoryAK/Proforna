@@ -631,10 +631,12 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [emailError, setEmailError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const attempt = useRef(0);
   const steps = contactSteps(jobs);
   const meetDays = upcomingMeetDays();
 
   useEffect(() => {
+    attempt.current += 1;
     if (isOpen) return;
     setStep("details");
     setFirstName("");
@@ -677,6 +679,7 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
   async function submit() {
     if (!detailsReady() || saving) return;
+    const generation = attempt.current;
     const meetWhen = [meetDay, meetTime].filter(Boolean).join(" ");
     const planned = planContactSubmission({
       firstName,
@@ -708,15 +711,17 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         headers: { "content-type": "application/json" },
         body: JSON.stringify(planned.value),
       });
+      if (generation !== attempt.current) return;
       if (!response.ok) {
         setSaveError("Could not save that request.");
         return;
       }
       onClose();
     } catch {
+      if (generation !== attempt.current) return;
       setSaveError("Could not save that request.");
     } finally {
-      setSaving(false);
+      if (generation === attempt.current) setSaving(false);
     }
   }
 

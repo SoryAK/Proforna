@@ -71,6 +71,7 @@ export function HomeProforna({
   const [status, setStatus] = useState("");
   const [allowRemote, setAllowRemote] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -208,7 +209,7 @@ export function HomeProforna({
 
   async function send(value: string) {
     const body = value.trim();
-    if (busy || !body) return;
+    if (busy || removing || !body) return;
     setSessionsOpen(false);
     const attached = roles;
     if (composerMode === "edit") {
@@ -376,18 +377,22 @@ export function HomeProforna({
       sessionLoad.current += 1;
       abortRef.current?.abort();
       abortRef.current = null;
-      setBusy(false);
+      setRemoving(true);
     }
-    const response = await fetch(`/api/command/sessions/${id}`, { method: "DELETE" });
-    if (!response.ok) {
-      setStatus("Could not remove that conversation.");
-      return;
-    }
-    setSessions((list) => list.filter((session) => session.id !== id));
-    if (selected) {
-      setSelectedId(null);
-      setMessages([]);
-      setStatus("");
+    try {
+      const response = await fetch(`/api/command/sessions/${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        setStatus("Could not remove that conversation.");
+        return;
+      }
+      setSessions((list) => list.filter((session) => session.id !== id));
+      if (selected) {
+        setSelectedId(null);
+        setMessages([]);
+        setStatus("");
+      }
+    } finally {
+      if (selected) setRemoving(false);
     }
   }
 
@@ -483,7 +488,7 @@ export function HomeProforna({
                 onChange={setDraft}
                 onSubmit={(value) => void send(value)}
                 onStop={stop}
-                isStopShown={busy}
+                isStopShown={busy || removing}
                 placeholder={composerMode === "ask" ? "Ask anything..." : "Describe your edit..."}
                 drawer={
                   roles.length > 0 ? (

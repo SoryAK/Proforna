@@ -416,8 +416,8 @@ function plainDutyLine(line: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
     .replace(/~~([^~]+)~~/g, "$1")
-    .replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, "$1$2")
-    .replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, "$1$2")
+    .replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[^\w])/g, "$1$2")
+    .replace(/(^|\s)_([^_\n]+)_(?=\s|$|[^\w])/g, "$1$2")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
