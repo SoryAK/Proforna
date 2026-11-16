@@ -857,6 +857,11 @@ button.home-nav-item:focus-visible {
   overflow: hidden;
 }
 
+.home-stage:has(.documents-page) {
+  background: #fff;
+  color: #171717;
+}
+
 @media (min-width: 760px) {
   .home-nav-backdrop {
     display: none;

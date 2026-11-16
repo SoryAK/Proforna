@@ -1,3 +1,5 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { APICallError, generateText, type LanguageModel } from "ai";
 import { parseDiscoveredModels } from "../core/model-list";
 
 export type ChatMessage = { role: "system" | "user"; content: string };
@@ -15,6 +17,31 @@ export type CompleteFn = (input: {
   contextTokens?: number;
 }) => Promise<CompleteResult>;
 
+export function openAiCompatibleModel(input: {
+  baseUrl: string;
+  apiKey: string | null;
+  model: string;
+  jsonObject?: boolean;
+  keepAlive?: number;
+  contextTokens?: number;
+}): LanguageModel {
+  const jsonObject = input.jsonObject !== false;
+  const provider = createOpenAICompatible({
+    name: "compatible",
+    baseURL: input.baseUrl.replace(/\/+$/, ""),
+    apiKey: input.apiKey || undefined,
+    transformRequestBody(body) {
+      const next: Record<string, unknown> = { ...body };
+      if (input.keepAlive !== undefined) next.keep_alive = input.keepAlive;
+      if (input.contextTokens) next.options = { num_ctx: input.contextTokens };
+      if (jsonObject) next.response_format = { type: "json_object" };
+      else delete next.response_format;
+      return next;
+    },
+  });
+  return provider.languageModel(input.model);
+}
+
 export async function completeOpenAiChat(input: {
   baseUrl: string;
   apiKey: string | null;
@@ -25,56 +52,20 @@ export async function completeOpenAiChat(input: {
   keepAlive?: number;
   contextTokens?: number;
 }): Promise<CompleteResult> {
-  const url = `${input.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-  if (input.apiKey) headers.authorization = `Bearer ${input.apiKey}`;
-
-  const body: Record<string, unknown> = {
-    model: input.model,
-    messages: input.messages,
-    stream: false,
-    temperature: 0,
-  };
-  if (input.keepAlive !== undefined) body.keep_alive = input.keepAlive;
-  if (input.contextTokens) body.options = { num_ctx: input.contextTokens };
-  const signal = chatAbortSignal(input.signal);
   const jsonObject = input.jsonObject !== false;
-
   try {
-    let res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(
-        jsonObject
-          ? { ...body, response_format: { type: "json_object" } }
-          : body,
-      ),
-      signal,
-    });
-
-    if (jsonObject && !res.ok && res.status === 400) {
-      res = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal,
-      });
+    try {
+      return await generateCompatibleText(input);
+    } catch (err) {
+      if (jsonObject && APICallError.isInstance(err) && err.statusCode === 400) {
+        try {
+          return await generateCompatibleText({ ...input, jsonObject: false });
+        } catch (fallbackErr) {
+          throw asModelError(fallbackErr);
+        }
+      }
+      throw asModelError(err);
     }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText);
-      throw new Error(modelErrorMessage(text, res.status));
-    }
-
-    const payload = (await res.json()) as {
-      model?: string;
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
-    if (!text) throw new Error("The model returned an empty reply.");
-    return { text, model: payload.model ?? input.model };
   } finally {
     if (input.keepAlive === 0) {
       await unloadLocalModel(input).catch(() => {});
@@ -82,7 +73,62 @@ export async function completeOpenAiChat(input: {
   }
 }
 
+async function generateCompatibleText(input: {
+  baseUrl: string;
+  apiKey: string | null;
+  model: string;
+  messages: ChatMessage[];
+  signal?: AbortSignal;
+  jsonObject?: boolean;
+  keepAlive?: number;
+  contextTokens?: number;
+}): Promise<CompleteResult> {
+  const prompt = promptParts(input.messages);
+  const result = await generateText({
+    model: openAiCompatibleModel(input),
+    system: prompt.system,
+    messages: prompt.messages,
+    temperature: 0,
+    maxRetries: 0,
+    abortSignal: chatAbortSignal(input.signal),
+    timeout: 120_000,
+  });
+  const text = result.text.trim();
+  if (!text) throw new Error("The model returned an empty reply.");
+  return { text, model: result.response.modelId ?? input.model };
+}
+
+function promptParts(messages: ChatMessage[]): {
+  system?: string;
+  messages: Array<{ role: "user"; content: string }>;
+} {
+  const system = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  return {
+    system: system || undefined,
+    messages: messages
+      .filter((message) => message.role === "user")
+      .map((message) => ({ role: "user", content: message.content })),
+  };
+}
+
+function asModelError(err: unknown): Error {
+  if (isAbortError(err)) return err instanceof Error ? err : new Error("The model request was cancelled.");
+  if (APICallError.isInstance(err)) {
+    return new Error(modelErrorMessage(err.responseBody ?? err.message, err.statusCode ?? 0));
+  }
+  return err instanceof Error ? err : new Error("The model request failed.");
+}
+
 export function isAbortError(err: unknown): boolean {
+  if (namedAbort(err)) return true;
+  return err instanceof Error && namedAbort(err.cause);
+}
+
+function namedAbort(err: unknown): boolean {
   return (
     (err instanceof Error && err.name === "AbortError") ||
     (typeof DOMException !== "undefined" &&

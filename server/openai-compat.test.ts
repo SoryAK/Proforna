@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { completeOpenAiChat } from "./openai-compat";
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
 describe("OpenAI-compatible complete", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -10,14 +17,11 @@ describe("OpenAI-compatible complete", () => {
   it("asks Ollama to unload after a local chat finishes", async () => {
     const fetch = vi
       .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          model: "qwen",
-          choices: [{ message: { content: "ok" } }],
-        }),
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+      .mockResolvedValueOnce(jsonResponse({
+        model: "qwen",
+        choices: [{ message: { content: "ok" } }],
+      }))
+      .mockResolvedValueOnce(jsonResponse({}));
     vi.stubGlobal("fetch", fetch);
 
     await expect(
@@ -48,5 +52,61 @@ describe("OpenAI-compatible complete", () => {
       model: "qwen3.8:27b",
       keep_alive: 0,
     });
+  });
+
+  it("drops json mode when the endpoint rejects it", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ error: { message: "response_format is unsupported" } }, 400),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          model: "qwen",
+          choices: [{ message: { content: "{\"ok\":true}" } }],
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      completeOpenAiChat({
+        baseUrl: "http://127.0.0.1:11434/v1",
+        apiKey: null,
+        model: "qwen",
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    ).resolves.toEqual({ text: "{\"ok\":true}", model: "qwen" });
+
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body)).response_format).toEqual({
+      type: "json_object",
+    });
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body)).response_format).toBe(
+      undefined,
+    );
+  });
+
+  it("sends a system prompt beside the question and keeps a failed fallback's error", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "response_format is unsupported" }, 400))
+      .mockResolvedValueOnce(jsonResponse({ error: "context length exceeded" }, 400));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      completeOpenAiChat({
+        baseUrl: "http://127.0.0.1:11434/v1",
+        apiKey: null,
+        model: "qwen",
+        messages: [
+          { role: "system", content: "Stay with the career record." },
+          { role: "user", content: "What is next?" },
+        ],
+      }),
+    ).rejects.toThrow("context length exceeded");
+
+    const sent = JSON.stringify(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body)));
+    expect(sent).toContain("Stay with the career record.");
+    expect(sent).toContain("What is next?");
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

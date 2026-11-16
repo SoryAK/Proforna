@@ -227,6 +227,12 @@ export function restorePortableArchive(
       for (const source of rows) {
         const row = { ...source };
         if ("occupant_id" in row) row.occupant_id = occupantId;
+        for (const name of ["stored_name", "avatar_stored_name"]) {
+          const storedName = row[name];
+          if (typeof storedName === "string" && storedName !== "") {
+            safeUploadPath(uploadsDir, storedName);
+          }
+        }
         insertRow(db, table, row);
         restoredRows += 1;
       }

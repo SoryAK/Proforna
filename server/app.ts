@@ -178,7 +178,9 @@ import {
   DocumentStoreError,
   listDocuments,
   loadDocument,
+  removeDocument,
   storeDocument,
+  updateDocument,
 } from "./documents";
 import {
   PortabilityError,
@@ -2148,12 +2150,54 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         },
         typeof form.get("category") === "string"
           ? String(form.get("category"))
-          : "career",
+          : "evidence",
       );
       return c.json({ document }, 201);
     } catch (error) {
       if (error instanceof DocumentStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/documents/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    try {
+      const document = updateDocument(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        body as { name?: unknown; kind?: unknown },
+      );
+      return c.json({ document });
+    } catch (error) {
+      if (error instanceof DocumentStoreError) {
+        const status = error.code === "not-found" ? 404 : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/documents/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeDocument(db, occupant.id, uploadsDir, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof DocumentStoreError) {
+        const status = error.code === "not-found" ? 404 : 400;
+        return c.json({ error: error.code }, status);
       }
       throw error;
     }
@@ -2171,6 +2215,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const disposition = c.req.query("inline") === "1" ? "inline" : "attachment";
     return c.body(Buffer.from(document.bytes), 200, {
       "content-type": document.row.mediaType,
+      "x-content-type-options": "nosniff",
       "content-disposition": `${disposition}; filename="${encodeURIComponent(document.row.originalName)}"`,
     });
   });

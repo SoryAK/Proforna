@@ -25,6 +25,7 @@
     "pnpm": ">=10"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.92",
     "@astryxdesign/core": "^0.7.13",
     "@astryxdesign/richtext": "0.7.13",
     "@astryxdesign/theme-neutral": "^0.7.13",
@@ -44,6 +45,9 @@
     "@lexical/table": "0.52.0",
     "@lexical/utils": "0.52.0",
     "@stylexjs/stylex": "^0.19.1",
+    "@ui-sdk/core": "0.1.0-beta.3",
+    "@ui-sdk/react": "0.1.0-beta.3",
+    "ai": "^7.0.173",
     "docx": "^9.7.1",
     "fflate": "^0.8.3",
     "hono": "^4.13.8",

@@ -309,6 +309,16 @@ export {
   type JudgmentSection,
 } from "./job-sources";
 export {
+  DOCUMENT_KINDS,
+  DOCUMENT_MAX_BYTES,
+  prepareDocumentChange,
+  prepareDocumentRemoval,
+  prepareStoredDocument,
+  type DocumentKind,
+  type DocumentVaultError,
+  type StoredDocumentPlan,
+} from "./document-vault";
+export {
   LIFE_ANCHOR_ICONS,
   lifeScore,
   prepareLifeAnchor,
