@@ -7,6 +7,11 @@ import {
 } from "node:fs";
 import { extname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import {
+  prepareDocumentChange,
+  prepareDocumentRemoval,
+  prepareStoredDocument,
+} from "../core/document-vault";
 import { saveEvidence } from "./career-memory";
 
 export type DocumentRow = {
@@ -42,12 +47,12 @@ export function storeDocument(
   file: { name: string; type: string; bytes: Uint8Array },
   category: string,
 ): DocumentRow {
-  if (!file.name.trim() || file.bytes.length === 0) {
-    throw new DocumentStoreError("file-required");
-  }
-  if (file.bytes.length > 25 * 1024 * 1024) {
-    throw new DocumentStoreError("file-too-large");
-  }
+  const planned = prepareStoredDocument({
+    name: file.name,
+    size: file.bytes.length,
+    kind: category,
+  });
+  if (!planned.ok) throw new DocumentStoreError(planned.error);
   const id = randomUUID();
   const extension = extname(file.name).slice(0, 12);
   const storedName = `documents/${id}${extension}`;
@@ -65,23 +70,23 @@ export function storeDocument(
     ).run(
       id,
       occupantId,
-      file.name.trim(),
+      planned.value.name,
       storedName,
       file.type || "application/octet-stream",
       file.bytes.length,
       checksum,
-      category.trim() || "career",
+      planned.value.kind,
       now,
     );
     saveEvidence(db, occupantId, {
       sourceType: "document",
       sourceRef: id,
-      title: file.name,
+      title: planned.value.name,
       content: {
         documentId: id,
         mediaType: file.type || "application/octet-stream",
         checksum,
-        category: category.trim() || "career",
+        category: planned.value.kind,
       },
     });
   } catch (error) {
@@ -90,13 +95,95 @@ export function storeDocument(
   }
   return {
     id,
-    originalName: file.name.trim(),
+    originalName: planned.value.name,
     mediaType: file.type || "application/octet-stream",
     sizeBytes: file.bytes.length,
     checksum,
-    category: category.trim() || "career",
+    category: planned.value.kind,
     createdAt: now,
   };
+}
+
+export function updateDocument(
+  db: DatabaseSync,
+  occupantId: string,
+  id: string,
+  input: { name?: unknown; kind?: unknown },
+): DocumentRow {
+  const removal = prepareDocumentRemoval(id);
+  if (!removal.ok) throw new DocumentStoreError(removal.error);
+  const planned = prepareDocumentChange(input);
+  if (!planned.ok) throw new DocumentStoreError(planned.error);
+  const current = loadDocumentRecord(db, occupantId, removal.value);
+  if (!current) throw new DocumentStoreError("not-found");
+  db.prepare(
+    `UPDATE documents SET original_name = ?, category = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(planned.value.name, planned.value.kind, current.id, occupantId);
+  db.prepare(
+    `UPDATE evidence SET title = ?
+      WHERE occupant_id = ? AND source_type = 'document' AND source_ref = ?`,
+  ).run(planned.value.name, occupantId, current.id);
+  const { storedName: _storedName, ...row } = current;
+  return { ...row, originalName: planned.value.name, category: planned.value.kind };
+}
+
+export function removeDocument(
+  db: DatabaseSync,
+  occupantId: string,
+  uploadsDir: string,
+  id: string,
+): void {
+  const planned = prepareDocumentRemoval(id);
+  if (!planned.ok) throw new DocumentStoreError(planned.error);
+  const current = loadDocumentRecord(db, occupantId, planned.value);
+  if (!current) throw new DocumentStoreError("not-found");
+  db.prepare(
+    `DELETE FROM evidence
+      WHERE occupant_id = ? AND source_type = 'document' AND source_ref = ?`,
+  ).run(occupantId, current.id);
+  db.prepare(`DELETE FROM documents WHERE id = ? AND occupant_id = ?`).run(current.id, occupantId);
+  unlinkSync(join(uploadsDir, current.storedName));
+}
+
+function loadDocumentRecord(
+  db: DatabaseSync,
+  occupantId: string,
+  id: string,
+): (DocumentRow & { storedName: string }) | null {
+  return (
+    db
+      .prepare(
+        `SELECT id, original_name AS originalName, stored_name AS storedName,
+                media_type AS mediaType, size_bytes AS sizeBytes, checksum,
+                category, created_at AS createdAt
+         FROM documents WHERE id = ? AND occupant_id = ?`,
+      )
+      .get(id, occupantId) as (DocumentRow & { storedName: string }) | undefined
+  ) ?? null;
+}
+
+const EXTENSION_TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  pdf: "application/pdf",
+  txt: "text/plain; charset=utf-8",
+  md: "text/plain; charset=utf-8",
+  csv: "text/csv; charset=utf-8",
+  json: "application/json",
+  webm: "video/webm",
+  mp4: "video/mp4",
+  mp3: "audio/mpeg",
+};
+
+export function servedMediaType(name: string, mediaType: string): string {
+  const stored = mediaType.trim();
+  if (stored && stored !== "application/octet-stream") return stored;
+  const extension = name.toLowerCase().split(".").pop() ?? "";
+  return EXTENSION_TYPES[extension] ?? (mediaType || "application/octet-stream");
 }
 
 export function loadDocument(
@@ -105,16 +192,7 @@ export function loadDocument(
   uploadsDir: string,
   id: string,
 ): { row: DocumentRow; bytes: Uint8Array } | null {
-  const record = db
-    .prepare(
-      `SELECT id, original_name AS originalName, stored_name AS storedName,
-              media_type AS mediaType, size_bytes AS sizeBytes, checksum,
-              category, created_at AS createdAt
-       FROM documents WHERE id = ? AND occupant_id = ?`,
-    )
-    .get(id, occupantId) as
-    | (DocumentRow & { storedName: string })
-    | undefined;
+  const record = loadDocumentRecord(db, occupantId, id);
   if (!record) return null;
   const { storedName, ...row } = record;
   return { row, bytes: readFileSync(join(uploadsDir, storedName)) };
@@ -123,5 +201,6 @@ export function loadDocument(
 export class DocumentStoreError extends Error {
   constructor(readonly code: string) {
     super(code);
+    this.name = "DocumentStoreError";
   }
 }

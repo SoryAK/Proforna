@@ -178,7 +178,10 @@ import {
   DocumentStoreError,
   listDocuments,
   loadDocument,
+  removeDocument,
+  servedMediaType,
   storeDocument,
+  updateDocument,
 } from "./documents";
 import {
   PortabilityError,
@@ -2148,12 +2151,41 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         },
         typeof form.get("category") === "string"
           ? String(form.get("category"))
-          : "career",
+          : "evidence",
       );
       return c.json({ document }, 201);
     } catch (error) {
       if (error instanceof DocumentStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/documents/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as { name?: unknown; kind?: unknown };
+    try {
+      const document = updateDocument(db, occupant.id, c.req.param("id"), body);
+      return c.json({ document });
+    } catch (error) {
+      if (error instanceof DocumentStoreError) {
+        const status = error.code === "not-found" ? 404 : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/documents/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeDocument(db, occupant.id, uploadsDir, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof DocumentStoreError) {
+        const status = error.code === "not-found" ? 404 : 400;
+        return c.json({ error: error.code }, status);
       }
       throw error;
     }
@@ -2170,7 +2202,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     if (!document) return c.json({ error: "Document not found." }, 404);
     const disposition = c.req.query("inline") === "1" ? "inline" : "attachment";
     return c.body(Buffer.from(document.bytes), 200, {
-      "content-type": document.row.mediaType,
+      "content-type": servedMediaType(document.row.originalName, document.row.mediaType),
       "content-disposition": `${disposition}; filename="${encodeURIComponent(document.row.originalName)}"`,
     });
   });
