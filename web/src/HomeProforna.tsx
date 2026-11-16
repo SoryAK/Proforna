@@ -66,6 +66,8 @@ export function HomeProforna({
 }) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState("");
@@ -118,19 +120,19 @@ export function HomeProforna({
 
   useEffect(() => {
     const scroller = threadRef.current?.parentElement;
-    if (!scroller || sessionsOpen) return;
+    if (!open || !scroller || sessionsOpen) return;
     const read = () => syncThreadScroll(scroller, true);
     syncThreadScroll(scroller, false);
     scroller.addEventListener("scroll", read, { passive: true });
     return () => scroller.removeEventListener("scroll", read);
-  }, [sessionsOpen, messages]);
+  }, [open, sessionsOpen, messages]);
 
   useEffect(() => {
-    if (sessionsOpen || !pinned.current) return;
+    if (!open || sessionsOpen || !pinned.current) return;
     const scroller = threadRef.current?.parentElement;
     if (!scroller) return;
     scroller.scrollTop = scroller.scrollHeight;
-  }, [messages, busy, sessionsOpen]);
+  }, [open, messages, busy, sessionsOpen]);
 
   function syncThreadScroll(scroller: HTMLElement, fromUser: boolean) {
     const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
@@ -293,11 +295,11 @@ export function HomeProforna({
         session: SessionSummary;
         messages: SessionMessage[];
       };
+      if (left()) return;
       setSessions((current) => {
         const rest = current.filter((session) => session.id !== thread.session.id);
         return [thread.session, ...rest];
       });
-      if (left()) return;
       setDraft("");
       setMessages(thread.messages);
       if (attached.length > 0) {
@@ -372,7 +374,7 @@ export function HomeProforna({
   }
 
   async function removeSession(id: string) {
-    const selected = selectedId === id;
+    const selected = selectedIdRef.current === id;
     if (selected) {
       sessionLoad.current += 1;
       abortRef.current?.abort();
@@ -386,10 +388,11 @@ export function HomeProforna({
         return;
       }
       setSessions((list) => list.filter((session) => session.id !== id));
-      if (selected) {
+      if (selectedIdRef.current === id) {
         setSelectedId(null);
         setMessages([]);
         setStatus("");
+        setBusy(false);
       }
     } finally {
       if (selected) setRemoving(false);

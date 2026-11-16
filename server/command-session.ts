@@ -6,7 +6,6 @@ import {
   prepareCommandSessionChange,
   prepareCommandSessionRemoval,
   prepareCommandSessionTitle,
-  prepareCommandTurnBody,
   presentCommandRoles,
   titleFromOccupantTurn,
   type CommandMessage,
@@ -133,9 +132,17 @@ export async function sendCommandTurn(
 ): Promise<{ session: CommandSession; messages: CommandMessage[] }> {
   const session = loadSession(db, occupantId, sessionId);
   const prior = readCommandSession(db, occupantId, session.id).messages;
-  const turn = prepareCommandTurnBody(input.body);
-  if (!turn.ok) throw new CommandSessionStoreError(turn.error);
-  const body = turn.value;
+  const accepted = prepareCommandMessage({
+    id: randomUUID(),
+    occupantId,
+    sessionId: session.id,
+    speaker: "occupant",
+    body: typeof input.body === "string" ? input.body : "",
+    agentRunId: null,
+    createdAt: new Date().toISOString(),
+  });
+  if (!accepted.ok) throw new CommandSessionStoreError(accepted.error);
+  const body = accepted.value.body;
   const roleNote = presentCommandRoles(parseCommandRoles(input.roles));
   const result = await runAgency(
     db,
@@ -176,10 +183,11 @@ export async function sendCommandTurn(
       createdAt: new Date().toISOString(),
     });
   }
+  const stored = loadSession(db, occupantId, session.id);
   const title =
-    session.title === "New conversation"
+    stored.title === "New conversation"
       ? titleFromOccupantTurn(occupantTurn.body)
-      : session.title;
+      : stored.title;
   db.prepare(
     `UPDATE command_sessions
         SET title = ?, updated_at = ?

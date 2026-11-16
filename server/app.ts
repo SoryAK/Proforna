@@ -455,10 +455,10 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     try {
       input = await c.req.json();
     } catch {
-      return c.json({ error: "title-invalid" }, 400);
+      return c.json({ error: "invalid-body" }, 400);
     }
     if (!input || typeof input !== "object" || Array.isArray(input)) {
-      return c.json({ error: "title-invalid" }, 400);
+      return c.json({ error: "invalid-body" }, 400);
     }
     try {
       return c.json({

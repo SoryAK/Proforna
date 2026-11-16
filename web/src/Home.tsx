@@ -479,6 +479,10 @@ export function Home({
                       onSelectionChange={setChatRoles}
                       release={chatRelease}
                       attach={chatAttach}
+                      selectedRoleIds={chatRoles.map((role) => role.id)}
+                      onAttachApplied={(nonce) => {
+                        setChatAttach((current) => (current?.nonce === nonce ? null : current));
+                      }}
                     />
                   ) : null
                 }
@@ -535,6 +539,7 @@ export function Home({
               current.some((item) => item.id === role.id) ? current : [...current, role],
             );
             setChatAttach({ id: role.id, nonce: Date.now() });
+            setChatRelease((current) => (current?.id === role.id ? null : current));
           }}
         />
         {canvasFromNav && page !== "historyReserve" ? (
