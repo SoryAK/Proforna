@@ -2163,9 +2163,22 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.patch("/api/documents/:id", async (c) => {
     const occupant = ensureOccupant(db);
-    const body = (await c.req.json()) as { name?: unknown; kind?: unknown };
+    let body: unknown;
     try {
-      const document = updateDocument(db, occupant.id, c.req.param("id"), body);
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    try {
+      const document = updateDocument(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        body as { name?: unknown; kind?: unknown },
+      );
       return c.json({ document });
     } catch (error) {
       if (error instanceof DocumentStoreError) {

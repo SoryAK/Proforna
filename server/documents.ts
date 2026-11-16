@@ -195,7 +195,8 @@ export function servedMediaType(name: string, mediaType: string, storedName = ""
   if (isActiveMarkup(stored)) return "text/plain; charset=utf-8";
   if (stored && stored !== "application/octet-stream") return stored;
   const extension = fileExtension(storedName) || fileExtension(name);
-  return EXTENSION_TYPES[extension] ?? (stored || "application/octet-stream");
+  const known = Object.hasOwn(EXTENSION_TYPES, extension) ? EXTENSION_TYPES[extension] : undefined;
+  return known ?? (stored || "application/octet-stream");
 }
 
 function presentDocument(record: DocumentRow & { storedName?: string }): DocumentRow {

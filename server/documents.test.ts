@@ -51,6 +51,28 @@ describe("document vault", () => {
       expect(inline.headers.get("content-type")).toBe("image/png");
       expect(inline.headers.get("content-disposition")).toContain("inline");
       expect(inline.headers.get("x-content-type-options")).toBe("nosniff");
+
+      const odd = new FormData();
+      odd.set("file", new File(["notes"], "notes.__proto__", { type: "application/octet-stream" }));
+      const oddStored = (await (await app.request("/api/documents", { method: "POST", body: odd })).json()) as {
+        document: { mediaType: string };
+      };
+      expect(oddStored.document.mediaType).toBe("application/octet-stream");
+
+      const broken = await app.request(`/api/documents/${created.document.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      });
+      expect(broken.status).toBe(400);
+      expect(((await broken.json()) as { error: string }).error).toBe("invalid-body");
+      const emptyBody = await app.request(`/api/documents/${created.document.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "null",
+      });
+      expect(emptyBody.status).toBe(400);
+      expect(((await emptyBody.json()) as { error: string }).error).toBe("invalid-body");
     } finally {
       rmSync(uploadsDir, { recursive: true, force: true });
     }

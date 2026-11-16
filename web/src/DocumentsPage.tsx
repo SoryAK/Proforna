@@ -13,6 +13,10 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { DOCUMENT_KINDS, type DocumentKind } from "@core/document-vault";
 import { File as FileIcon, Upload } from "lucide-react";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+GlobalWorkerOptions.workerSrc = workerUrl;
 
 type VaultDocument = {
   id: string;
@@ -59,7 +63,9 @@ export function DocumentsPage() {
         setLoadError("Could not load your files.");
         return;
       }
-      setDocuments(((await response.json()) as { documents: VaultDocument[] }).documents);
+      const payload = (await response.json()) as { documents: VaultDocument[] };
+      if (generation !== loadGeneration.current) return;
+      setDocuments(payload.documents);
       setLoadError("");
     } catch {
       if (generation !== loadGeneration.current) return;
@@ -382,9 +388,7 @@ function downloadFile(file: VaultDocument) {
 function FilePreview({ file }: { file: VaultDocument }) {
   const url = `/api/documents/${file.id}?inline=1`;
   if (isImage(file)) return <img className="documents-preview-media" src={url} alt={file.originalName} />;
-  if (isPdf(file)) {
-    return <iframe className="documents-preview-frame" title={file.originalName} src={url} sandbox="allow-scripts" />;
-  }
+  if (isPdf(file)) return <PdfPreview url={url} />;
   if (isVideo(file)) return <video className="documents-preview-media" src={url} controls />;
   if (isAudio(file)) return <audio src={url} controls />;
   if (isText(file)) return <TextPreview url={url} />;
@@ -392,6 +396,64 @@ function FilePreview({ file }: { file: VaultDocument }) {
     <p className="documents-preview-note">
       This file can’t be shown here. Download it to open it on this computer.
     </p>
+  );
+}
+
+function PdfPreview({ url }: { url: string }) {
+  const host = useRef<HTMLDivElement>(null);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    const target = host.current;
+    if (!target) return;
+    let cancel = false;
+    const controller = new AbortController();
+    setNote(null);
+    const taskPromise = fetch(url, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("unreadable");
+        return response.arrayBuffer();
+      })
+      .then((buffer) => getDocument({ data: new Uint8Array(buffer) }));
+    void taskPromise
+      .then(async (task) => {
+        try {
+          const doc = await task.promise;
+          if (cancel) return;
+          target.replaceChildren();
+          for (let number = 1; number <= doc.numPages; number += 1) {
+            if (cancel) break;
+            const pageView = await doc.getPage(number);
+            const unscaled = pageView.getViewport({ scale: 1 });
+            const width = target.clientWidth || unscaled.width;
+            const scale = Math.min(2, width / unscaled.width);
+            const viewport = pageView.getViewport({ scale });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+            canvas.style.width = "100%";
+            canvas.style.height = "auto";
+            await pageView.render({ canvas, viewport }).promise;
+            if (!cancel) target.appendChild(canvas);
+          }
+        } catch {
+          if (!cancel) setNote("This file can’t be shown here. Download it to open it on this computer.");
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (!cancel) setNote("This file can’t be shown here. Download it to open it on this computer.");
+      });
+    return () => {
+      cancel = true;
+      controller.abort();
+      void taskPromise.then((task) => task.destroy()).catch(() => undefined);
+    };
+  }, [url]);
+  return (
+    <>
+      <div ref={host} className="documents-preview-frame" />
+      {note ? <p className="documents-preview-note">{note}</p> : null}
+    </>
   );
 }
 

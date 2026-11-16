@@ -1033,6 +1033,7 @@
   height: min(70vh, 36rem);
   border: 0;
   background: #fff;
+  overflow: auto;
 }
 
 .documents-preview-text {
