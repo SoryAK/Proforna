@@ -35,7 +35,6 @@
   outline-offset: 2px;
 }
 
-.work-map-view-switch button,
 .role-detail header button,
 .role-detail nav button,
 .publication-settings header button {
@@ -48,7 +47,6 @@
   font-size: 0.7rem;
 }
 
-.work-map-view-switch button:hover,
 .role-detail header button:hover,
 .role-detail nav button:hover,
 .publication-settings header button:hover {
@@ -1496,172 +1494,21 @@
   padding: 0;
   min-width: 0;
   min-height: 0;
+  flex: 1;
   overflow: hidden;
   background: #d9d2c6;
 }
 
-.work-map-view-switch {
+.work-map-stage > .action-canvas-slot {
   position: absolute;
-  z-index: 500;
-  top: 0.8rem;
-  left: 3.6rem;
-  display: flex;
-  padding: 0.18rem;
-  border-radius: 8px;
-  background: #0c0a08;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-}
-
-.work-map-view-switch button {
-  min-height: 1.9rem;
-  border: 0;
-  border-radius: 6px;
-}
-
-.work-map-view-switch button.is-active {
-  background: var(--gold);
-  color: #090806;
-}
-
-.career-timeline-card {
-  position: absolute;
-  z-index: 650;
-  top: 3.4rem;
-  left: 0.8rem;
-  width: min(18rem, calc(100% - 1.6rem));
-  padding: 0.85rem 0.95rem 0.55rem;
-  border-radius: 8px;
+  z-index: 4;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 10px;
   background: #13100d;
-  color: var(--text);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
 }
 
-.career-timeline-card.is-dragging {
-  cursor: grabbing;
-}
-
-.career-timeline-card button {
-  cursor: pointer;
-}
-
-.career-timeline-card p {
-  margin: 0 0 0.3rem;
-  color: var(--gold-hover);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.career-timeline-card h2 {
-  display: block;
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.career-timeline-card strong,
-.career-timeline-card span {
-  display: block;
-  margin-top: 0.2rem;
-  color: var(--wm-muted);
-  font-size: 0.84rem;
-  font-weight: 400;
-  line-height: 1.35;
-}
-
-.career-timeline-card strong {
-  color: var(--text);
-}
-
-.career-timeline-card .is-also {
-  margin-top: 0.45rem;
-  color: var(--gold-hover);
-  font-size: 0.78rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.career-timeline-card ol {
-  margin: 0.7rem 0 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--wm-line);
-}
-
-.career-timeline-card li button {
-  display: flex;
-  width: 100%;
-  gap: 0.7rem;
-  padding: 0.35rem 0;
-  border: 0;
-  background: transparent;
-  color: var(--wm-muted);
-  text-align: left;
-}
-
-.career-timeline-card li button.is-active {
-  color: var(--text);
-}
-
-.career-timeline-card li span {
-  display: inline;
-  width: auto;
-  margin: 0;
-  color: var(--gold);
-  white-space: nowrap;
-}
-
-.career-timeline-float {
-  position: absolute;
-  z-index: 650;
-  bottom: 0.85rem;
-  left: 50%;
-  width: min(22rem, calc(100% - 1.6rem));
-  padding: 0.45rem 0.55rem;
-  border-radius: 8px;
-  background: rgba(16, 14, 12, 0.94);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
-  transform: translateX(-50%);
-}
-
-.career-timeline-controls {
-  display: flex;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-.career-timeline-controls label {
-  flex: 1;
-  min-width: 6rem;
-}
-
-.career-timeline-controls input {
-  width: 100%;
-  accent-color: var(--gold);
-}
-
-.career-timeline-controls button {
-  min-height: 2rem;
-  padding: 0.2rem 0.7rem;
-  border: 1px solid var(--wm-line);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--gold-hover);
-}
-
-.career-timeline-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
 
 .work-map-canvas,
 .work-map-canvas .leaflet-container,
@@ -1738,68 +1585,6 @@
   line-height: 1.5;
 }
 
-.career-map-timeline {
-  height: 100%;
-  padding: 4.5rem clamp(1rem, 5vw, 5rem) 3rem;
-  overflow: auto;
-  background: #0a0907;
-}
-
-.career-map-timeline button {
-  display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr);
-  width: 100%;
-  padding: 1.2rem 0;
-  border: 0;
-  border-top: 1px solid var(--wm-line);
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-
-.career-map-timeline button.is-selected {
-  background: rgba(199, 164, 123, 0.08);
-  box-shadow: inset 2px 0 0 var(--gold-hover);
-}
-
-.career-map-timeline button.is-secondary {
-  opacity: 0.4;
-}
-
-.career-map-timeline button.is-secondary:hover {
-  opacity: 0.75;
-}
-
-.career-map-timeline time {
-  color: var(--gold);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.7rem;
-}
-
-.career-map-timeline strong,
-.career-map-timeline b,
-.career-map-timeline small {
-  display: block;
-}
-
-.career-map-timeline strong {
-  font-family: var(--sans);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.career-map-timeline b {
-  margin-top: 0.25rem;
-  color: var(--gold-hover);
-  font-size: 0.78rem;
-}
-
-.career-map-timeline small {
-  max-width: 68ch;
-  margin-top: 0.55rem;
-  color: var(--wm-muted);
-  line-height: 1.55;
-}
 
 .role-detail,
 .publication-settings {
@@ -2737,11 +2522,6 @@
   .role-sheet {
     min-height: 24rem;
   }
-
-  .career-map-timeline button {
-    grid-template-columns: 1fr;
-    gap: 0.45rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -2979,212 +2759,6 @@
   font-size: 0.85rem;
 }
 
-.work-map .work-map-layout {
-  display: block;
-  background: #0a0a0a;
-}
-
-.work-map .work-map-stage {
-  position: absolute;
-  inset: 0.75rem;
-  overflow: hidden;
-  border: 0;
-  border-radius: 16px;
-  background: #0a0a0a;
-}
-
-.work-map .work-map-stage .work-map-canvas,
-.work-map .work-map-stage .work-map-google,
-.work-map .work-map-stage .gm-style {
-  border-radius: 16px;
-}
-
-.work-map .work-map-float {
-  position: absolute;
-  z-index: 3;
-  top: 1.75rem;
-  right: auto;
-  bottom: 1.75rem;
-  left: 1.75rem;
-  width: min(24rem, 38vw);
-  overflow: auto;
-}
-
-.work-map .work-map-view-switch,
-.work-map .career-timeline-card {
-  left: auto;
-  right: 0.8rem;
-}
-
-.work-map .career-map-timeline {
-  padding-left: calc(min(24rem, 38vw) + 1.75rem);
-}
-
-.work-map .career-timeline-float {
-  left: calc((min(24rem, 38vw) + 1.75rem + 100%) / 2);
-}
-
-.work-map-stage .action-dock {
-  position: absolute;
-  z-index: 660;
-  bottom: 0;
-  left: calc(min(24rem, 38vw) + 1rem);
-  right: 0.5rem;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.work-map-stage .action-tab {
-  display: flex;
-  align-items: stretch;
-  max-width: 100%;
-  pointer-events: auto;
-  border: 1px solid rgba(199, 164, 123, 0.45);
-  border-bottom: 0;
-  border-radius: 14px 14px 0 0;
-  background: #13100d;
-  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45);
-}
-
-.work-map-stage .action-tab.is-rising {
-  animation: action-tab-rise 0.4s ease;
-}
-
-@keyframes action-tab-rise {
-  from { transform: translateY(160%); }
-  to { transform: translateY(0); }
-}
-
-.work-map-stage .action-dock.is-collapsed .action-bar {
-  display: none;
-}
-
-.work-map-stage .action-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.35rem 0.4rem 0.55rem;
-}
-
-.work-map-stage .action-bar > button,
-.work-map-stage .action-tab .publication-menu-anchor > button {
-  height: auto;
-  min-height: 0;
-  margin: 0;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid rgba(199, 164, 123, 0.45);
-  border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--gold-light);
-  font: 600 0.75rem/1.35 "Geist Variable", "Geist", system-ui, sans-serif;
-  cursor: pointer;
-}
-
-.work-map-stage .action-bar > button:hover,
-.work-map-stage .action-bar > button[aria-pressed="true"],
-.work-map-stage .action-tab .publication-menu-anchor > button:hover {
-  border-color: var(--gold-hover);
-  background: rgba(167, 139, 113, 0.2);
-  color: var(--text);
-}
-
-.work-map-stage .action-tab .publication-menu {
-  top: auto;
-  right: auto;
-  bottom: calc(100% + 0.45rem);
-  left: 0;
-}
-
-.work-map-stage .action-tab .publication-menu button {
-  height: auto;
-  min-height: 2.25rem;
-  padding: 0.4rem 0.75rem;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  color: #c9b8a0;
-  font: 500 0.875rem/1.35 "Geist Variable", "Geist", system-ui, sans-serif;
-  text-align: left;
-}
-
-.work-map-stage .action-tab .publication-menu button:hover {
-  border: 0;
-  background: rgba(167, 139, 113, 0.16);
-  color: #f5f2ee;
-}
-
-.work-map-stage .action-handle {
-  display: grid;
-  width: 2.4rem;
-  flex: none;
-  place-items: center;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-left: 1px solid rgba(199, 164, 123, 0.28);
-  border-radius: 0 12px 0 0;
-  background: #1c1814;
-  color: var(--gold-hover);
-  cursor: grab;
-  touch-action: none;
-}
-
-.work-map-stage .action-handle:hover {
-  color: var(--text);
-}
-
-.work-map-stage .action-handle i {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(45deg) translate(-0.05rem, -0.05rem);
-}
-
-.work-map-stage .action-tab.has-canvas .action-bar {
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
-}
-
-.work-map-stage .action-dock.is-collapsed .action-tab {
-  width: 4.5rem;
-  height: 1.2rem;
-}
-
-.work-map-stage .action-dock.is-collapsed .action-tab.has-canvas {
-  width: auto;
-  height: auto;
-}
-
-.work-map-stage .action-dock.is-collapsed .action-handle {
-  width: 100%;
-  border-left: 0;
-  border-radius: 12px 12px 0 0;
-  background: transparent;
-}
-
-.work-map-stage .action-dock.is-collapsed .action-tab.has-canvas .action-handle {
-  width: 2.4rem;
-  border-left: 1px solid rgba(199, 164, 123, 0.28);
-  border-radius: 0 12px 0 0;
-  background: #1c1814;
-}
-
-.work-map-stage .action-dock.is-collapsed .action-handle i {
-  transform: rotate(-135deg) translate(-0.05rem, -0.05rem);
-}
-
-.work-map-stage.has-action-tab .career-timeline-float {
-  bottom: 4.6rem;
-}
-
-.work-map-stage.has-action-tab.is-actions-collapsed .career-timeline-float {
-  bottom: 2.15rem;
-}
 
 .career-bio.is-named-edit .career-bio-row > div {
   flex: 1;
@@ -3548,47 +3122,6 @@
   font-size: 0.75rem;
 }
 
-@media (max-width: 760px) {
-  .work-map .work-map-layout {
-    display: flex;
-    flex-direction: column;
-    background: transparent;
-  }
-
-  .work-map .work-map-stage {
-    position: relative;
-    inset: auto;
-    height: 55vh;
-    min-height: 18rem;
-    border: 1px solid rgba(167, 139, 113, 0.22);
-    border-radius: 16px;
-  }
-
-  .work-map .work-map-float {
-    position: relative;
-    inset: auto;
-    width: 100%;
-    overflow: visible;
-  }
-
-  .work-map .work-map-view-switch,
-  .work-map .career-timeline-card {
-    left: 0.8rem;
-  }
-
-  .work-map .career-map-timeline {
-    padding-left: clamp(1rem, 5vw, 5rem);
-  }
-
-  .work-map .career-timeline-float {
-    left: 50%;
-  }
-
-  .work-map-stage .action-dock {
-    left: 0.5rem;
-    right: 0.5rem;
-  }
-}
 
 .focus-card,
 .work-map .career-bio,
