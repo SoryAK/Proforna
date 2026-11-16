@@ -5,6 +5,8 @@ import {
   prepareCommandSession,
   prepareCommandSessionChange,
   prepareCommandSessionRemoval,
+  prepareCommandSessionTitle,
+  prepareCommandTurnBody,
   presentCommandRoles,
   titleFromOccupantTurn,
   type CommandMessage,
@@ -63,10 +65,12 @@ export function updateCommandSession(
   db: DatabaseSync,
   occupantId: string,
   sessionId: string,
-  title: string,
+  title: unknown,
 ): CommandSession {
+  const named = prepareCommandSessionTitle(title);
+  if (!named.ok) throw new CommandSessionStoreError(named.error);
   const session = loadSession(db, occupantId, sessionId);
-  const planned = prepareCommandSessionChange(session, title);
+  const planned = prepareCommandSessionChange(session, named.value);
   if (!planned.ok) throw new CommandSessionStoreError(planned.error);
   db.prepare(
     `UPDATE command_sessions
@@ -129,7 +133,9 @@ export async function sendCommandTurn(
 ): Promise<{ session: CommandSession; messages: CommandMessage[] }> {
   const session = loadSession(db, occupantId, sessionId);
   const prior = readCommandSession(db, occupantId, session.id).messages;
-  const body = typeof input.body === "string" ? input.body : "";
+  const turn = prepareCommandTurnBody(input.body);
+  if (!turn.ok) throw new CommandSessionStoreError(turn.error);
+  const body = turn.value;
   const roleNote = presentCommandRoles(parseCommandRoles(input.roles));
   const result = await runAgency(
     db,
@@ -154,7 +160,7 @@ export async function sendCommandTurn(
     occupantId,
     sessionId: session.id,
     speaker: "occupant",
-    body: typeof input.body === "string" ? input.body : "",
+    body,
     agentRunId: result.run.id,
     createdAt: now,
   });

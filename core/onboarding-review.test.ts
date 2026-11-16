@@ -9,6 +9,8 @@ import {
   onboardingDone,
   onboardingExtractSummary,
   onboardingSavedLines,
+  groupSimilarCards,
+  plainDutyLines,
   profileAfterOnboarding,
 } from "./onboarding-review";
 import type { ProfileFields } from "./profile";
@@ -356,5 +358,21 @@ describe("onboardingDone", () => {
         schools: [{ id: "school-1", institution: "City College", degree: "AAS" }],
       }).map((choice) => choice.id),
     ).toEqual(["job-new", "job-old", "school-1"]);
+  });
+
+  it("pairs a held role once when two incoming roles match it", () => {
+    expect(
+      groupSimilarCards([
+        { key: "held", comparable: false },
+        { key: "incoming-b", similarTo: "held", comparable: true },
+        { key: "incoming-c", similarTo: "held", comparable: true },
+      ]).map((block) => block.keys),
+    ).toEqual([["held", "incoming-b"], ["incoming-c"]]);
+  });
+
+  it("keeps literal characters in a duty and drops formatting", () => {
+    expect(plainDutyLines("Kept snake_case and `code`")).toEqual(["Kept snake_case and code"]);
+    expect(plainDutyLines("**Bold** and a \\_literal\\_ mark")).toEqual(["Bold and a _literal_ mark"]);
+    expect(plainDutyLines("- First\n2. Second")).toEqual(["First", "Second"]);
   });
 });

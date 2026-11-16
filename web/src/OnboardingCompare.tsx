@@ -21,6 +21,7 @@ import {
   hintNextResume,
   hintSetAside,
   followSkillEdits,
+  skillLines,
   rememberSkills,
   roleFieldDiffs,
   type SkillEdit,
@@ -856,6 +857,19 @@ export function AllResumesVerify({
         onAddJob={() => add("Job")}
         onAddSchool={() => add("School")}
       />
+      {editSkills ? (
+        <TextArea
+          label="Skills"
+          value={skillLines(shownSkills())}
+          onChange={(value) => {
+            const found = foundSkills(keptRoles());
+            setSkillEdit({
+              lines: value.split("\n"),
+              seen: found.map((skill) => skill.name),
+            });
+          }}
+        />
+      ) : null}
       {error ? (
         <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}

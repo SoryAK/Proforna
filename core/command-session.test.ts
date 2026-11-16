@@ -4,6 +4,8 @@ import {
   prepareCommandSession,
   prepareCommandSessionChange,
   prepareCommandSessionRemoval,
+  prepareCommandSessionTitle,
+  prepareCommandTurnBody,
   presentCommandHistory,
   presentCommandRoles,
   titleFromOccupantTurn,
@@ -35,6 +37,19 @@ describe("command session", () => {
       ok: true,
       value: { title: "New conversation" },
     });
+  });
+
+  it("accepts a blank title and rejects a missing one", () => {
+    expect(prepareCommandSessionTitle("")).toEqual({ ok: true, value: "" });
+    expect(prepareCommandSessionTitle("  ")).toEqual({ ok: true, value: "  " });
+    expect(prepareCommandSessionTitle(undefined)).toEqual({ ok: false, error: "title-invalid" });
+    expect(prepareCommandSessionTitle(4)).toEqual({ ok: false, error: "title-invalid" });
+  });
+
+  it("rejects a blank turn before any role note is added", () => {
+    expect(prepareCommandTurnBody("  ")).toEqual({ ok: false, error: "body-required" });
+    expect(prepareCommandTurnBody(null)).toEqual({ ok: false, error: "body-required" });
+    expect(prepareCommandTurnBody(" What next? ")).toEqual({ ok: true, value: "What next?" });
   });
 
   it("requires a session and a body on each turn", () => {

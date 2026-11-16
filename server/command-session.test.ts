@@ -175,6 +175,39 @@ describe("command session HTTP seam", () => {
         "Roles in this question:\n- Giants Direct, Technician, 2024-06 – present",
       );
 
+      const blank = await app.request(`/api/command/sessions/${created.session.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          body: "   ",
+          roles: [{ organization: "Giants Direct", title: "Technician", startDate: "", endDate: "", isCurrent: true }],
+        }),
+      });
+      expect(blank.status).toBe(400);
+      expect(complete).toHaveBeenCalledTimes(1);
+
+      const missingTitle = await app.request(`/api/command/sessions/${created.session.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      expect(missingTitle.status).toBe(400);
+      const unreadable = await app.request(`/api/command/sessions/${created.session.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      });
+      expect(unreadable.status).toBe(400);
+      const cleared = await app.request(`/api/command/sessions/${created.session.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "  " }),
+      });
+      expect(cleared.status).toBe(200);
+      expect(((await cleared.json()) as { session: { title: string } }).session.title).toBe(
+        "New conversation",
+      );
+
       const removed = await app.request(`/api/command/sessions/${created.session.id}`, {
         method: "DELETE",
       });

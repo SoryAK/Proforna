@@ -713,6 +713,15 @@ function OpportunitiesPage() {
                         Keep in My Network
                       </button>
                     ) : null}
+                    {opportunity.pending_access_request_id ? null : (
+                      <button
+                        className="is-danger"
+                        type="button"
+                        onClick={() => void removeOpportunity(opportunity.id)}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 ) : application ? (
                   <div className="application-state">

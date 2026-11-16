@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CanvasBoard } from "@core/canvas-board";
 import type { WorkMapRole } from "@core/work-map";
 import type { CareerFile } from "@core/career-file";
+import { planContactSubmission } from "@core/career-management";
 import { Avatar } from "@astryxdesign/core/Avatar";
+import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Carousel } from "@astryxdesign/core/Carousel";
 import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
@@ -75,7 +77,8 @@ export function Home({
   const [photoTick, setPhotoTick] = useState(0);
   const [mapRevision, setMapRevision] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [collapsed, setCollapsed] = useState(() => (isCareerPreview() ? false : readCollapsed()));
+  const bioPopRef = useRef<HTMLDivElement>(null);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
   const [previewNote, setPreviewNote] = useState("");
   const [bioDialog, setBioDialog] = useState<"know" | "contact" | "place" | null>(null);
@@ -130,11 +133,43 @@ export function Home({
 
   useEffect(() => {
     if (!bioDialog) return;
+    const trap = bioDialog === "know" || bioDialog === "place";
+    const trigger = trap && document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const root = bioPopRef.current;
+    const focusable = () => {
+      if (!root) return [];
+      return [...root.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")].filter(
+        (element) => !element.hasAttribute("disabled"),
+      );
+    };
+    if (trap) (focusable()[0] ?? root)?.focus();
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setBioDialog(null);
+      if (event.key === "Escape") {
+        setBioDialog(null);
+        return;
+      }
+      if (!trap || event.key !== "Tab" || !root) return;
+      const list = focusable();
+      if (list.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !root.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
   }, [bioDialog]);
 
   function toggleMenu() {
@@ -261,9 +296,11 @@ export function Home({
         "popup,width=1100,height=800",
       );
       if (opened) return;
-      setPreviewNote("The browser blocked the preview window. Preview is staying in this window.");
     }
     chooseBioMode("preview");
+    if (where === "window") {
+      setPreviewNote("The browser blocked the preview window. Preview is staying in this window.");
+    }
   }
 
   return (
@@ -459,6 +496,7 @@ export function Home({
               mapRevision={mapRevision}
               careerRevision={careerRevision}
               canvasFromNav={canvasFromNav}
+              onCareerChanged={() => setCareerRevision((n) => n + 1)}
               onHome={() => {
                 setEditing(false);
                 goHome();
@@ -486,9 +524,11 @@ export function Home({
           onToggle={togglePanel}
           roles={chatRoles}
           focusRoleId={focusJobId}
+          careerRevision={careerRevision}
           onReleaseRole={(id) => {
             setChatRoles((current) => current.filter((role) => role.id !== id));
             setChatRelease({ id, nonce: Date.now() });
+            setChatAttach((current) => (current?.id === id ? null : current));
           }}
           onAttachRole={(role) => {
             setChatRoles((current) =>
@@ -503,9 +543,11 @@ export function Home({
       </div>
       {bioDialog === "know" || bioDialog === "place" ? (
         <div
+          ref={bioPopRef}
           className="home-bio-pop"
           role="dialog"
           aria-modal="true"
+          tabIndex={-1}
           aria-label={bioDialog === "know" ? "Get to know me" : "Location"}
           onClick={(event) => {
             if (event.target === event.currentTarget) setBioDialog(null);
@@ -587,6 +629,8 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [firstError, setFirstError] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const steps = contactSteps(jobs);
   const meetDays = upcomingMeetDays();
 
@@ -613,6 +657,8 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setFirstError(null);
     setLastError(null);
     setEmailError(null);
+    setSaving(false);
+    setSaveError("");
   }, [isOpen]);
 
   function detailsReady(): boolean {
@@ -629,9 +675,49 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     return true;
   }
 
-  function submit() {
-    if (!detailsReady()) return;
-    onClose();
+  async function submit() {
+    if (!detailsReady() || saving) return;
+    const meetWhen = [meetDay, meetTime].filter(Boolean).join(" ");
+    const planned = planContactSubmission({
+      firstName,
+      lastName,
+      email,
+      company,
+      jobTitle,
+      phone,
+      jobs,
+      networks,
+      jobName,
+      jobRole,
+      jobCompany,
+      jobLocation,
+      jobSalary,
+      jobLink,
+      jobPost,
+      meetWhen,
+    });
+    if (!planned.ok) {
+      setSaveError("Add a name before connecting.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      const response = await fetch("/api/opportunities", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(planned.value),
+      });
+      if (!response.ok) {
+        setSaveError("Could not save that request.");
+        return;
+      }
+      onClose();
+    } catch {
+      setSaveError("Could not save that request.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function chooseJobs(next: boolean) {
@@ -641,8 +727,11 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
   function continueDetails() {
     if (!detailsReady()) return;
-    setStep(jobs ? "job" : "details");
-    if (!jobs) onClose();
+    if (!jobs) {
+      void submit();
+      return;
+    }
+    setStep("job");
   }
 
   return (
@@ -685,6 +774,9 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         }
         content={
           <LayoutContent label="Contact">
+            {saveError ? (
+              <Banner status="error" title={saveError} container="section" collapsible={false} role="alert" />
+            ) : null}
             {step === "job" ? (
               <VStack gap={3}>
                 <Text type="label">Job opportunity</Text>
@@ -804,10 +896,15 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             ) : step === "time" ? (
               <HStack gap={2} vAlign="center">
                 <Button label="Back" variant="secondary" onClick={() => setStep("job")} />
-                <Button label="Let's connect" variant="primary" onClick={submit} />
+                <Button label={saving ? "Saving…" : "Let's connect"} variant="primary" isDisabled={saving} onClick={() => void submit()} />
               </HStack>
             ) : (
-              <Button label={jobs ? "Continue" : "Let's connect"} variant="primary" onClick={continueDetails} />
+              <Button
+                label={saving ? "Saving…" : jobs ? "Continue" : "Let's connect"}
+                variant="primary"
+                isDisabled={saving}
+                onClick={continueDetails}
+              />
             )}
           </LayoutFooter>
         }

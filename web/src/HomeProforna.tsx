@@ -51,6 +51,7 @@ export function HomeProforna({
   width,
   roles = [],
   focusRoleId = null,
+  careerRevision = 0,
   onReleaseRole,
   onAttachRole,
 }: {
@@ -59,6 +60,7 @@ export function HomeProforna({
   width?: number;
   roles?: ChatRole[];
   focusRoleId?: string | null;
+  careerRevision?: number;
   onReleaseRole?: (id: string) => void;
   onAttachRole?: (role: ChatRole) => void;
 }) {
@@ -93,6 +95,10 @@ export function HomeProforna({
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    setCatalog([]);
+  }, [careerRevision]);
 
   useEffect(() => {
     if (picked.current || selectedId || sessions.length === 0) return;
@@ -365,13 +371,20 @@ export function HomeProforna({
   }
 
   async function removeSession(id: string) {
+    const selected = selectedId === id;
+    if (selected) {
+      sessionLoad.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setBusy(false);
+    }
     const response = await fetch(`/api/command/sessions/${id}`, { method: "DELETE" });
     if (!response.ok) {
       setStatus("Could not remove that conversation.");
       return;
     }
     setSessions((list) => list.filter((session) => session.id !== id));
-    if (selectedId === id) {
+    if (selected) {
       setSelectedId(null);
       setMessages([]);
       setStatus("");

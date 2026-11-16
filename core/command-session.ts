@@ -18,7 +18,7 @@ export type CommandMessage = {
   createdAt: string;
 };
 
-export type CommandSessionError = "session-required" | "body-required";
+export type CommandSessionError = "session-required" | "body-required" | "title-invalid";
 
 export type CommandRoleContext = {
   organization: string;
@@ -54,6 +54,22 @@ export function prepareCommandSession(
       title,
     },
   };
+}
+
+export function prepareCommandSessionTitle(
+  title: unknown,
+): { ok: true; value: string } | { ok: false; error: CommandSessionError } {
+  if (typeof title !== "string") return { ok: false, error: "title-invalid" };
+  return { ok: true, value: title };
+}
+
+export function prepareCommandTurnBody(
+  body: unknown,
+): { ok: true; value: string } | { ok: false; error: CommandSessionError } {
+  if (typeof body !== "string" || !body.trim()) {
+    return { ok: false, error: "body-required" };
+  }
+  return { ok: true, value: body.trim() };
 }
 
 export function prepareCommandSessionChange(

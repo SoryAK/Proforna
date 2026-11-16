@@ -352,6 +352,9 @@ type GoogleMapsApi = {
   Point: new (x: number, y: number) => object;
   SymbolPath: { CIRCLE: number };
   ControlPosition?: { RIGHT_BOTTOM: number };
+  event: {
+    trigger: (target: object, name: string) => void;
+  };
 };
 
 declare global {

@@ -183,6 +183,67 @@ export function planOpportunityNetworkPromotion(input: {
   return { ok: true, value: { status: "closed" } };
 }
 
+export type ContactSubmission = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  company: string;
+  jobTitle: string;
+  phone: string;
+  jobs: boolean;
+  networks: boolean;
+  jobName: string;
+  jobRole: string;
+  jobCompany: string;
+  jobLocation: string;
+  jobSalary: string;
+  jobLink: string;
+  jobPost: string;
+  meetWhen: string;
+};
+
+export function planContactSubmission(
+  input: ContactSubmission,
+):
+  | {
+      ok: true;
+      value: Pick<Opportunity, "kind" | "title" | "organization" | "sourceUrl" | "location" | "fitSummary">;
+    }
+  | { ok: false; error: CareerManagementError } {
+  const name = `${input.firstName.trim()} ${input.lastName.trim()}`.replace(/\s+/g, " ").trim();
+  const organization = (input.jobs ? input.jobCompany.trim() || input.company.trim() : input.company.trim()) || name;
+  const title = input.jobs
+    ? input.jobRole.trim() || input.jobName.trim() || (name ? `${name} shared a job` : "")
+    : name
+      ? `${name} asked to connect`
+      : "";
+  if (!title) return { ok: false, error: "title-required" };
+  if (!organization) return { ok: false, error: "organization-required" };
+  const notes = [
+    input.email.trim() ? `Email: ${input.email.trim()}` : "",
+    input.phone.trim() ? `Phone: ${input.phone.trim()}` : "",
+    input.jobTitle.trim() ? `Title: ${input.jobTitle.trim()}` : "",
+    input.company.trim() ? `Company: ${input.company.trim()}` : "",
+    input.jobs ? "Interested in a job opportunity." : "",
+    input.networks ? "Interested in connecting networks." : "",
+    input.jobName.trim() ? `Job: ${input.jobName.trim()}` : "",
+    input.jobPost.trim(),
+    input.jobSalary.trim() ? `Salary: ${input.jobSalary.trim()}` : "",
+    input.meetWhen.trim() ? `Meet: ${input.meetWhen.trim()}` : "",
+  ].filter(Boolean);
+  return {
+    ok: true,
+    value: {
+      kind: input.jobs ? "role" : "connection",
+      title,
+      organization,
+      sourceUrl: input.jobLink.trim(),
+      location: input.jobs ? input.jobLocation.trim() : "",
+      fitSummary: notes.join("\n"),
+    },
+  };
+}
+
 export function prepareOpportunity(
   opportunity: Opportunity,
 ):

@@ -23,6 +23,8 @@ import {
   isBlankOnboardingCheckItem,
   nextOnboardingSourceIndex,
   onboardingExtractSummary,
+  groupSimilarCards,
+  plainDutyLines,
   ONBOARDING_NO_PLACE,
   type OnboardingCheckItem,
 } from "@core/onboarding-review";
@@ -450,26 +452,17 @@ export function VerifyBoard({
 
 function verifyBlocks(cards: VerifyCard[]): Array<{ key: string; cards: VerifyCard[]; link: VerifyCard | null }> {
   const byKey = new Map(cards.map((card) => [card.key, card]));
-  const consumed = new Set<string>();
-  const blocks: Array<{ key: string; cards: VerifyCard[]; link: VerifyCard | null }> = [];
-  for (const card of cards) {
-    if (consumed.has(card.key)) continue;
-    const later = cards.find((item) => item.similarTo === card.key && item.onCompare);
-    const earlier = card.similarTo ? byKey.get(card.similarTo) : undefined;
-    if (later) {
-      consumed.add(card.key);
-      consumed.add(later.key);
-      blocks.push({ key: card.key, cards: [card, later], link: later });
-    } else if (earlier && card.onCompare) {
-      consumed.add(card.key);
-      consumed.add(earlier.key);
-      blocks.push({ key: earlier.key, cards: [earlier, card], link: card });
-    } else {
-      consumed.add(card.key);
-      blocks.push({ key: card.key, cards: [card], link: null });
-    }
-  }
-  return blocks;
+  return groupSimilarCards(
+    cards.map((card) => ({
+      key: card.key,
+      similarTo: card.similarTo,
+      comparable: Boolean(card.onCompare),
+    })),
+  ).map((block) => ({
+    key: block.key,
+    cards: block.keys.map((key) => byKey.get(key)).filter((card): card is VerifyCard => Boolean(card)),
+    link: block.linkKey ? (byKey.get(block.linkKey) ?? null) : null,
+  }));
 }
 
 function openCompare(card: VerifyCard, event: { preventDefault?: () => void; stopPropagation: () => void }) {
@@ -777,21 +770,6 @@ function dutyMarkdown(item: OnboardingCheckItem): string {
   return workLines(item).join("\n\n");
 }
 
-function plainDutyLine(line: string): string {
-  return line
-    .replace(/^#{1,6}\s+/, "")
-    .replace(/^[-*+]\s+/, "")
-    .replace(/^\d+[.)]\s+/, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[*_~`]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function linesFromDutyMarkdown(markdown: string): string[] {
-  return markdown.split("\n").map(plainDutyLine).filter(Boolean);
-}
-
 function DutyEditor({
   item,
   label,
@@ -813,7 +791,7 @@ function DutyEditor({
       onChange={(state) => {
         const current = itemRef.current;
         const markdown = editorStateJSONToMarkdown(JSON.stringify(state.toJSON()));
-        const nextLines = linesFromDutyMarkdown(markdown);
+        const nextLines = plainDutyLines(markdown);
         if (nextLines.join("\n") === workLines(current).join("\n")) return;
         onChange(withWorkLines(current, nextLines));
       }}

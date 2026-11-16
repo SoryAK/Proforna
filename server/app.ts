@@ -451,11 +451,23 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.patch("/api/command/sessions/:id", async (c) => {
     const occupant = ensureOccupant(db);
+    let input: unknown;
     try {
-      const input = (await c.req.json()) as Record<string, unknown>;
-      const title = typeof input.title === "string" ? input.title : "";
+      input = await c.req.json();
+    } catch {
+      return c.json({ error: "title-invalid" }, 400);
+    }
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      return c.json({ error: "title-invalid" }, 400);
+    }
+    try {
       return c.json({
-        session: updateCommandSession(db, occupant.id, c.req.param("id"), title),
+        session: updateCommandSession(
+          db,
+          occupant.id,
+          c.req.param("id"),
+          (input as Record<string, unknown>).title,
+        ),
       });
     } catch (error) {
       if (error instanceof CommandSessionStoreError) {
