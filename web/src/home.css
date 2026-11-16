@@ -2482,3 +2482,19 @@ button.home-nav-item:focus-visible {
     display: none;
   }
 }
+
+.home-contact-slides {
+  width: 100%;
+}
+
+.home-contact-slides [aria-roledescription="slide"] {
+  flex: 0 0 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.home-contact-slide,
+.home-contact-slide > * {
+  width: 100%;
+  min-width: 0;
+}

@@ -4,13 +4,15 @@ import type { WorkMapRole } from "@core/work-map";
 import type { CareerFile } from "@core/career-file";
 import { Avatar } from "@astryxdesign/core/Avatar";
 import { Button } from "@astryxdesign/core/Button";
+import { Carousel } from "@astryxdesign/core/Carousel";
 import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Grid } from "@astryxdesign/core/Grid";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
-import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
+import { Layout, LayoutContent, LayoutFooter, LayoutHeader } from "@astryxdesign/core/Layout";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
+import { Step, Stepper } from "@astryxdesign/core/Stepper";
 import { Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
@@ -530,7 +532,41 @@ export function Home({
   );
 }
 
+const CONTACT_STEP_LABELS = {
+  details: "Details",
+  job: "Job opportunity",
+  time: "Meet",
+} as const;
+
+type ContactStep = keyof typeof CONTACT_STEP_LABELS;
+
+const MEET_TIMES = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
+
+function contactSteps(jobs: boolean): ContactStep[] {
+  return jobs ? ["details", "job", "time"] : ["details"];
+}
+
+function upcomingMeetDays(): Date[] {
+  const days: Date[] = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  cursor.setDate(cursor.getDate() + 1);
+  while (days.length < 5) {
+    const weekday = cursor.getDay();
+    if (weekday !== 0 && weekday !== 6) days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+function meetDayKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [step, setStep] = useState<ContactStep>("details");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -539,18 +575,24 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [phone, setPhone] = useState("");
   const [jobs, setJobs] = useState(false);
   const [networks, setNetworks] = useState(false);
-  const [posting, setPosting] = useState(false);
   const [jobName, setJobName] = useState("");
   const [jobRole, setJobRole] = useState("");
   const [jobCompany, setJobCompany] = useState("");
   const [jobLocation, setJobLocation] = useState("");
+  const [jobSalary, setJobSalary] = useState("");
+  const [jobLink, setJobLink] = useState("");
   const [jobPost, setJobPost] = useState("");
+  const [meetDay, setMeetDay] = useState("");
+  const [meetTime, setMeetTime] = useState("");
   const [firstError, setFirstError] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const steps = contactSteps(jobs);
+  const meetDays = upcomingMeetDays();
 
   useEffect(() => {
     if (isOpen) return;
+    setStep("details");
     setFirstName("");
     setLastName("");
     setEmail("");
@@ -559,18 +601,21 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setPhone("");
     setJobs(false);
     setNetworks(false);
-    setPosting(false);
     setJobName("");
     setJobRole("");
     setJobCompany("");
     setJobLocation("");
+    setJobSalary("");
+    setJobLink("");
     setJobPost("");
+    setMeetDay("");
+    setMeetTime("");
     setFirstError(null);
     setLastError(null);
     setEmailError(null);
   }, [isOpen]);
 
-  function submit() {
+  function detailsReady(): boolean {
     const missingFirst = !firstName.trim();
     const missingLast = !lastName.trim();
     const missingEmail = !email.trim();
@@ -578,15 +623,26 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setLastError(missingLast ? "Required" : null);
     setEmailError(missingEmail ? "Required" : null);
     if (missingFirst || missingLast || missingEmail) {
-      setPosting(false);
-      return;
+      setStep("details");
+      return false;
     }
+    return true;
+  }
+
+  function submit() {
+    if (!detailsReady()) return;
     onClose();
   }
 
   function chooseJobs(next: boolean) {
     setJobs(next);
-    if (next) setPosting(true);
+    setStep(next ? "job" : "details");
+  }
+
+  function continueDetails() {
+    if (!detailsReady()) return;
+    setStep(jobs ? "job" : "details");
+    if (!jobs) onClose();
   }
 
   return (
@@ -603,25 +659,93 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         height="fill"
         padding={4}
         defaultHasDividers
-        header={<DialogHeader title="Contact" onOpenChange={onClose} hasDivider={false} />}
+        header={
+          <>
+            <DialogHeader title="Contact" onOpenChange={onClose} hasDivider={false} />
+            {steps.length > 1 ? (
+              <LayoutHeader hasDivider={false}>
+                <Stepper
+                  activeStep={Math.max(0, steps.indexOf(step))}
+                  orientation="horizontal"
+                  density="compact"
+                  label="Contact progress"
+                >
+                  {steps.map((id, index) => (
+                    <Step
+                      key={id}
+                      step={index}
+                      label={CONTACT_STEP_LABELS[id]}
+                      status={id === "details" && (firstError || lastError || emailError) ? "error" : undefined}
+                    />
+                  ))}
+                </Stepper>
+              </LayoutHeader>
+            ) : null}
+          </>
+        }
         content={
           <LayoutContent label="Contact">
-            {posting ? (
-              <VStack gap={4}>
+            {step === "job" ? (
+              <VStack gap={3}>
                 <Text type="label">Job opportunity</Text>
-                <Grid columns={2} gap={3}>
-                  <TextInput label="Name" isLabelHidden placeholder="Name" value={jobName} onChange={setJobName} />
-                  <TextInput label="Role" isLabelHidden placeholder="Role" value={jobRole} onChange={setJobRole} />
-                  <TextInput label="Company" isLabelHidden placeholder="Company" value={jobCompany} onChange={setJobCompany} />
-                  <TextInput label="Location" isLabelHidden placeholder="Location" value={jobLocation} onChange={setJobLocation} />
-                </Grid>
-                <TextArea
-                  label="Description"
-                  isLabelHidden
-                  placeholder="Describe the job opportunity"
-                  value={jobPost}
-                  onChange={setJobPost}
-                />
+                <Carousel className="home-contact-slides" aria-label="Job posting" hasSnap gap={0} hasEdgeFade={false}>
+                  <div className="home-contact-slide">
+                    <TextInput label="Name" isLabelHidden placeholder="Name" value={jobName} onChange={setJobName} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Role" isLabelHidden placeholder="Role" value={jobRole} onChange={setJobRole} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Company" isLabelHidden placeholder="Company" value={jobCompany} onChange={setJobCompany} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Location" isLabelHidden placeholder="Location" value={jobLocation} onChange={setJobLocation} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Salary range" isLabelHidden placeholder="Salary range" value={jobSalary} onChange={setJobSalary} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Link" isLabelHidden placeholder="https://" value={jobLink} onChange={setJobLink} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextArea
+                      label="Description"
+                      isLabelHidden
+                      placeholder="Describe the job opportunity"
+                      value={jobPost}
+                      onChange={setJobPost}
+                    />
+                  </div>
+                </Carousel>
+              </VStack>
+            ) : step === "time" ? (
+              <VStack gap={3}>
+                <Text type="label">Pick a time</Text>
+                <HStack gap={2} wrap="wrap">
+                  {meetDays.map((date) => {
+                    const key = meetDayKey(date);
+                    return (
+                      <Button
+                        key={key}
+                        label={date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                        size="sm"
+                        variant={meetDay === key ? "primary" : "secondary"}
+                        onClick={() => setMeetDay(key)}
+                      />
+                    );
+                  })}
+                </HStack>
+                <HStack gap={2} wrap="wrap">
+                  {MEET_TIMES.map((time) => (
+                    <Button
+                      key={time}
+                      label={time}
+                      size="sm"
+                      variant={meetTime === time ? "primary" : "secondary"}
+                      onClick={() => setMeetTime(time)}
+                    />
+                  ))}
+                </HStack>
               </VStack>
             ) : (
               <VStack gap={4}>
@@ -672,13 +796,18 @@ function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         }
         footer={
           <LayoutFooter>
-            {posting ? (
+            {step === "job" ? (
               <HStack gap={2} vAlign="center">
-                <Button label="Back" variant="secondary" onClick={() => setPosting(false)} />
+                <Button label="Back" variant="secondary" onClick={() => setStep("details")} />
+                <Button label="Next" variant="primary" onClick={() => setStep("time")} />
+              </HStack>
+            ) : step === "time" ? (
+              <HStack gap={2} vAlign="center">
+                <Button label="Back" variant="secondary" onClick={() => setStep("job")} />
                 <Button label="Let's connect" variant="primary" onClick={submit} />
               </HStack>
             ) : (
-              <Button label="Let's connect" variant="primary" onClick={submit} />
+              <Button label={jobs ? "Continue" : "Let's connect"} variant="primary" onClick={continueDetails} />
             )}
           </LayoutFooter>
         }
