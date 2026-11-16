@@ -321,7 +321,10 @@ export function GoogleWorkMap({
 }
 
 type GoogleMapHandle = {
-  fitBounds: (bounds: object, padding?: number) => void;
+  fitBounds: (
+    bounds: object,
+    padding?: number | { top: number; right: number; bottom: number; left: number },
+  ) => void;
   panTo: (position: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
   getCenter?: () => { lat: () => number; lng: () => number };
@@ -459,7 +462,7 @@ function fitMap(
     }
     const bounds = new maps.LatLngBounds();
     for (const position of positions) bounds.extend(position);
-    map.fitBounds(bounds, 48);
+    map.fitBounds(bounds, labelPadding);
     return;
   }
   const frameAll = fitMode === "visible" || !selectedId;
@@ -485,8 +488,10 @@ function fitMap(
   }
   const bounds = new maps.LatLngBounds();
   for (const position of positions) bounds.extend(position);
-  map.fitBounds(bounds, 48);
+  map.fitBounds(bounds, labelPadding);
 }
+
+const labelPadding = { top: 96, right: 96, bottom: 72, left: 96 };
 
 function radiusPositions(radius: SearchRadius | null): Array<{ lat: number; lng: number }> {
   if (!radius) return [];

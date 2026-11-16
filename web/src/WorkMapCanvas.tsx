@@ -400,8 +400,8 @@ function FitPoints({
         map.setView(points[0], selectedId ? 12 : 11);
       } else if (points.length > 1) {
         map.fitBounds(points, {
-          padding: [42, 42],
-          maxZoom: selectedId ? 13 : 12,
+          padding: [96, 96],
+          maxZoom: selectedId ? 12 : 11,
         });
       }
     };

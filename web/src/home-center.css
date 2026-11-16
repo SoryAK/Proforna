@@ -5,6 +5,12 @@
   overflow: hidden;
 }
 
+.home:has(.home-center-map),
+.home-sheet:has(.home-center-map),
+.home-stage.home-center-live:has(.home-center-map) {
+  overflow: visible;
+}
+
 .home-stage.home-center-live > .home-center-bar {
   flex: 0 0 auto;
 }
@@ -98,22 +104,38 @@
 }
 
 .home-center-map {
+  display: flex;
   position: relative;
   min-height: 0;
   flex: 1;
+  flex-direction: column;
   margin-top: 1rem;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 6px;
   background: #ececee;
 }
 
 .home-center-map .work-map-canvas,
-.home-center-map .work-map-google {
-  position: absolute;
-  inset: 0;
+.home-center-map .work-map-google,
+.home-center-map .work-map-canvas .leaflet-container {
+  position: relative;
+  flex: 1 1 auto;
   width: 100%;
   height: 100%;
   min-height: 0;
+  overflow: visible;
+  inset: auto;
+  border-radius: 6px;
+}
+
+.home-center-map .work-map-canvas {
+  display: flex;
+  flex-direction: column;
+  clip-path: inset(0 round 6px);
+}
+
+.home-center-map .work-map-google {
+  overflow: visible !important;
 }
 
 .home-center-updates {
