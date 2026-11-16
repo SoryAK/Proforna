@@ -401,13 +401,17 @@ function FilePreview({ file }: { file: VaultDocument }) {
 
 function PdfPreview({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null);
+  const docRef = useRef<Awaited<ReturnType<ReturnType<typeof getDocument>["promise"]>> | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(0);
+
   useEffect(() => {
-    const target = host.current;
-    if (!target) return;
     let cancel = false;
     const controller = new AbortController();
     setNote(null);
+    setPage(1);
+    setPageCount(0);
     const taskPromise = fetch(url, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("unreadable");
@@ -419,22 +423,8 @@ function PdfPreview({ url }: { url: string }) {
         try {
           const doc = await task.promise;
           if (cancel) return;
-          target.replaceChildren();
-          for (let number = 1; number <= doc.numPages; number += 1) {
-            if (cancel) break;
-            const pageView = await doc.getPage(number);
-            const unscaled = pageView.getViewport({ scale: 1 });
-            const width = target.clientWidth || unscaled.width;
-            const scale = Math.min(2, width / unscaled.width);
-            const viewport = pageView.getViewport({ scale });
-            const canvas = document.createElement("canvas");
-            canvas.width = Math.floor(viewport.width);
-            canvas.height = Math.floor(viewport.height);
-            canvas.style.width = "100%";
-            canvas.style.height = "auto";
-            await pageView.render({ canvas, viewport }).promise;
-            if (!cancel) target.appendChild(canvas);
-          }
+          docRef.current = doc;
+          setPageCount(doc.numPages);
         } catch {
           if (!cancel) setNote("This file can’t be shown here. Download it to open it on this computer.");
         }
@@ -446,11 +436,70 @@ function PdfPreview({ url }: { url: string }) {
     return () => {
       cancel = true;
       controller.abort();
+      docRef.current = null;
       void taskPromise.then((task) => task.destroy()).catch(() => undefined);
     };
   }, [url]);
+
+  useEffect(() => {
+    const doc = docRef.current;
+    const target = host.current;
+    if (!doc || !target || pageCount < 1) return;
+    let cancel = false;
+    let renderTask: { cancel: () => void } | null = null;
+    void (async () => {
+      try {
+        const pageView = await doc.getPage(page);
+        if (cancel) return;
+        const unscaled = pageView.getViewport({ scale: 1 });
+        const width = target.clientWidth || unscaled.width;
+        const scale = Math.min(2, width / unscaled.width);
+        const viewport = pageView.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        canvas.style.width = "100%";
+        canvas.style.height = "auto";
+        renderTask = pageView.render({ canvas, viewport });
+        await renderTask.promise;
+        if (cancel) return;
+        pageView.cleanup();
+        target.replaceChildren(canvas);
+      } catch (error) {
+        if (cancel || (error instanceof Error && error.name === "RenderingCancelledException")) return;
+        setNote("This file can’t be shown here. Download it to open it on this computer.");
+      }
+    })();
+    return () => {
+      cancel = true;
+      renderTask?.cancel();
+      target.replaceChildren();
+    };
+  }, [page, pageCount]);
+
   return (
     <>
+      {pageCount > 1 ? (
+        <HStack gap={2} vAlign="center">
+          <Button
+            label="Previous"
+            size="sm"
+            variant="secondary"
+            isDisabled={page <= 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          />
+          <span className="documents-preview-note">
+            {page} of {pageCount}
+          </span>
+          <Button
+            label="Next"
+            size="sm"
+            variant="secondary"
+            isDisabled={page >= pageCount}
+            onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+          />
+        </HStack>
+      ) : null}
       <div ref={host} className="documents-preview-frame" />
       {note ? <p className="documents-preview-note">{note}</p> : null}
     </>
