@@ -179,7 +179,6 @@ import {
   listDocuments,
   loadDocument,
   removeDocument,
-  servedMediaType,
   storeDocument,
   updateDocument,
 } from "./documents";
@@ -2202,7 +2201,8 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     if (!document) return c.json({ error: "Document not found." }, 404);
     const disposition = c.req.query("inline") === "1" ? "inline" : "attachment";
     return c.body(Buffer.from(document.bytes), 200, {
-      "content-type": servedMediaType(document.row.originalName, document.row.mediaType),
+      "content-type": document.row.mediaType,
+      "x-content-type-options": "nosniff",
       "content-disposition": `${disposition}; filename="${encodeURIComponent(document.row.originalName)}"`,
     });
   });

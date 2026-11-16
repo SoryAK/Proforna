@@ -5,7 +5,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { extname, join } from "node:path";
+import { extname, isAbsolute, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import {
   prepareDocumentChange,
@@ -31,13 +31,13 @@ export function listDocuments(
   return (
     db
       .prepare(
-        `SELECT id, original_name AS originalName, media_type AS mediaType,
-                size_bytes AS sizeBytes, checksum, category,
-                created_at AS createdAt
+        `SELECT id, original_name AS originalName, stored_name AS storedName,
+                media_type AS mediaType, size_bytes AS sizeBytes, checksum,
+                category, created_at AS createdAt
          FROM documents WHERE occupant_id = ? ORDER BY created_at DESC`,
       )
-      .all(occupantId) as unknown as DocumentRow[]
-  );
+      .all(occupantId) as unknown as Array<DocumentRow & { storedName: string }>
+  ).map(presentDocument);
 }
 
 export function storeDocument(
@@ -93,15 +93,16 @@ export function storeDocument(
     unlinkSync(fullPath);
     throw error;
   }
-  return {
+  return presentDocument({
     id,
     originalName: planned.value.name,
+    storedName,
     mediaType: file.type || "application/octet-stream",
     sizeBytes: file.bytes.length,
     checksum,
     category: planned.value.kind,
     createdAt: now,
-  };
+  });
 }
 
 export function updateDocument(
@@ -124,8 +125,11 @@ export function updateDocument(
     `UPDATE evidence SET title = ?
       WHERE occupant_id = ? AND source_type = 'document' AND source_ref = ?`,
   ).run(planned.value.name, occupantId, current.id);
-  const { storedName: _storedName, ...row } = current;
-  return { ...row, originalName: planned.value.name, category: planned.value.kind };
+  return presentDocument({
+    ...current,
+    originalName: planned.value.name,
+    category: planned.value.kind,
+  });
 }
 
 export function removeDocument(
@@ -138,12 +142,19 @@ export function removeDocument(
   if (!planned.ok) throw new DocumentStoreError(planned.error);
   const current = loadDocumentRecord(db, occupantId, planned.value);
   if (!current) throw new DocumentStoreError("not-found");
+  const fullPath = vaultFilePath(uploadsDir, current.storedName);
+  if (fullPath) {
+    try {
+      unlinkSync(fullPath);
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
+  }
   db.prepare(
     `DELETE FROM evidence
       WHERE occupant_id = ? AND source_type = 'document' AND source_ref = ?`,
   ).run(occupantId, current.id);
   db.prepare(`DELETE FROM documents WHERE id = ? AND occupant_id = ?`).run(current.id, occupantId);
-  unlinkSync(join(uploadsDir, current.storedName));
 }
 
 function loadDocumentRecord(
@@ -179,11 +190,38 @@ const EXTENSION_TYPES: Record<string, string> = {
   mp3: "audio/mpeg",
 };
 
-export function servedMediaType(name: string, mediaType: string): string {
+export function servedMediaType(name: string, mediaType: string, storedName = ""): string {
   const stored = mediaType.trim();
+  if (isActiveMarkup(stored)) return "text/plain; charset=utf-8";
   if (stored && stored !== "application/octet-stream") return stored;
-  const extension = name.toLowerCase().split(".").pop() ?? "";
-  return EXTENSION_TYPES[extension] ?? (mediaType || "application/octet-stream");
+  const extension = fileExtension(storedName) || fileExtension(name);
+  return EXTENSION_TYPES[extension] ?? (stored || "application/octet-stream");
+}
+
+function presentDocument(record: DocumentRow & { storedName?: string }): DocumentRow {
+  const { storedName = "", ...row } = record;
+  return { ...row, mediaType: servedMediaType(row.originalName, row.mediaType, storedName) };
+}
+
+function fileExtension(name: string): string {
+  const base = name.split(/[\\/]/).pop() ?? "";
+  const dot = base.lastIndexOf(".");
+  if (dot <= 0) return "";
+  return base.slice(dot + 1).toLowerCase();
+}
+
+function isActiveMarkup(mediaType: string): boolean {
+  const type = mediaType.toLowerCase();
+  return type.startsWith("text/html") || type.startsWith("application/xhtml") || type === "image/svg+xml";
+}
+
+function vaultFilePath(uploadsDir: string, storedName: string): string | null {
+  if (!storedName || isAbsolute(storedName) || storedName.split(/[\\/]/).includes("..")) return null;
+  return join(uploadsDir, storedName);
+}
+
+function isMissingFile(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
 }
 
 export function loadDocument(
@@ -194,8 +232,9 @@ export function loadDocument(
 ): { row: DocumentRow; bytes: Uint8Array } | null {
   const record = loadDocumentRecord(db, occupantId, id);
   if (!record) return null;
-  const { storedName, ...row } = record;
-  return { row, bytes: readFileSync(join(uploadsDir, storedName)) };
+  const fullPath = vaultFilePath(uploadsDir, record.storedName);
+  if (!fullPath) return null;
+  return { row: presentDocument(record), bytes: readFileSync(fullPath) };
 }
 
 export class DocumentStoreError extends Error {

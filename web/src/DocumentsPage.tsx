@@ -34,7 +34,9 @@ type FileSort = "newest" | "name" | "size";
 
 export function DocumentsPage() {
   const [documents, setDocuments] = useState<VaultDocument[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState("");
+  const loadGeneration = useRef(0);
   const [editing, setEditing] = useState<VaultDocument | null>(null);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<DocumentKind>("evidence");
@@ -48,9 +50,21 @@ export function DocumentsPage() {
   }, []);
 
   async function load() {
-    const response = await fetch("/api/documents");
-    if (!response.ok) return;
-    setDocuments(((await response.json()) as { documents: VaultDocument[] }).documents);
+    const generation = loadGeneration.current + 1;
+    loadGeneration.current = generation;
+    try {
+      const response = await fetch("/api/documents");
+      if (generation !== loadGeneration.current) return;
+      if (!response.ok) {
+        setLoadError("Could not load your files.");
+        return;
+      }
+      setDocuments(((await response.json()) as { documents: VaultDocument[] }).documents);
+      setLoadError("");
+    } catch {
+      if (generation !== loadGeneration.current) return;
+      setLoadError("Could not load your files.");
+    }
   }
 
   async function upload(files: File[]) {
@@ -159,7 +173,13 @@ export function DocumentsPage() {
           <LayoutContent label="My Docs">
             <VStack gap={5}>
               {message ? <Banner status="error" title={message} container="section" collapsible={false} role="alert" /> : null}
-              {documents.length === 0 ? (
+              {loadError ? (
+                <VStack gap={3}>
+                  <Banner status="error" title={loadError} container="section" collapsible={false} role="alert" />
+                  <Button label="Try again" variant="secondary" onClick={() => void load()} />
+                </VStack>
+              ) : null}
+              {documents.length === 0 && !loadError ? (
                 <EmptyState
                   title="No files yet"
                   description="Upload evidence, a resume, an offer, or a certificate."
@@ -362,7 +382,9 @@ function downloadFile(file: VaultDocument) {
 function FilePreview({ file }: { file: VaultDocument }) {
   const url = `/api/documents/${file.id}?inline=1`;
   if (isImage(file)) return <img className="documents-preview-media" src={url} alt={file.originalName} />;
-  if (isPdf(file)) return <iframe className="documents-preview-frame" title={file.originalName} src={url} />;
+  if (isPdf(file)) {
+    return <iframe className="documents-preview-frame" title={file.originalName} src={url} sandbox="allow-scripts" />;
+  }
   if (isVideo(file)) return <video className="documents-preview-media" src={url} controls />;
   if (isAudio(file)) return <audio src={url} controls />;
   if (isText(file)) return <TextPreview url={url} />;
@@ -412,7 +434,9 @@ function isImage(document: VaultDocument): boolean {
 }
 
 function isPdf(document: VaultDocument): boolean {
-  return document.mediaType === "application/pdf" || document.originalName.toLowerCase().endsWith(".pdf");
+  const type = document.mediaType.toLowerCase();
+  if (type.startsWith("text/") || type.startsWith("application/xhtml") || type === "image/svg+xml") return false;
+  return type === "application/pdf" || (type === "application/octet-stream" && document.originalName.toLowerCase().endsWith(".pdf"));
 }
 
 function isVideo(document: VaultDocument): boolean {
