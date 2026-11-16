@@ -460,13 +460,14 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     if (!input || typeof input !== "object" || Array.isArray(input)) {
       return c.json({ error: "invalid-body" }, 400);
     }
-    const title =
-      typeof (input as Record<string, unknown>).title === "string"
-        ? ((input as Record<string, unknown>).title as string)
-        : "";
     try {
       return c.json({
-        session: updateCommandSession(db, occupant.id, c.req.param("id"), title),
+        session: updateCommandSession(
+          db,
+          occupant.id,
+          c.req.param("id"),
+          (input as Record<string, unknown>).title,
+        ),
       });
     } catch (error) {
       if (error instanceof CommandSessionStoreError) {

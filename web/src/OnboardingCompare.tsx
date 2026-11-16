@@ -21,6 +21,7 @@ import {
   hintNextResume,
   hintSetAside,
   followSkillEdits,
+  skillLines,
   rememberSkills,
   roleFieldDiffs,
   type SkillEdit,
@@ -650,6 +651,7 @@ export function AllResumesVerify({
   const [confirming, setConfirming] = useState(false);
   const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
   const [skillEdit, setSkillEdit] = useState<SkillEdit | null>(null);
+  const [skillText, setSkillText] = useState<string | null>(null);
   const [continueWarned, setContinueWarned] = useState(false);
   const visible = rows.filter((row) => !row.removed);
   const summary = onboardingExtractSummary(
@@ -858,6 +860,20 @@ export function AllResumesVerify({
         onAddJob={() => add("Job")}
         onAddSchool={() => add("School")}
       />
+      {editSkills ? (
+        <TextArea
+          label="Skills"
+          value={skillText ?? skillLines(shownSkills())}
+          onChange={(value) => {
+            setSkillText(value);
+            const found = foundSkills(keptRoles());
+            setSkillEdit({
+              lines: value.split("\n"),
+              seen: found.map((skill) => skill.name),
+            });
+          }}
+        />
+      ) : null}
       {error ? (
         <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
       ) : null}

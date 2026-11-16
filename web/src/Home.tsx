@@ -1,7 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CanvasBoard } from "@core/canvas-board";
 import type { WorkMapRole } from "@core/work-map";
-import { currentJob, type CareerFile } from "@core/career-file";
+import type { CareerFile } from "@core/career-file";
+import { planContactSubmission } from "@core/career-management";
+import { Avatar } from "@astryxdesign/core/Avatar";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Carousel } from "@astryxdesign/core/Carousel";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import { Grid } from "@astryxdesign/core/Grid";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Layout, LayoutContent, LayoutFooter, LayoutHeader } from "@astryxdesign/core/Layout";
+import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
+import { Step, Stepper } from "@astryxdesign/core/Stepper";
+import { Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { VStack } from "@astryxdesign/core/VStack";
+import { MapPin } from "lucide-react";
 import { HomeBar, type HomeBioMode } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
@@ -17,9 +35,7 @@ import { HomeProforna, type ChatRole } from "./HomeProforna";
 import { RoleCanvasEntry } from "./RoleCanvas";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { clearEvidenceRole } from "./onboarding-evidence";
-import { previewWindowUrl } from "./preview-placement";
-import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
-import type { MapSettings } from "@core/map-settings";
+import { careerPreviewWindowUrl, isCareerPreview } from "./preview-placement";
 import "./home.css";
 
 const NAV_COLLAPSED_KEY = "proforna.navCollapsed";
@@ -42,7 +58,7 @@ export function Home({
   onProfileSaved: (profile: OnboardingProfileValue) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [bioMode, setBioMode] = useState<HomeBioMode>("browse");
+  const [bioMode, setBioMode] = useState<HomeBioMode>(isCareerPreview() ? "preview" : "browse");
   const [canvasFromNav, setCanvasFromNav] = useState(false);
   const [chatRoles, setChatRoles] = useState<ChatRole[]>([]);
   const [chatRelease, setChatRelease] = useState<{ id: string; nonce: number } | null>(null);
@@ -61,25 +77,19 @@ export function Home({
   const [photoTick, setPhotoTick] = useState(0);
   const [mapRevision, setMapRevision] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [collapsed, setCollapsed] = useState(() => (isCareerPreview() ? false : readCollapsed()));
+  const bioPopRef = useRef<HTMLDivElement>(null);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
-  const [publicPreview, setPublicPreview] = useState<{
-    snapshot: PublicWorkMapSnapshot;
-    publishable: boolean;
-    exactLocations: boolean;
-    mapSettings: MapSettings | null;
-  } | null>(null);
   const [previewNote, setPreviewNote] = useState("");
+  const [bioDialog, setBioDialog] = useState<"know" | "contact" | "place" | null>(null);
   const [desktop, setDesktop] = useState(readDesktop);
   const leftClosed = desktop && collapsed;
-  const role = currentJob(career);
   const place = [
     profile.address,
     [profile.city, profile.state].filter(Boolean).join(", "),
   ]
     .filter(Boolean)
     .join(", ");
-  const company = role?.company ?? "";
   const photoSrc = profile.avatarUrl
     ? `${profile.avatarUrl}?v=${photoTick}`
     : null;
@@ -98,6 +108,7 @@ export function Home({
     function onRoute() {
       setEditing(false);
       setPage(readPage());
+      if (isCareerPreview()) setBioMode("preview");
     }
     window.addEventListener("hashchange", onRoute);
     return () => window.removeEventListener("hashchange", onRoute);
@@ -119,6 +130,47 @@ export function Home({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (!bioDialog) return;
+    const trap = bioDialog === "know" || bioDialog === "place";
+    const trigger = trap && document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const root = bioPopRef.current;
+    const focusable = () => {
+      if (!root) return [];
+      return [...root.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")].filter(
+        (element) => !element.hasAttribute("disabled"),
+      );
+    };
+    if (trap) (focusable()[0] ?? root)?.focus();
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setBioDialog(null);
+        return;
+      }
+      if (!trap || event.key !== "Tab" || !root) return;
+      const list = focusable();
+      if (list.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !root.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
+  }, [bioDialog]);
 
   function toggleMenu() {
     if (desktop) {
@@ -222,37 +274,33 @@ export function Home({
     setCenterView({ id: Date.now(), updates: true, updateId: id });
   }
 
-  async function openPublicPreview(where: "here" | "window") {
+  function chooseBioMode(mode: HomeBioMode) {
+    setBioMode(mode);
     setPreviewNote("");
-    const response = await fetch("/api/work-map/preview");
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      setPreviewNote(
-        body.error === "slug-required"
-          ? "Save a public slug in publication settings before previewing."
-          : body.error === "sections-required"
-            ? "Choose at least one section in publication settings before previewing."
-            : "Could not build the preview.",
-      );
+    if (mode === "preview") {
+      setEditing(false);
+      setFocusJobId(null);
+      if (readPage() !== "history") goPage("history");
       return;
     }
-    const next = (await response.json()) as {
-      snapshot: PublicWorkMapSnapshot;
-      publishable: boolean;
-      exactLocations: boolean;
-    };
+    if (!isCareerPreview()) return;
+    const next = window.location.hash.split("?")[0];
+    if (window.location.hash !== next) window.location.hash = next;
+  }
+
+  function openCareerPreview(where: "here" | "window") {
     if (where === "window") {
       const opened = window.open(
-        previewWindowUrl(),
-        "proforna-public-preview",
+        careerPreviewWindowUrl(),
+        "proforna-career-preview",
         "popup,width=1100,height=800",
       );
       if (opened) return;
+    }
+    chooseBioMode("preview");
+    if (where === "window") {
       setPreviewNote("The browser blocked the preview window. Preview is staying in this window.");
     }
-    const maps = await fetch("/api/maps");
-    const mapBody = maps.ok ? ((await maps.json()) as { settings?: MapSettings }) : {};
-    setPublicPreview({ ...next, mapSettings: mapBody.settings ?? null });
   }
 
   return (
@@ -290,7 +338,6 @@ export function Home({
           profornaOpen ? "is-right-open" : "",
           page === "home" || page === "history" ? "" : "is-stage-full",
           page === "history" && bioMode === "preview" ? "" : "is-bio-hidden",
-          publicPreview ? "is-previewing" : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -314,14 +361,10 @@ export function Home({
           onProforna={togglePanel}
           profornaOpen={profornaOpen}
           bioMode={bioMode}
-          onBioMode={setBioMode}
-          previewOpen={publicPreview !== null}
+          onBioMode={chooseBioMode}
           notice={previewNote}
-          onPreview={(where) => void openPublicPreview(where)}
-          onExitPreview={() => {
-            setPublicPreview(null);
-            setPreviewNote("");
-          }}
+          onPreview={openCareerPreview}
+          onExitPreview={() => chooseBioMode("browse")}
           onNotice={(href) => {
             setEditing(false);
             setMobileOpen(false);
@@ -332,20 +375,6 @@ export function Home({
             goPage(href);
           }}
         />
-        {publicPreview ? (
-          <div className="home-public-preview work-map">
-            <WorkMapPreview
-              exactLocations={publicPreview.exactLocations}
-              mapSettings={publicPreview.mapSettings}
-              publishable={publicPreview.publishable}
-              snapshot={publicPreview.snapshot}
-              onClose={() => {
-                setPublicPreview(null);
-                setPreviewNote("");
-              }}
-            />
-          </div>
-        ) : null}
         {leftClosed ? null : (
           <>
             <section className="home-card home-bio" aria-label="Profile">
@@ -362,41 +391,50 @@ export function Home({
                   />
                 </div>
               ) : (
-                <header className="home-file-identity">
-                  {photoSrc ? (
-                    <img
-                      className="home-avatar"
-                      src={photoSrc}
-                      alt=""
-                      width={96}
-                      height={96}
+                <>
+                  <div className="home-bio-row">
+                    <Avatar
+                      name={profile.fullName || "Career"}
+                      src={photoSrc ?? undefined}
+                      size={48}
+                      tooltip={false}
                     />
-                  ) : (
-                    <div className="home-avatar home-avatar-fallback" aria-hidden="true">
-                      {initials(profile.fullName)}
+                    <div className="home-bio-id">
+                      <h2>{profile.fullName || "Career"}</h2>
+                      {profile.headline.trim() ? <p>{profile.headline.trim()}</p> : null}
                     </div>
-                  )}
-                  <div className="home-file-identity-copy">
-                    <h1>{profile.fullName}</h1>
-                    {profile.headline ? (
-                      <p className="home-headline">{profile.headline}</p>
-                    ) : null}
-                    {place || company ? (
-                      <p className="home-meta">
-                        {place}
-                        {place && company ? " · " : null}
-                        {company ? <span className="home-span">{company}</span> : null}
-                      </p>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="home-file-edit"
-                      onClick={() => setEditing(true)}
-                    >
-                      Edit profile
-                    </button>
+                    <div className="home-bio-socials">
+                      <button type="button" aria-label="Request location" onClick={() => setBioDialog("place")}>
+                        <Icon className="home-bio-pin" icon={MapPin} size="sm" />
+                      </button>
+                      {bioSocials(profile).map((item) =>
+                        item.url ? (
+                          <a key={item.name} href={item.url} target="_blank" rel="noreferrer" aria-label={item.name}>
+                            <BioSocialMark kind={item.kind} />
+                          </a>
+                        ) : (
+                          <span key={item.name} aria-label={`${item.name}, not added`} title={item.name}>
+                            <BioSocialMark kind={item.kind} />
+                          </span>
+                        ),
+                      )}
+                    </div>
                   </div>
-                </header>
+                  <div className="home-bio-actions">
+                    <Button
+                      label="Contact"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setBioDialog("contact")}
+                    />
+                    <Button
+                      label="Get to know me"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setBioDialog("know")}
+                    />
+                  </div>
+                </>
               )}
             </section>
             <section className="home-card home-history" aria-label="Career history">
@@ -462,6 +500,7 @@ export function Home({
               mapRevision={mapRevision}
               careerRevision={careerRevision}
               canvasFromNav={canvasFromNav}
+              onCareerChanged={() => setCareerRevision((n) => n + 1)}
               onHome={() => {
                 setEditing(false);
                 goHome();
@@ -489,6 +528,7 @@ export function Home({
           onToggle={togglePanel}
           roles={chatRoles}
           focusRoleId={focusJobId}
+          careerRevision={careerRevision}
           onReleaseRole={(id) => {
             setChatRoles((current) => current.filter((role) => role.id !== id));
             setChatRelease({ id, nonce: Date.now() });
@@ -506,7 +546,380 @@ export function Home({
           <HomeCanvas onClose={() => setCanvasFromNav(false)} />
         ) : null}
       </div>
+      {bioDialog === "know" || bioDialog === "place" ? (
+        <div
+          ref={bioPopRef}
+          className="home-bio-pop"
+          role="dialog"
+          aria-modal="true"
+          tabIndex={-1}
+          aria-label={bioDialog === "know" ? "Get to know me" : "Location"}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setBioDialog(null);
+          }}
+        >
+          <ScrollableArea
+            className="home-bio-pop-card"
+            label={bioDialog === "know" ? "Get to know me" : "Location"}
+          >
+            <header>
+              <h2>{bioDialog === "know" ? "Get to know me" : "Location"}</h2>
+              <Button label="Close" variant="ghost" size="sm" onClick={() => setBioDialog(null)} />
+            </header>
+            {bioDialog === "know" ? (
+              <p>{profile.bio.trim() || "Nothing written yet."}</p>
+            ) : (
+              <p>{place || "No location yet."}</p>
+            )}
+          </ScrollableArea>
+        </div>
+      ) : null}
+      <ContactNoteDialog isOpen={bioDialog === "contact"} onClose={() => setBioDialog(null)} />
     </div>
+  );
+}
+
+const CONTACT_STEP_LABELS = {
+  details: "Details",
+  job: "Job opportunity",
+  time: "Meet",
+} as const;
+
+type ContactStep = keyof typeof CONTACT_STEP_LABELS;
+
+const MEET_TIMES = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
+
+function contactSteps(jobs: boolean): ContactStep[] {
+  return jobs ? ["details", "job", "time"] : ["details"];
+}
+
+function upcomingMeetDays(): Date[] {
+  const days: Date[] = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  cursor.setDate(cursor.getDate() + 1);
+  while (days.length < 5) {
+    const weekday = cursor.getDay();
+    if (weekday !== 0 && weekday !== 6) days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+function meetDayKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [step, setStep] = useState<ContactStep>("details");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [jobs, setJobs] = useState(false);
+  const [networks, setNetworks] = useState(false);
+  const [jobName, setJobName] = useState("");
+  const [jobRole, setJobRole] = useState("");
+  const [jobCompany, setJobCompany] = useState("");
+  const [jobLocation, setJobLocation] = useState("");
+  const [jobSalary, setJobSalary] = useState("");
+  const [jobLink, setJobLink] = useState("");
+  const [jobPost, setJobPost] = useState("");
+  const [meetDay, setMeetDay] = useState("");
+  const [meetTime, setMeetTime] = useState("");
+  const [firstError, setFirstError] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const attempt = useRef(0);
+  const steps = contactSteps(jobs);
+  const meetDays = upcomingMeetDays();
+
+  useEffect(() => {
+    attempt.current += 1;
+    if (isOpen) return;
+    setStep("details");
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setCompany("");
+    setJobTitle("");
+    setPhone("");
+    setJobs(false);
+    setNetworks(false);
+    setJobName("");
+    setJobRole("");
+    setJobCompany("");
+    setJobLocation("");
+    setJobSalary("");
+    setJobLink("");
+    setJobPost("");
+    setMeetDay("");
+    setMeetTime("");
+    setFirstError(null);
+    setLastError(null);
+    setEmailError(null);
+    setSaving(false);
+    setSaveError("");
+  }, [isOpen]);
+
+  function detailsReady(): boolean {
+    const missingFirst = !firstName.trim();
+    const missingLast = !lastName.trim();
+    const missingEmail = !email.trim();
+    setFirstError(missingFirst ? "Required" : null);
+    setLastError(missingLast ? "Required" : null);
+    setEmailError(missingEmail ? "Required" : null);
+    if (missingFirst || missingLast || missingEmail) {
+      setStep("details");
+      return false;
+    }
+    return true;
+  }
+
+  async function submit() {
+    if (!detailsReady() || saving) return;
+    const generation = attempt.current;
+    const meetWhen = [meetDay, meetTime].filter(Boolean).join(" ");
+    const planned = planContactSubmission({
+      firstName,
+      lastName,
+      email,
+      company,
+      jobTitle,
+      phone,
+      jobs,
+      networks,
+      jobName,
+      jobRole,
+      jobCompany,
+      jobLocation,
+      jobSalary,
+      jobLink,
+      jobPost,
+      meetWhen,
+    });
+    if (!planned.ok) {
+      setSaveError("Add a name before connecting.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      const response = await fetch("/api/opportunities", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(planned.value),
+      });
+      if (generation !== attempt.current) return;
+      if (!response.ok) {
+        setSaveError("Could not save that request.");
+        return;
+      }
+      onClose();
+    } catch {
+      if (generation !== attempt.current) return;
+      setSaveError("Could not save that request.");
+    } finally {
+      if (generation === attempt.current) setSaving(false);
+    }
+  }
+
+  function chooseJobs(next: boolean) {
+    setJobs(next);
+    setStep(next ? "job" : "details");
+  }
+
+  function continueDetails() {
+    if (!detailsReady()) return;
+    if (!jobs) {
+      void submit();
+      return;
+    }
+    setStep("job");
+  }
+
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      width={620}
+      maxHeight="min(40rem, calc(100dvh - 2rem))"
+      purpose="form"
+    >
+      <Layout
+        height="fill"
+        padding={4}
+        defaultHasDividers
+        header={
+          <>
+            <DialogHeader title="Contact" onOpenChange={onClose} hasDivider={false} />
+            {steps.length > 1 ? (
+              <LayoutHeader hasDivider={false}>
+                <Stepper
+                  activeStep={Math.max(0, steps.indexOf(step))}
+                  orientation="horizontal"
+                  density="compact"
+                  label="Contact progress"
+                >
+                  {steps.map((id, index) => (
+                    <Step
+                      key={id}
+                      step={index}
+                      label={CONTACT_STEP_LABELS[id]}
+                      status={id === "details" && (firstError || lastError || emailError) ? "error" : undefined}
+                    />
+                  ))}
+                </Stepper>
+              </LayoutHeader>
+            ) : null}
+          </>
+        }
+        content={
+          <LayoutContent label="Contact">
+            {saveError ? (
+              <Banner status="error" title={saveError} container="section" collapsible={false} role="alert" />
+            ) : null}
+            {step === "job" ? (
+              <VStack gap={3}>
+                <Text type="label">Job opportunity</Text>
+                <Carousel className="home-contact-slides" aria-label="Job posting" hasSnap gap={0} hasEdgeFade={false}>
+                  <div className="home-contact-slide">
+                    <TextInput label="Name" isLabelHidden placeholder="Name" value={jobName} onChange={setJobName} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Role" isLabelHidden placeholder="Role" value={jobRole} onChange={setJobRole} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Company" isLabelHidden placeholder="Company" value={jobCompany} onChange={setJobCompany} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Location" isLabelHidden placeholder="Location" value={jobLocation} onChange={setJobLocation} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Salary range" isLabelHidden placeholder="Salary range" value={jobSalary} onChange={setJobSalary} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextInput label="Link" isLabelHidden placeholder="https://" value={jobLink} onChange={setJobLink} />
+                  </div>
+                  <div className="home-contact-slide">
+                    <TextArea
+                      label="Description"
+                      isLabelHidden
+                      placeholder="Describe the job opportunity"
+                      value={jobPost}
+                      onChange={setJobPost}
+                    />
+                  </div>
+                </Carousel>
+              </VStack>
+            ) : step === "time" ? (
+              <VStack gap={3}>
+                <Text type="label">Pick a time</Text>
+                <HStack gap={2} wrap="wrap">
+                  {meetDays.map((date) => {
+                    const key = meetDayKey(date);
+                    return (
+                      <Button
+                        key={key}
+                        label={date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                        size="sm"
+                        variant={meetDay === key ? "primary" : "secondary"}
+                        onClick={() => setMeetDay(key)}
+                      />
+                    );
+                  })}
+                </HStack>
+                <HStack gap={2} wrap="wrap">
+                  {MEET_TIMES.map((time) => (
+                    <Button
+                      key={time}
+                      label={time}
+                      size="sm"
+                      variant={meetTime === time ? "primary" : "secondary"}
+                      onClick={() => setMeetTime(time)}
+                    />
+                  ))}
+                </HStack>
+              </VStack>
+            ) : (
+              <VStack gap={4}>
+                <Text type="label">Your details</Text>
+                <Grid columns={2} gap={3}>
+                  <TextInput
+                    label="First name"
+                    isLabelHidden
+                    placeholder="First name*"
+                    value={firstName}
+                    onChange={setFirstName}
+                    status={firstError ? { type: "error", message: firstError } : undefined}
+                  />
+                  <TextInput
+                    label="Last name"
+                    isLabelHidden
+                    placeholder="Last name*"
+                    value={lastName}
+                    onChange={setLastName}
+                    status={lastError ? { type: "error", message: lastError } : undefined}
+                  />
+                  <TextInput
+                    label="Email"
+                    isLabelHidden
+                    placeholder="Email*"
+                    value={email}
+                    onChange={setEmail}
+                    status={emailError ? { type: "error", message: emailError } : undefined}
+                  />
+                  <TextInput
+                    label="Company name"
+                    isLabelHidden
+                    placeholder="Company name"
+                    value={company}
+                    onChange={setCompany}
+                  />
+                  <TextInput label="Job title" isLabelHidden placeholder="Job title" value={jobTitle} onChange={setJobTitle} />
+                  <TextInput label="Phone number" isLabelHidden placeholder="Phone number" value={phone} onChange={setPhone} />
+                </Grid>
+                <VStack gap={2}>
+                  <Text type="label">What are you interested in?</Text>
+                  <CheckboxInput label="Job opportunities" value={jobs} onChange={chooseJobs} />
+                  <CheckboxInput label="Connecting networks" value={networks} onChange={setNetworks} />
+                </VStack>
+              </VStack>
+            )}
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter>
+            {step === "job" ? (
+              <HStack gap={2} vAlign="center">
+                <Button label="Back" variant="secondary" onClick={() => setStep("details")} />
+                <Button label="Next" variant="primary" onClick={() => setStep("time")} />
+              </HStack>
+            ) : step === "time" ? (
+              <HStack gap={2} vAlign="center">
+                <Button label="Back" variant="secondary" onClick={() => setStep("job")} />
+                <Button label={saving ? "Saving…" : "Let's connect"} variant="primary" isDisabled={saving} onClick={() => void submit()} />
+              </HStack>
+            ) : (
+              <Button
+                label={saving ? "Saving…" : jobs ? "Continue" : "Let's connect"}
+                variant="primary"
+                isDisabled={saving}
+                onClick={continueDetails}
+              />
+            )}
+          </LayoutFooter>
+        }
+      />
+    </Dialog>
   );
 }
 
@@ -560,7 +973,7 @@ function HomeCanvas({ onClose }: { onClose: () => void }) {
 }
 
 function readPage(): HomePage {
-  const value = window.location.hash.replace(/^#\/?/, "");
+  const value = window.location.hash.replace(/^#\/?/, "").split("?")[0];
   if (value === "history-reserve") return "historyReserve";
   return value === "history" ||
     value === "resumes" ||
@@ -608,11 +1021,47 @@ function writePanelOpen(open: boolean) {
   }
 }
 
-function initials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+function bioSocials(profile: {
+  linkedinUrl: string;
+  githubUrl: string;
+  portfolioUrl: string;
+}): Array<{ name: string; kind: "linkedin" | "github" | "site"; url: string | null }> {
+  return [
+    { name: "LinkedIn", kind: "linkedin", url: httpUrl(profile.linkedinUrl) },
+    { name: "GitHub", kind: "github", url: httpUrl(profile.githubUrl) },
+    { name: "Site", kind: "site", url: httpUrl(profile.portfolioUrl) },
+  ];
+}
+
+function httpUrl(value: string): string | null {
+  const url = value.trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
+function BioSocialMark({ kind }: { kind: "linkedin" | "github" | "site" }) {
+  if (kind === "linkedin") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4.7 3.2a1.7 1.7 0 1 0 .02 3.4 1.7 1.7 0 0 0-.02-3.4ZM3.2 8.4h3.1V20.8H3.2V8.4Zm5 0h3v1.7h.04c.42-.8 1.44-1.64 2.96-1.64 3.17 0 3.76 2.08 3.76 4.79v7.55h-3.1v-6.7c0-1.6-.03-3.66-2.23-3.66-2.23 0-2.57 1.74-2.57 3.54v6.82H8.2V8.4Z" />
+      </svg>
+    );
+  }
+  if (kind === "github") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.94.86.09-.67.35-1.12.63-1.38-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9 0 1.38-.01 2.49-.01 2.83 0 .27.18.6.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.25" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M3.75 12h16.5M12 3.75c2.15 2.25 3.25 5.05 3.25 8.25s-1.1 6-3.25 8.25c-2.15-2.25-3.25-5.05-3.25-8.25s1.1-6 3.25-8.25Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
 }

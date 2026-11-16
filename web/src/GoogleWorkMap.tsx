@@ -271,7 +271,14 @@ export function GoogleWorkMap({
         }
       }
     }
+    const frame = host
+      ? new ResizeObserver(() => {
+          maps.event.trigger(map, "resize");
+        })
+      : null;
+    frame?.observe(host);
     return () => {
+      frame?.disconnect();
       circle?.setMap(null);
       click?.remove();
       drawn.hideTip();
@@ -345,6 +352,9 @@ type GoogleMapsApi = {
   Point: new (x: number, y: number) => object;
   SymbolPath: { CIRCLE: number };
   ControlPosition?: { RIGHT_BOTTOM: number };
+  event: {
+    trigger: (target: object, name: string) => void;
+  };
 };
 
 declare global {

@@ -7,6 +7,9 @@ import { ProfornaChatMock } from "../prototypes/ProfornaChatMock";
 import { ProfornaShellMock } from "../prototypes/ProfornaShellMock";
 import { SidebarCareerMock } from "../prototypes/SidebarCareerMock";
 import { RolePageMock } from "../prototypes/RolePageMock";
+import { LocationSurfaceMock } from "../prototypes/LocationSurfaceMock";
+import { QuietGroundMock } from "../prototypes/QuietGroundMock";
+import { CardBoardMock } from "../prototypes/CardBoardMock";
 
 export type DevPrototype =
   | "chat"
@@ -17,7 +20,10 @@ export type DevPrototype =
   | "onboarding"
   | "duty-compare"
   | "notes-on-pins"
-  | "role-page";
+  | "role-page"
+  | "location-surface"
+  | "quiet-ground"
+  | "card-board";
 
 function hashPath(): string {
   return window.location.hash.replace(/^#\/?/, "").split("?")[0];
@@ -40,6 +46,9 @@ export function readDevPrototype(): DevPrototype | null {
   if (path === "prototype/duty-compare") return "duty-compare";
   if (path === "prototype/notes-on-pins") return "notes-on-pins";
   if (path === "prototype/role-page") return "role-page";
+  if (path === "prototype/location-surface") return "location-surface";
+  if (path === "prototype/quiet-ground") return "quiet-ground";
+  if (path === "prototype/card-board") return "card-board";
   return null;
 }
 
@@ -52,5 +61,8 @@ export function DevPrototypeScreen({ kind }: { kind: DevPrototype }) {
   if (kind === "duty-compare") return <DutyCompareMock />;
   if (kind === "notes-on-pins") return <NotesOnPinsMock />;
   if (kind === "role-page") return <RolePageMock />;
+  if (kind === "location-surface") return <LocationSurfaceMock />;
+  if (kind === "quiet-ground") return <QuietGroundMock />;
+  if (kind === "card-board") return <CardBoardMock />;
   return <OnboardingMock />;
 }

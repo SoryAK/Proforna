@@ -265,24 +265,37 @@ export function CareerHistoryCard({
   return (
     <div className="pch">
       {focus ? (
-        <ScrollableArea className="pch-view is-role" label="Role">
-          <div className="pch-bar">
-            <Button label="History" variant="secondary" size="sm" className="pch-history-back" onClick={() => setFocusId(null)} />
-          </div>
-          <article className="pch-role">
-            <h2>{focus.organization || focus.title || "Untitled"}</h2>
-            {focus.organization && focus.title ? <p>{focus.title}</p> : null}
-            <p>
-              {[
-                formatHistoryPlace(focus),
-                formatHistoryPeriod(focus.startDate, focus.endDate, focus.isCurrent),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            {focus.details.summary.trim() ? <p>{focus.details.summary.trim()}</p> : null}
-          </article>
-        </ScrollableArea>
+        <div className="pch-view is-role">
+          <Toolbar
+            className="pch-toolbar"
+            label="History"
+            size="sm"
+            dividers={["bottom"]}
+            startContent={
+              <>
+                <button className="pch-back" type="button" aria-label="Back" onClick={() => setFocusId(null)}>
+                  <Icon icon={ArrowLeft} size="sm" />
+                </button>
+                <Heading level={4}>History</Heading>
+              </>
+            }
+          />
+          <ScrollableArea className="pch-role-scroll" label="Role">
+            <article className="pch-role">
+              <h2>{focus.organization || focus.title || "Untitled"}</h2>
+              {focus.organization && focus.title ? <p>{focus.title}</p> : null}
+              <p>
+                {[
+                  formatHistoryPlace(focus),
+                  formatHistoryPeriod(focus.startDate, focus.endDate, focus.isCurrent),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {focus.details.summary.trim() ? <p>{focus.details.summary.trim()}</p> : null}
+            </article>
+          </ScrollableArea>
+        </div>
       ) : (
         <div className="pch-view">
           <Toolbar

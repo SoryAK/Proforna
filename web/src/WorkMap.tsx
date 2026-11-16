@@ -107,6 +107,7 @@ export function WorkMap({
   mapRevision = 0,
   careerRevision = 0,
   canvasFromNav = false,
+  onCareerChanged,
 }: {
   fallbackCareer: CareerFile;
   error: string | null;
@@ -116,6 +117,7 @@ export function WorkMap({
   mapRevision?: number;
   careerRevision?: number;
   canvasFromNav?: boolean;
+  onCareerChanged?: () => void;
 }) {
   const [data, setData] = useState<WorkMapResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -1091,7 +1093,10 @@ export function WorkMap({
           }
           open={overviewOpen}
           role={recordOpen ? selected : null}
-          onSaved={load}
+          onSaved={() => {
+            void load();
+            onCareerChanged?.();
+          }}
           onToggle={() => setOverviewOpen((open) => !open)}
         />
           {recordOpen && selected ? (
@@ -1102,7 +1107,10 @@ export function WorkMap({
             mapVisible={mapVisible}
             onToggleMap={() => setMapOverride(mapVisible ? "hide" : "show")}
             onClose={() => setSelectedId(null)}
-            onSaved={load}
+            onSaved={async () => {
+              await load();
+              onCareerChanged?.();
+            }}
             reviewCount={duplicateCount.active}
             onOpenReview={duplicateCount.total > 0 ? () => setReviewOpen(true) : undefined}
             canvasExpanded={!canvasAll && canvasRoleId === selected.id && !canvasMinimized}

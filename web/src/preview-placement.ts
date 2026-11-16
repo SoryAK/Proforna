@@ -31,6 +31,17 @@ export function previewWindowUrl(): string {
   return url.toString();
 }
 
+export function careerPreviewWindowUrl(): string {
+  const url = new URL(window.location.href);
+  url.hash = "/history?preview=bio";
+  return url.toString();
+}
+
+export function isCareerPreview(): boolean {
+  const [path, query = ""] = window.location.hash.replace(/^#\/?/, "").split("?");
+  return path === "history" && new URLSearchParams(query).get("preview") === "bio";
+}
+
 export const PREVIEW_REFRESH = "proforna-work-map-preview";
 
 export function notifyPreviewRefresh() {

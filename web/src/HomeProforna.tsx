@@ -51,6 +51,7 @@ export function HomeProforna({
   width,
   roles = [],
   focusRoleId = null,
+  careerRevision = 0,
   onReleaseRole,
   onAttachRole,
 }: {
@@ -59,6 +60,7 @@ export function HomeProforna({
   width?: number;
   roles?: ChatRole[];
   focusRoleId?: string | null;
+  careerRevision?: number;
   onReleaseRole?: (id: string) => void;
   onAttachRole?: (role: ChatRole) => void;
 }) {
@@ -71,6 +73,7 @@ export function HomeProforna({
   const [status, setStatus] = useState("");
   const [allowRemote, setAllowRemote] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -95,6 +98,10 @@ export function HomeProforna({
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    setCatalog([]);
+  }, [careerRevision]);
 
   useEffect(() => {
     if (picked.current || selectedId || sessions.length === 0) return;
@@ -204,7 +211,7 @@ export function HomeProforna({
 
   async function send(value: string) {
     const body = value.trim();
-    if (busy || !body) return;
+    if (busy || removing || !body) return;
     setSessionsOpen(false);
     const attached = roles;
     if (composerMode === "edit") {
@@ -367,20 +374,29 @@ export function HomeProforna({
   }
 
   async function removeSession(id: string) {
-    const response = await fetch(`/api/command/sessions/${id}`, { method: "DELETE" });
-    if (!response.ok) {
-      setStatus("Could not remove that conversation.");
-      return;
+    const selected = selectedIdRef.current === id;
+    if (selected) {
+      sessionLoad.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setRemoving(true);
     }
-    setSessions((list) => list.filter((session) => session.id !== id));
-    if (selectedIdRef.current !== id) return;
-    sessionLoad.current += 1;
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setSelectedId(null);
-    setMessages([]);
-    setStatus("");
-    setBusy(false);
+    try {
+      const response = await fetch(`/api/command/sessions/${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        setStatus("Could not remove that conversation.");
+        return;
+      }
+      setSessions((list) => list.filter((session) => session.id !== id));
+      if (selectedIdRef.current === id) {
+        setSelectedId(null);
+        setMessages([]);
+        setStatus("");
+        setBusy(false);
+      }
+    } finally {
+      if (selected) setRemoving(false);
+    }
   }
 
   function stop() {
@@ -475,7 +491,7 @@ export function HomeProforna({
                 onChange={setDraft}
                 onSubmit={(value) => void send(value)}
                 onStop={stop}
-                isStopShown={busy}
+                isStopShown={busy || removing}
                 placeholder={composerMode === "ask" ? "Ask anything..." : "Describe your edit..."}
                 drawer={
                   roles.length > 0 ? (

@@ -11,6 +11,7 @@ export function WorkHistory({
   careerRevision = 0,
   canvasFromNav = false,
   onHome,
+  onCareerChanged,
 }: {
   career: CareerFile;
   careerError: string | null;
@@ -20,6 +21,7 @@ export function WorkHistory({
   careerRevision?: number;
   canvasFromNav?: boolean;
   onHome: () => void;
+  onCareerChanged?: () => void;
 }) {
   return (
     <WorkMap
@@ -31,6 +33,7 @@ export function WorkHistory({
       careerRevision={careerRevision}
       canvasFromNav={canvasFromNav}
       onHome={onHome}
+      onCareerChanged={onCareerChanged}
     />
   );
 }

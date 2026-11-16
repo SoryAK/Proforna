@@ -11,6 +11,14 @@ body:
         A UI change includes at least three detailed mocks. Review picks one variant before implementation.
 
         Each mock shows the screen: structure, copy, and the states that differ from the other variants. Attach an image, or write a layout specific enough to compare.
+  - type: input
+    id: focus
+    attributes:
+      label: Focus
+      description: The part of the project this issue focuses on, such as onboarding, career history, nodes, boards, or connections.
+      placeholder: career history
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:

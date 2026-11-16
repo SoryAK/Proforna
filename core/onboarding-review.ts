@@ -360,3 +360,66 @@ export function profileAfterOnboarding(input: {
   }
   return next;
 }
+
+export type SimilarCardRef = {
+  key: string;
+  similarTo?: string;
+  comparable: boolean;
+};
+
+/** Each card is in one block. A partner already paired is not paired again. */
+export function groupSimilarCards(
+  cards: SimilarCardRef[],
+): Array<{ key: string; keys: string[]; linkKey: string | null }> {
+  const byKey = new Map(cards.map((card) => [card.key, card]));
+  const consumed = new Set<string>();
+  const blocks: Array<{ key: string; keys: string[]; linkKey: string | null }> = [];
+  for (const card of cards) {
+    if (consumed.has(card.key)) continue;
+    const later = cards.find(
+      (item) => item.similarTo === card.key && item.comparable && !consumed.has(item.key),
+    );
+    const earlier = card.similarTo ? byKey.get(card.similarTo) : undefined;
+    if (later) {
+      consumed.add(card.key);
+      consumed.add(later.key);
+      blocks.push({ key: card.key, keys: [card.key, later.key], linkKey: later.key });
+    } else if (earlier && card.comparable && !consumed.has(earlier.key)) {
+      consumed.add(card.key);
+      consumed.add(earlier.key);
+      blocks.push({ key: earlier.key, keys: [earlier.key, card.key], linkKey: card.key });
+    } else {
+      consumed.add(card.key);
+      blocks.push({ key: card.key, keys: [card.key], linkKey: null });
+    }
+  }
+  return blocks;
+}
+
+/** Duty text keeps literal characters and drops Markdown formatting. */
+export function plainDutyLines(markdown: string): string[] {
+  return markdown.split("\n").map(plainDutyLine).filter(Boolean);
+}
+
+function plainDutyLine(line: string): string {
+  const saved: string[] = [];
+  const parked = line.replace(/\\([\\`*_{}[\]()#+\-.!~])/g, (_match, character: string) => {
+    const mark = `\u0000${saved.length}\u0000`;
+    saved.push(character);
+    return mark;
+  });
+  const stripped = parked
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^[-*+]\s+/, "")
+    .replace(/^\d+[.)]\s+/, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/~~([^~]+)~~/g, "$1")
+    .replace(/(^|\s)\*([^*\n]+)\*(?=\s|$|[^\w])/g, "$1$2")
+    .replace(/(^|\s)_([^_\n]+)_(?=\s|$|[^\w])/g, "$1$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.replace(/\u0000(\d+)\u0000/g, (_match, index: string) => saved[Number(index)] ?? "");
+}

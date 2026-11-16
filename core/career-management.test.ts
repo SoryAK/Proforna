@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  planContactSubmission,
   presentInboundAccessRequest,
   planOpportunityNetworkPromotion,
   resolveInboundAccessRequest,
@@ -33,6 +34,78 @@ describe("career management", () => {
         notes: "May I review the published map?",
       },
     });
+  });
+
+  it("files a contact request in the opportunity inbox", () => {
+    const planned = planContactSubmission({
+      firstName: "Alex",
+      lastName: "Rivera",
+      email: "alex@northstar.example",
+      company: "Northstar",
+      jobTitle: "Recruiter",
+      phone: "555-0100",
+      jobs: true,
+      networks: false,
+      jobName: "Plant technician",
+      jobRole: "Technician",
+      jobCompany: "Giants Direct",
+      jobLocation: "Allentown",
+      jobSalary: "80-90k",
+      jobLink: "https://example.test/role",
+      jobPost: "Second shift.",
+      meetWhen: "2026-11-18 10:00 AM",
+    });
+    expect(planned).toMatchObject({
+      ok: true,
+      value: {
+        kind: "role",
+        title: "Technician",
+        organization: "Giants Direct",
+        sourceUrl: "https://example.test/role",
+        location: "Allentown",
+      },
+    });
+    if (!planned.ok) return;
+    expect(planned.value.fitSummary).toContain("Name: Alex Rivera");
+    expect(planned.value.fitSummary).toContain("alex@northstar.example");
+    expect(planned.value.fitSummary).toContain("Meet: 2026-11-18 10:00 AM");
+  });
+
+  it("leaves job details off a connection request", () => {
+    const planned = planContactSubmission({
+      firstName: "Alex",
+      lastName: "Rivera",
+      email: "alex@northstar.example",
+      company: "Northstar",
+      jobTitle: "Recruiter",
+      phone: "",
+      jobs: false,
+      networks: true,
+      jobName: "Plant technician",
+      jobRole: "Technician",
+      jobCompany: "Giants Direct",
+      jobLocation: "Allentown",
+      jobSalary: "80-90k",
+      jobLink: "https://example.test/role",
+      jobPost: "Second shift.",
+      meetWhen: "2026-11-18 10:00 AM",
+    });
+    expect(planned).toMatchObject({
+      ok: true,
+      value: {
+        kind: "connection",
+        title: "Alex Rivera asked to connect",
+        organization: "Northstar",
+        sourceUrl: "",
+        location: "",
+      },
+    });
+    if (!planned.ok) return;
+    expect(planned.value.fitSummary).toContain("Name: Alex Rivera");
+    expect(planned.value.fitSummary).not.toContain("Second shift");
+    expect(planned.value.fitSummary).not.toContain("Salary:");
+    expect(planned.value.fitSummary).not.toContain("Meet:");
+    expect(planned.value.fitSummary).not.toContain("example.test");
   });
 
   it("promotes only a connection Opportunity into My Network", () => {
