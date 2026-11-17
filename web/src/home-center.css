@@ -13,7 +13,7 @@
 
 .home-sheet.is-home .home-center {
   border: 1px solid #e4e4e7;
-  border-radius: 0 16px 16px 0;
+  border-radius: 16px;
   background: #fff;
 }
 

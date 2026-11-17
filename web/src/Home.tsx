@@ -80,6 +80,7 @@ export function Home({
   const [collapsed, setCollapsed] = useState(() => (isCareerPreview() ? false : readCollapsed()));
   const bioPopRef = useRef<HTMLDivElement>(null);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
+  const [requestNonce, setRequestNonce] = useState(0);
   const [previewNote, setPreviewNote] = useState("");
   const [bioDialog, setBioDialog] = useState<"know" | "contact" | "place" | null>(null);
   const [desktop, setDesktop] = useState(readDesktop);
@@ -195,6 +196,12 @@ export function Home({
       writePanelOpen(next);
       return next;
     });
+  }
+
+  function openRequest() {
+    setProfornaOpen(true);
+    writePanelOpen(true);
+    setRequestNonce((value) => value + 1);
   }
 
   function goPage(next: HomePage) {
@@ -360,6 +367,7 @@ export function Home({
           onSettings={() => setSettingsOpen(true)}
           onSearch={() => setSearchOpen(true)}
           onProforna={togglePanel}
+          onRequest={openRequest}
           profornaOpen={profornaOpen}
           bioMode={bioMode}
           onBioMode={chooseBioMode}
@@ -526,6 +534,7 @@ export function Home({
         )}
         <HomeProforna
           open={profornaOpen}
+          requestNonce={requestNonce}
           onToggle={togglePanel}
           roles={chatRoles}
           focusRoleId={focusJobId}

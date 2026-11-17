@@ -47,6 +47,7 @@ type LocalEdit = {
 
 export function HomeProforna({
   open,
+  requestNonce = 0,
   onToggle,
   width,
   roles = [],
@@ -56,6 +57,7 @@ export function HomeProforna({
   onAttachRole,
 }: {
   open: boolean;
+  requestNonce?: number;
   onToggle: () => void;
   width?: number;
   roles?: ChatRole[];
@@ -88,6 +90,11 @@ export function HomeProforna({
   const abortRef = useRef<AbortController | null>(null);
   const composerRef = useRef<ChatComposerInputHandle | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open || requestNonce === 0) return;
+    composerRef.current?.focus();
+  }, [open, requestNonce]);
   const pinned = useRef(true);
   const [scrolledUp, setScrolledUp] = useState(false);
   const [stickyRequest, setStickyRequest] = useState<{ text: string; partial: boolean } | null>(null);

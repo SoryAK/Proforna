@@ -251,8 +251,7 @@
 }
 
 .home-sheet.is-home .home-history {
-  border-right: 0;
-  border-radius: 16px 0 0 16px;
+  border-radius: 8px;
   box-shadow: none;
 }
 
@@ -275,6 +274,10 @@
 
   .home-sheet.is-home.is-left-closed.is-right-open {
     grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 26rem);
+  }
+
+  .home-sheet.is-home:not(.is-left-closed) .home-center {
+    margin-left: 0.4rem;
   }
 }
 
@@ -1026,7 +1029,13 @@ button.home-nav-item:focus-visible {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.35rem;
+}
+
+.home-bar-request-divider {
+  display: inline-flex;
+  align-self: center;
+  height: 1.25rem;
 }
 
 .home-pub {

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@astryxdesign/core/Button";
+import { Divider } from "@astryxdesign/core/Divider";
 import type { OccupantNoticeHref } from "@core/notices";
 import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
@@ -19,6 +20,7 @@ export function HomeBar({
   onSettings,
   onSearch,
   onProforna,
+  onRequest,
   profornaOpen,
   bioMode,
   onBioMode,
@@ -37,6 +39,7 @@ export function HomeBar({
   onSettings: () => void;
   onSearch: () => void;
   onProforna?: () => void;
+  onRequest?: () => void;
   profornaOpen?: boolean;
   bioMode: HomeBioMode;
   onBioMode: (mode: HomeBioMode) => void;
@@ -399,6 +402,14 @@ export function HomeBar({
           ) : null}
         </div>,
         )}
+        {onRequest ? (
+          <Button label="Request" variant="secondary" size="sm" onClick={onRequest} />
+        ) : null}
+        {onRequest && onProforna ? (
+          <span className="home-bar-request-divider">
+            <Divider orientation="vertical" />
+          </span>
+        ) : null}
         {onProforna ? (
           <button
             type="button"
