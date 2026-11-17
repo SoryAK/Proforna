@@ -759,6 +759,27 @@ button.home-nav-item:focus-visible {
   gap: 0.1rem;
 }
 
+.home-nav-gallery {
+  padding: 0.15rem 0.4rem 0.45rem;
+}
+
+.home-nav-photos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.home-nav-thumb {
+  width: 100%;
+}
+
+.home-nav-gallery p {
+  margin: 0;
+  color: #6b6b70;
+  font-size: 0.8125rem;
+}
+
 .home-nav-main {
   display: flex;
   min-height: 0;

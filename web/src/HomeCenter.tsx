@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "@astryxdesign/core/Button";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Icon } from "@astryxdesign/core/Icon";
@@ -8,12 +7,11 @@ import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { Selector } from "@astryxdesign/core/Selector";
 import { TextInput } from "@astryxdesign/core/TextInput";
-import { Thumbnail } from "@astryxdesign/core/Thumbnail";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { formatHistoryPeriod, presentCareerHistoryStats } from "@core/career-history";
 import type { MapSettings } from "@core/map-settings";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
-import { ArrowLeft, Image, LayoutGrid, Map as MapIcon } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Map as MapIcon } from "lucide-react";
 import { CareerMap } from "./CareerMap";
 import type { MapFitMode } from "./map-camera";
 import "./home-center.css";
@@ -35,12 +33,10 @@ export function HomeCenter({
   const [updateId, setUpdateId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => new Date());
-  const [galleryOpen, setGalleryOpen] = useState(false);
   const [recentLens, setRecentLens] = useState<RecentLens>("recent");
   const [recentQuery, setRecentQuery] = useState("");
   const [recentFilter, setRecentFilter] = useState<RecentFilter>("all");
   const [recentSort, setRecentSort] = useState<RecentSort>("date");
-  const galleryHost = useGalleryHost();
   const tabRefs = useRef<Partial<Record<CenterView, HTMLButtonElement>>>({});
 
   useEffect(() => {
@@ -104,13 +100,6 @@ export function HomeCenter({
   )
     .slice()
     .sort((left, right) => compareRecent(left, right, recentSort));
-  const mediaRoles = focus ? [focus] : roles;
-  const covers = mediaRoles.flatMap((role) => {
-    const photo = roleCoverPhoto(role.media);
-    return photo
-      ? [{ ...photo, roleId: role.id, organization: role.organization || role.title }]
-      : [];
-  });
   const placed = roles.filter(roleHasPlace);
   const mapFit: MapFitMode = focus && roleHasPlace(focus) ? "pin" : focus ? "hold" : "visible";
   const story = useMemo(() => storyFeed(roles), [roles]);
@@ -384,66 +373,8 @@ export function HomeCenter({
           />
         ) : null}
       </Dialog>
-      {galleryHost
-        ? createPortal(
-            <>
-              <button
-                type="button"
-                className={galleryOpen ? "home-nav-item is-current" : "home-nav-item"}
-                aria-expanded={galleryOpen}
-                onClick={() => setGalleryOpen((open) => !open)}
-              >
-                <Icon icon={Image} size="sm" />
-                Gallery
-              </button>
-              {galleryOpen ? (
-                <div className="home-center-gallery">
-                  {covers.length > 0 ? (
-                    <div className="home-center-photos">
-                      {covers.map((item) => (
-                        <Thumbnail
-                          key={item.id}
-                          className="home-center-thumb"
-                          src={item.url}
-                          alt={item.organization || item.title || "Photo"}
-                          label={item.organization || item.title || "Photo"}
-                          onClick={() => onSelectRole(item.roleId)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="home-center-empty">No photos yet.</p>
-                  )}
-                </div>
-              ) : null}
-            </>,
-            galleryHost,
-          )
-        : null}
     </div>
   );
-}
-
-function useGalleryHost() {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    const sheet = document.querySelector(".home-sheet");
-    if (!sheet) return;
-    function place() {
-      const history = sheet.querySelector(".home-history");
-      const menu = history?.querySelector(".home-nav-main");
-      if (!(menu instanceof HTMLElement) || history?.querySelector(".pch")) {
-        setHost(null);
-        return;
-      }
-      setHost((current) => (current === menu ? current : menu));
-    }
-    place();
-    const observer = new MutationObserver(place);
-    observer.observe(sheet, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-  return host;
 }
 
 type CenterView = "story" | "map";

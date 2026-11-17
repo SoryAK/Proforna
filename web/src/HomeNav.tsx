@@ -1,4 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
+import { Thumbnail } from "@astryxdesign/core/Thumbnail";
+import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import { ChevronDown, Frame, House, Plug, Puzzle, Wrench } from "lucide-react";
 
 const NAV_ID = "home-nav";
@@ -80,6 +82,13 @@ export function HomeNav({
     setCustomId(null);
     onCanvas(false);
     onGoPage(next);
+    onCloseMobile();
+  }
+
+  function openGalleryRole(id: string) {
+    setCustomId(null);
+    onCanvas(false);
+    onGoHistory(id);
     onCloseMobile();
   }
 
@@ -178,6 +187,7 @@ export function HomeNav({
               slim={slim}
               onSelect={() => go("network")}
             />
+            <GalleryResource slim onOpenRole={openGalleryRole} />
           </>
         ) : (
           <div className="home-nav-group">
@@ -232,6 +242,7 @@ export function HomeNav({
                   slim={false}
                   onSelect={() => go("network")}
                 />
+                <GalleryResource slim={false} onOpenRole={openGalleryRole} />
               </div>
             ) : null}
           </div>
@@ -316,12 +327,97 @@ function NavRow({
   );
 }
 
+function GalleryResource({
+  slim,
+  onOpenRole,
+}: {
+  slim: boolean;
+  onOpenRole: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [covers, setCovers] = useState<GalleryCover[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    void fetch("/api/work-map", { signal: controller.signal })
+      .then(async (response) => {
+        if (cancelled || !response.ok) return;
+        const body = (await response.json()) as { roles?: WorkMapRole[] };
+        if (cancelled) return;
+        setCovers(coverPhotos(body.roles ?? []));
+      })
+      .catch((error: unknown) => {
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+        setCovers([]);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={open ? "home-nav-item is-current" : "home-nav-item"}
+        aria-expanded={open}
+        title={slim ? "Gallery" : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Icon name="gallery" />
+        {slim ? <span className="sr-only">Gallery</span> : "Gallery"}
+      </button>
+      {open ? (
+        <div className="home-nav-gallery">
+          {covers.length > 0 ? (
+            <div className="home-nav-photos">
+              {covers.map((item) => (
+                <Thumbnail
+                  key={item.id}
+                  className="home-nav-thumb"
+                  src={item.url}
+                  alt={item.organization || item.title || "Photo"}
+                  label={item.organization || item.title || "Photo"}
+                  onClick={() => onOpenRole(item.roleId)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p>No photos yet.</p>
+          )}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+type GalleryCover = {
+  id: string;
+  url: string;
+  title: string;
+  organization: string;
+  roleId: string;
+};
+
+function coverPhotos(roles: WorkMapRole[]): GalleryCover[] {
+  return roles.flatMap((role) => {
+    const photo = roleCoverPhoto(role.media);
+    return photo
+      ? [{ ...photo, roleId: role.id, organization: role.organization || role.title }]
+      : [];
+  });
+}
+
 type IconName =
   | "home"
   | "history"
   | "docs"
   | "studio"
   | "network"
+  | "gallery"
   | "search"
   | "notice"
   | "menu"
@@ -361,6 +457,13 @@ export function Icon({ name }: { name: IconName }) {
           <circle cx="16.5" cy="8" r="2.4" />
           <circle cx="12.5" cy="16.5" r="2.6" />
           <path d="M10.6 10.1 11.4 14.1M15 10.1 13.7 14" />
+        </>
+      ) : null}
+      {name === "gallery" ? (
+        <>
+          <rect x="4" y="5" width="16" height="14" rx="1.5" />
+          <circle cx="9" cy="10" r="1.4" />
+          <path d="m4 16 4.5-4 3 3 2.2-2.2L20 16" />
         </>
       ) : null}
       {name === "search" ? (
