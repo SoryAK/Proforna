@@ -241,6 +241,55 @@
   grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 26rem);
 }
 
+.home-sheet.is-home {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  column-gap: 0;
+  row-gap: 0.75rem;
+}
+
+.home-sheet.is-home .home-history {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.home-sheet.is-home.is-right-open > .home-proforna {
+  margin-left: 0.4rem;
+}
+
+@media (min-width: 801px) {
+  .home-sheet.is-home {
+    grid-template-columns: 16.5rem minmax(0, 1fr);
+  }
+
+  .home-sheet.is-home.is-right-open {
+    grid-template-columns: 16.5rem minmax(12rem, 1fr) minmax(14rem, 26rem);
+  }
+
+  .home-sheet.is-home.is-left-closed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-sheet.is-home.is-left-closed.is-right-open {
+    grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 26rem);
+  }
+
+  .home-sheet {
+    column-gap: 0;
+  }
+
+  .home-sheet:not(.is-left-closed) > .home-center,
+  .home-sheet:not(.is-left-closed) > .home-stage {
+    margin-left: 0.4rem;
+  }
+
+  .home-sheet.is-right-open > .home-proforna {
+    margin-left: 0.4rem;
+  }
+}
+
 .home-sheet > .home-bar {
   grid-column: 1 / -1;
   grid-row: 1;
@@ -532,7 +581,8 @@
 }
 
 .home-sheet.is-left-closed .home-stage,
-.home-sheet.is-left-closed .home-media {
+.home-sheet.is-left-closed .home-media,
+.home-sheet.is-left-closed .home-center {
   grid-column: 1;
 }
 
@@ -719,6 +769,33 @@ button.home-nav-item:focus-visible {
 .home-nav-group-body {
   display: grid;
   gap: 0.1rem;
+}
+
+.home-nav-gallery {
+  padding: 0.15rem 0.4rem 0.45rem;
+}
+
+.home-nav-photos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.home-nav-thumb {
+  width: 100%;
+}
+
+.home-nav-gallery p {
+  margin: 0;
+  color: #6b6b70;
+  font-size: 0.8125rem;
+}
+
+.home-nav-gallery-error {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
 }
 
 .home-nav-main {
@@ -916,6 +993,7 @@ button.home-nav-item:focus-visible {
 
   .home-bio,
   .home-history,
+  .home-center,
   .home-stage,
   .home-media,
   .home-sheet.is-right-open > .home-proforna,
@@ -960,7 +1038,13 @@ button.home-nav-item:focus-visible {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.35rem;
+}
+
+.home-bar-request-divider {
+  display: inline-flex;
+  align-self: center;
+  height: 1.25rem;
 }
 
 .home-pub {
@@ -968,6 +1052,12 @@ button.home-nav-item:focus-visible {
   display: inline-flex;
   align-items: center;
   margin-right: 0.35rem;
+}
+
+.home-pub-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .home-pub-menu {

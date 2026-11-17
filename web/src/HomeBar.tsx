@@ -1,6 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@astryxdesign/core/Button";
-import { ButtonGroup } from "@astryxdesign/core/ButtonGroup";
+import { Divider } from "@astryxdesign/core/Divider";
 import type { OccupantNoticeHref } from "@core/notices";
 import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
@@ -19,6 +20,7 @@ export function HomeBar({
   onSettings,
   onSearch,
   onProforna,
+  onRequest,
   profornaOpen,
   bioMode,
   onBioMode,
@@ -37,6 +39,7 @@ export function HomeBar({
   onSettings: () => void;
   onSearch: () => void;
   onProforna?: () => void;
+  onRequest?: () => void;
   profornaOpen?: boolean;
   bioMode: HomeBioMode;
   onBioMode: (mode: HomeBioMode) => void;
@@ -55,6 +58,9 @@ export function HomeBar({
   const barRef = useRef<HTMLElement>(null);
   const startRef = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  const pubRef = useRef<HTMLDivElement>(null);
+  const [pubHost, setPubHost] = useState<HTMLElement | null>(null);
+  const [holdPub, setHoldPub] = useState(false);
   const menuId = useId();
   const letters = initials(name);
 
@@ -79,7 +85,10 @@ export function HomeBar({
   useEffect(() => {
     if (!menu && !share) return;
     function onPointer(event: MouseEvent) {
-      if (root.current && !root.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideBar = root.current?.contains(target);
+      const insidePub = pubRef.current?.contains(target);
+      if (!insideBar && !insidePub) {
         setMenu(null);
         setShare(null);
       }
@@ -97,6 +106,29 @@ export function HomeBar({
       document.removeEventListener("keydown", onKey);
     };
   }, [menu, share]);
+
+  useEffect(() => {
+    const place = () => {
+      const host = document.querySelector(".home-center-pub");
+      const center = document.querySelector(".home-center");
+      if (host instanceof HTMLElement) {
+        setPubHost(host);
+        setHoldPub(true);
+        return;
+      }
+      setPubHost(null);
+      setHoldPub(center instanceof HTMLElement);
+    };
+    place();
+    const rootNode = document.querySelector(".home") ?? document.body;
+    const observer = new MutationObserver(place);
+    observer.observe(rootNode, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, []);
 
   function publishFailure(code: string | undefined) {
     if (code === "slug-required") {
@@ -246,16 +278,13 @@ export function HomeBar({
         </button>
       </div>
       <div className="home-bar-end" ref={root}>
-        <div className="home-pub">
-          <ButtonGroup label="Publication" size="sm">
-            <Button
-              label="Publish"
-              variant="primary"
-              size="sm"
-              aria-expanded={menu === "publish"}
-              aria-haspopup="menu"
-              onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
-            />
+        {(pubHost
+          ? (node: ReactNode) => createPortal(node, pubHost)
+          : holdPub
+            ? () => null
+            : (node: ReactNode) => node)(
+          <div className="home-pub" ref={pubRef}>
+          <div className="home-pub-actions" role="group" aria-label="Publication">
             {previewOpen || bioMode === "preview" ? (
               <Button
                 label="Exit preview"
@@ -278,7 +307,15 @@ export function HomeBar({
                 onClick={() => setMenu((current) => (current === "preview" ? null : "preview"))}
               />
             )}
-          </ButtonGroup>
+            <Button
+              label="Publish"
+              variant="primary"
+              size="sm"
+              aria-expanded={menu === "publish"}
+              aria-haspopup="menu"
+              onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
+            />
+          </div>
           {menu === "publish" ? (
             <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
               <button
@@ -363,7 +400,16 @@ export function HomeBar({
               {publishNote || notice}
             </p>
           ) : null}
-        </div>
+        </div>,
+        )}
+        {onRequest ? (
+          <Button label="Request" variant="secondary" size="sm" onClick={onRequest} />
+        ) : null}
+        {onRequest && onProforna ? (
+          <span className="home-bar-request-divider">
+            <Divider orientation="vertical" />
+          </span>
+        ) : null}
         {onProforna ? (
           <button
             type="button"

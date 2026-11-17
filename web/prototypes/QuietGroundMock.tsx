@@ -128,7 +128,7 @@ export function QuietGroundMock() {
       <div className="home">
         <div className="work-map">
           <div className="work-map-layout is-map">
-            <main className="work-map-stage has-action-tab">
+            <main className="work-map-stage">
               <div className="qgp-ground" />
               <header className="qgp-float">
                 <label className="qgp-search">
@@ -159,18 +159,6 @@ export function QuietGroundMock() {
                 {noticesOpen ? <p className="qgp-notices">No notices.</p> : null}
                 <p className="qgp-who">{file?.profile.fullName || "Sory Kaba"}</p>
               </header>
-              <div className="action-dock">
-                <div className="action-tab">
-                  <div className="action-bar">
-                    <button type="button">Publish</button>
-                    <button type="button">Preview</button>
-                    <button type="button">
-                      Map
-                    </button>
-                    <button type="button">Timeline</button>
-                  </div>
-                </div>
-              </div>
               {place && placePoint ? (
                 <article
                   className={["role-canvas-node", "qgp-location", "is-selected", locked ? "is-locked" : ""].filter(Boolean).join(" ")}

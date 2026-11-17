@@ -180,20 +180,30 @@
   outline: none;
 }
 
-.pch-find {
-  margin-top: 0.45rem;
+.pch-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+  margin-top: 0.55rem;
 }
 
-.pch-find input {
-  box-sizing: border-box;
-  width: 100%;
-  height: 1.7rem;
-  padding: 0 0.45rem;
-  border: 1px solid #e4e4e7;
-  border-radius: 8px;
-  background: #fff;
-  color: #171717;
-  font: 400 0.8rem/1.2 system-ui, sans-serif;
+.pch-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.pch-controls-bar > :first-child {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.pch-controls-bar > :not(:first-child) {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 34%;
 }
 
 .pch-note {

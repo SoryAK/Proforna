@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { ResumeImport } from "./ResumeImport";
 import { CareerHistoryAddMenu, createCareerHistoryRole } from "./CareerHistoryAddMenu";
 import type { CareerFile } from "@core/career-file";
@@ -29,28 +29,12 @@ import {
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "@core/work-map";
-import {
-  careerFrame,
-  careerMoments,
-  careerMonth,
-  careerSpan,
-  nextCareerMoment,
-  rolesStartedBy,
-  type CareerTimelineResidence,
-  type CareerTimelineRole,
-} from "@core/career-timeline";
-import { CareerTimelineScrubber } from "./CareerTimelineScrubber";
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
 import { CareerMap } from "./CareerMap";
 import { DuplicateReview, duplicateReviewCount, type MergeRequest, type ReviewDraft } from "./DuplicateReview";
 import { readMapCamera, writeMapCamera, type MapCamera, type MapFitMode } from "./map-camera";
-import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
-import {
-  notifyPreviewRefresh,
-  previewWindowUrl,
-  readPreviewPlacement,
-} from "./preview-placement";
+import { notifyPreviewRefresh } from "./preview-placement";
 import type { WorkMapHome } from "./WorkMapCanvas";
 import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
@@ -135,17 +119,6 @@ export function WorkMap({
     Set<CareerHistorySectionKey>
   >(new Set());
   const [overviewOpen, setOverviewOpen] = useState(true);
-  const [actionTabOpen, setActionTabOpen] = useState(true);
-  const actionDockRef = useRef<HTMLDivElement>(null);
-  const actionShellRef = useRef<HTMLDivElement>(null);
-  const actionGesture = useRef<{ id: number; y: number; moved: boolean } | null>(null);
-  const actionSwallow = useRef(false);
-  const [view, setView] = useState<"map" | "timeline">("map");
-  const [timelineMonth, setTimelineMonth] = useState(currentCareerMonth);
-  const [timelinePlaying, setTimelinePlaying] = useState(false);
-  const [publishMenu, setPublishMenu] = useState(false);
-  const [menuHost, setMenuHost] = useState<"bio" | "tab">("tab");
-  const publishMenuRef = useRef<HTMLDivElement>(null);
   const [placingForId, setPlacingForId] = useState<string | null>(null);
   const [placingLocationId, setPlacingLocationId] = useState<string | null>(
     null,
@@ -188,16 +161,6 @@ export function WorkMap({
     const timer = window.setTimeout(() => setMessage(""), life);
     return () => window.clearTimeout(timer);
   }, [message]);
-  const [publishing, setPublishing] = useState(false);
-  const [preview, setPreview] = useState<{
-    snapshot: PublicWorkMapSnapshot;
-    publishable: boolean;
-    exactLocations: boolean;
-  } | null>(null);
-  const previewRef = useRef(preview);
-  previewRef.current = preview;
-  const [previewMenu, setPreviewMenu] = useState(false);
-  const previewMenuRef = useRef<HTMLDivElement>(null);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
@@ -303,10 +266,6 @@ export function WorkMap({
       setPublications(body.projections);
     }
     notifyPreviewRefresh();
-    if (previewRef.current) {
-      const next = await fetchPreview();
-      if (next) setPreview(next);
-    }
   }
 
   const canvasRoles = useMemo(() => {
@@ -390,44 +349,8 @@ export function WorkMap({
       .map((item) => byId.get(item.id))
       .filter((role): role is WorkMapRole => Boolean(role));
   }, [data, historyItems]);
-  const timelineRoles = useMemo(
-    () => visibleRoles.map(asTimelineRole),
-    [visibleRoles],
-  );
-  const timelineResidences = useMemo(
-    () => (data?.residences ?? []).map(asTimelineResidence),
-    [data],
-  );
-  const timelineMoments = useMemo(
-    () => careerMoments(timelineRoles, timelineResidences),
-    [timelineRoles, timelineResidences],
-  );
-  const timelineMonths = useMemo(
-    () => careerSpan(timelineRoles, timelineMoments, currentCareerMonth()),
-    [timelineRoles, timelineMoments],
-  );
-  const timelineActive = view === "timeline" && !placingForId;
-  const shownMonth = timelineMonths.includes(timelineMonth)
-    ? timelineMonth
-    : (timelineMonths.at(-1) ?? timelineMonth);
-  const timelineReading = useMemo(
-    () =>
-      careerFrame(
-        timelineRoles,
-        timelineMoments,
-        shownMonth,
-        timelineResidences,
-        selectedId,
-      ),
-    [timelineRoles, timelineMoments, shownMonth, timelineResidences, selectedId],
-  );
-  const mapRoles = timelineActive
-    ? visibleRoles.filter((role) =>
-        rolesStartedBy(timelineRoles, shownMonth).some((item) => item.id === role.id),
-      )
-    : visibleRoles;
   const selectedOnMap = selectedId
-    ? (mapRoles.find((role) => role.id === selectedId) ?? null)
+    ? (visibleRoles.find((role) => role.id === selectedId) ?? null)
     : null;
   const fitMode: MapFitMode = !selectedOnMap
     ? "visible"
@@ -440,9 +363,8 @@ export function WorkMap({
   const cameraFitKey = [
     selectedId ?? "",
     String(pinFocus),
-    timelineActive ? shownMonth : "map",
     fitMode,
-    mapRoles
+    visibleRoles
       .flatMap((role) =>
         role.locations.map(
           (location) =>
@@ -453,50 +375,9 @@ export function WorkMap({
       .join("|"),
   ].join(":");
 
-  const selectRole = useCallback(
-    (id: string, month?: string, keepPlaying = false) => {
-      setSelectedId(id);
-      const role = data?.roles.find((entry) => entry.id === id);
-      const start = role ? careerMonth(role.startDate) : null;
-      const next = month ?? start;
-      if (!next) return;
-      if (!keepPlaying) setTimelinePlaying(false);
-      setTimelineMonth(next);
-    },
-    [data],
-  );
-
-  useEffect(() => {
-    if (!timelinePlaying || !timelineActive) return;
-    const timer = window.setInterval(() => {
-      const upcoming = nextCareerMoment(timelineMoments, shownMonth);
-      if (!upcoming) {
-        setTimelinePlaying(false);
-        return;
-      }
-      const frame = careerFrame(
-        timelineRoles,
-        timelineMoments,
-        upcoming.at,
-        timelineResidences,
-      );
-      if (frame.lead) selectRole(frame.lead.id, upcoming.at, true);
-      else {
-        setTimelinePlaying(false);
-        setTimelineMonth(upcoming.at);
-        setSelectedId(null);
-      }
-    }, 900);
-    return () => window.clearInterval(timer);
-  }, [
-    timelinePlaying,
-    timelineActive,
-    timelineMoments,
-    timelineRoles,
-    timelineResidences,
-    shownMonth,
-    selectRole,
-  ]);
+  const selectRole = useCallback((id: string) => {
+    setSelectedId(id);
+  }, []);
 
   const selected = data?.roles.find((role) => role.id === selectedId) ?? null;
   const canvasRole = canvasAll
@@ -505,17 +386,6 @@ export function WorkMap({
   const latest = publications.find(
     (publication) => publication.slug === settings?.slug,
   );
-
-  function selectMonth(month: string) {
-    const frame = careerFrame(timelineRoles, timelineMoments, month, timelineResidences);
-    if (frame.lead) {
-      selectRole(frame.lead.id, month);
-      return;
-    }
-    setTimelinePlaying(false);
-    setTimelineMonth(month);
-    setSelectedId(null);
-  }
 
   const searchPick = useRef("");
   useEffect(() => {
@@ -530,91 +400,6 @@ export function WorkMap({
     searchPick.current = pick;
     selectRole(id);
   }, [search, historyItems, selectRole]);
-
-  function requestPublish(host: "bio" | "tab" = "tab") {
-    if (!settings || publishing) return;
-    setPreviewMenu(false);
-    setMenuHost(host);
-    setPublishMenu((open) => (menuHost === host ? !open : true));
-  }
-
-  function confirmPublish() {
-    setPublishMenu(false);
-    void publish();
-  }
-
-  async function requestPreview(host: "bio" | "tab" = "tab") {
-    setPublishMenu(false);
-    setMenuHost(host);
-    const choice = readPreviewPlacement();
-    if (choice === "ask") {
-      setPreviewMenu((open) => (menuHost === host ? !open : true));
-      return;
-    }
-    setPreviewMenu(false);
-    await showPreview(choice);
-  }
-
-  async function choosePreview(where: "here" | "window") {
-    setPreviewMenu(false);
-    await showPreview(where);
-  }
-
-  async function showPreview(where: "here" | "window") {
-    setMessage("");
-    const next = await fetchPreview();
-    if (!next) return;
-    if (where === "here") {
-      setPreview(next);
-      return;
-    }
-    const opened = window.open(
-      previewWindowUrl(),
-      "proforna-public-preview",
-      "popup,width=1100,height=800",
-    );
-    if (!opened) {
-      setMessage("The browser blocked the preview window. Preview is staying in this window.");
-      setPreview(next);
-    }
-  }
-
-  async function fetchPreview() {
-    const response = await fetch("/api/work-map/preview");
-    if (!response.ok) {
-      const body = (await response.json()) as { error?: string };
-      setMessage(
-        body.error === "slug-required"
-          ? "Save a public slug in publication settings before previewing."
-          : body.error === "sections-required"
-            ? "Choose at least one section in publication settings before previewing."
-            : "Could not build the preview.",
-      );
-      return null;
-    }
-    return (await response.json()) as {
-      snapshot: PublicWorkMapSnapshot;
-      publishable: boolean;
-      exactLocations: boolean;
-    };
-  }
-
-  async function publish() {
-    if (!settings) return;
-    setPublishing(true);
-    setMessage("");
-    const response = await fetch("/api/work-map/publish", { method: "POST" });
-    setPublishing(false);
-    if (response.ok) {
-      setMessage(
-        "Published this Work Map snapshot to the public link. Private edits stay local until you publish an update.",
-      );
-      await load();
-    } else {
-      const body = (await response.json()) as { error?: string };
-      setMessage(body.error ?? "The Work Map could not be published.");
-    }
-  }
 
   function stopSelecting() {
     setSelecting(false);
@@ -699,15 +484,6 @@ export function WorkMap({
       return next;
     });
     setSelectedId(id);
-    await load();
-  }
-
-  async function revoke() {
-    if (!latest) return;
-    const response = await fetch(`/api/projections/${latest.id}/revoke`, {
-      method: "POST",
-    });
-    setMessage(response.ok ? "Public Work Map revoked." : "Could not revoke it.");
     await load();
   }
 
@@ -896,29 +672,6 @@ export function WorkMap({
     await load();
   }
 
-  useEffect(() => {
-    const shell = actionShellRef.current;
-    if (!shell || !actionTabOpen) return;
-    shell.classList.remove("is-rising");
-    void shell.offsetWidth;
-    shell.classList.add("is-rising");
-  }, [actionTabOpen, selectedId]);
-
-  useEffect(() => {
-    if (!previewMenu && !publishMenu) return;
-    function onPointer(event: PointerEvent) {
-      const target = event.target as Node;
-      if (previewMenu && !previewMenuRef.current?.contains(target)) {
-        setPreviewMenu(false);
-      }
-      if (publishMenu && !publishMenuRef.current?.contains(target)) {
-        setPublishMenu(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [previewMenu, publishMenu]);
-
   if (!data) {
     return (
       <section className="work-map-loading">
@@ -931,45 +684,10 @@ export function WorkMap({
   const empty = data.roles.length === 0;
   const recordOpen = Boolean(selected);
   const mapVisible = placingForId ? true : mapOverride !== "hide";
-  const publishLabel = publishing
-    ? "Publishing…"
-    : latest?.status === "published"
-      ? "Update"
-      : "Publish";
 
   function chooseDetailTab(next: DetailTab) {
     setDetailTab(next);
     setMapOverride("auto");
-  }
-
-  function collapseActionTab() {
-    setActionTabOpen(false);
-    setPreviewMenu(false);
-    setPublishMenu(false);
-  }
-
-  function moveActionTab(event: ReactPointerEvent<HTMLButtonElement>) {
-    const gesture = actionGesture.current;
-    if (!gesture || event.pointerId !== gesture.id) return;
-    const dy = event.clientY - gesture.y;
-    const dock = actionDockRef.current;
-    if (Math.abs(dy) > 4) gesture.moved = true;
-    if (dock && ((actionTabOpen && dy > 0) || (!actionTabOpen && dy < 0))) {
-      const shift = actionTabOpen ? Math.min(dy, 40) : Math.max(dy, -40);
-      dock.style.transform = `translateY(${shift}px)`;
-    }
-    if (actionTabOpen && dy > 28) {
-      actionGesture.current = null;
-      actionSwallow.current = true;
-      if (dock) dock.style.transform = "";
-      collapseActionTab();
-    }
-    if (!actionTabOpen && dy < -28) {
-      actionGesture.current = null;
-      actionSwallow.current = true;
-      if (dock) dock.style.transform = "";
-      setActionTabOpen(true);
-    }
   }
 
   function dropPin(latitude: number, longitude: number) {
@@ -1016,7 +734,6 @@ export function WorkMap({
           onShowRole={() => {
             if (canvasAll) return;
             setSelectedId(canvasRole.id);
-            setView("map");
             setPinFocus((value) => value + 1);
           }}
           onOpenRole={(item) => {
@@ -1041,18 +758,8 @@ export function WorkMap({
         </p>
       ) : null}
 
-      {preview ? (
-        <WorkMapPreview
-          exactLocations={preview.exactLocations}
-          mapSettings={mapSettings}
-          publishable={preview.publishable}
-          snapshot={preview.snapshot}
-          onClose={() => setPreview(null)}
-        />
-      ) : null}
       <div
         className={["work-map-layout", mapVisible ? "is-map" : "is-record"].join(" ")}
-        hidden={preview !== null}
       >
         <div className="work-map-float">
           <CareerBio
@@ -1133,7 +840,6 @@ export function WorkMap({
               cameraBeforePlace.current = readMapCamera("history");
               setDetailTab("places");
               setMapOverride("show");
-              setView("map");
               setPlacingForId(selected.id);
               setPlacingLocationId(locationId ?? null);
             }}
@@ -1415,28 +1121,16 @@ export function WorkMap({
         </div>
 
         {mapVisible ? (
-        <main
-          className={[
-            "work-map-stage",
-            "has-action-tab",
-            !actionTabOpen ? "is-actions-collapsed" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
+        <main className="work-map-stage">
           <CareerMap
             cameraNonce={cameraNonce}
             fitKey={cameraFitKey}
             fitMode={fitMode}
             holdView={Boolean(placingForId)}
-            home={
-              timelineActive
-                ? homePinForTimeline(data.residences, timelineReading.home)
-                : homePin(data.residences, selected)
-            }
+            home={homePin(data.residences, selected)}
             onMapClick={placingForId ? dropPin : undefined}
             onSelect={selectRole}
-            roles={mapRoles}
+            roles={visibleRoles}
             selectedId={selectedId}
             settings={mapSettings}
             emptyNote={
@@ -1447,39 +1141,9 @@ export function WorkMap({
                   }
                 : null
             }
-            suppressEmpty={timelineActive}
             viewKey="history"
           />
-          {timelineActive && timelineMonths.length > 0 ? (
-            <CareerTimelineScrubber
-              frame={timelineReading}
-              month={shownMonth}
-              moments={timelineMoments}
-              months={timelineMonths}
-              onMonth={selectMonth}
-              onPlay={() => {
-                const upcoming = nextCareerMoment(timelineMoments, shownMonth);
-                if (!upcoming) {
-                  const first = timelineMoments[0];
-                  if (first) {
-                    const frame = careerFrame(
-                      timelineRoles,
-                      timelineMoments,
-                      first.at,
-                      timelineResidences,
-                    );
-                    if (frame.lead) selectRole(frame.lead.id, first.at, true);
-                    else {
-                      setTimelineMonth(first.at);
-                      setSelectedId(null);
-                    }
-                  }
-                }
-                setTimelinePlaying((value) => !value);
-              }}
-              playing={timelinePlaying}
-            />
-          ) : null}
+          {canvasMinimized ? <div className="action-canvas-slot" ref={setCanvasDock} /> : null}
           {placingForId ? (
             <div className="map-placement-banner" role="status">
               <strong>Place this work site</strong>
@@ -1499,118 +1163,6 @@ export function WorkMap({
               </button>
             </div>
           ) : null}
-          <div
-              className={actionTabOpen ? "action-dock" : "action-dock is-collapsed"}
-              ref={actionDockRef}
-            >
-              <div className={canvasMinimized ? "action-tab has-canvas" : "action-tab"} ref={actionShellRef}>
-                {canvasMinimized ? <div className="action-canvas-slot" ref={setCanvasDock} /> : null}
-                <div className="action-bar" role="toolbar" aria-label="Actions">
-                  <div className="publication-menu-anchor" ref={menuHost === "tab" ? publishMenuRef : undefined}>
-                    <button
-                      disabled={publishing}
-                      type="button"
-                      aria-expanded={publishMenu && menuHost === "tab"}
-                      aria-haspopup="menu"
-                      onClick={() => requestPublish("tab")}
-                    >
-                      {publishLabel}
-                    </button>
-                    {publishMenu && menuHost === "tab" ? (
-                      <div className="publication-menu" role="menu" aria-label="Publish">
-                        <button type="button" role="menuitem" onClick={confirmPublish}>
-                          Confirm publish
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => setPublishMenu(false)}>
-                          Cancel
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                  {latest?.status === "published" ? (
-                    <button type="button" onClick={revoke}>
-                      Revoke
-                    </button>
-                  ) : null}
-                  <div className="publication-menu-anchor" ref={menuHost === "tab" ? previewMenuRef : undefined}>
-                    <button
-                      type="button"
-                      aria-expanded={previewMenu && menuHost === "tab"}
-                      aria-haspopup="menu"
-                      onClick={() => void requestPreview("tab")}
-                    >
-                      Preview
-                    </button>
-                    {previewMenu && menuHost === "tab" ? (
-                      <div className="publication-menu" role="menu" aria-label="Open preview">
-                        <button type="button" role="menuitem" onClick={() => void choosePreview("here")}>
-                          This window
-                        </button>
-                        <button type="button" role="menuitem" onClick={() => void choosePreview("window")}>
-                          New window
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                  <button
-                    type="button"
-                    aria-pressed={view === "map"}
-                    onClick={() => setView("map")}
-                  >
-                    Map
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={view === "timeline"}
-                    onClick={() => {
-                      if (view === "timeline") return;
-                      setView("timeline");
-                      const frame = careerFrame(
-                        timelineRoles,
-                        timelineMoments,
-                        shownMonth,
-                        timelineResidences,
-                      );
-                      if (frame.lead) selectRole(frame.lead.id, shownMonth);
-                    }}
-                  >
-                    Timeline
-                  </button>
-                </div>
-                <button
-                  className="action-handle"
-                  type="button"
-                  aria-expanded={actionTabOpen}
-                  aria-label={actionTabOpen ? "Collapse actions" : "Show actions"}
-                  onPointerDown={(event) => {
-                    if (event.button !== 0) return;
-                    actionGesture.current = { id: event.pointerId, y: event.clientY, moved: false };
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                  }}
-                  onPointerMove={moveActionTab}
-                  onPointerUp={(event) => {
-                    if (!actionGesture.current || event.pointerId !== actionGesture.current.id) return;
-                    if (actionGesture.current.moved) actionSwallow.current = true;
-                    actionGesture.current = null;
-                    if (actionDockRef.current) actionDockRef.current.style.transform = "";
-                  }}
-                  onPointerCancel={() => {
-                    actionGesture.current = null;
-                    if (actionDockRef.current) actionDockRef.current.style.transform = "";
-                  }}
-                  onClick={() => {
-                    if (actionSwallow.current) {
-                      actionSwallow.current = false;
-                      return;
-                    }
-                    if (actionTabOpen) collapseActionTab();
-                    else setActionTabOpen(true);
-                  }}
-                >
-                  <i aria-hidden="true" />
-                </button>
-              </div>
-            </div>
         </main>
         ) : selected ? (
           <RoleSheet role={selected} tab={detailTab} />
@@ -1658,21 +1210,6 @@ function homePin(
 ): (WorkMapHome & { id: string }) | null {
   const residence = residenceForMap(residences, role);
   return residence ? toHomePin(residence) : null;
-}
-
-function homePinForTimeline(
-  residences: Residence[],
-  home: CareerTimelineResidence | null,
-): (WorkMapHome & { id: string }) | null {
-  if (home) {
-    if (!home.pinned) return null;
-    const residence = residences.find((item) => item.id === home.id);
-    return residence ? toHomePin(residence) : null;
-  }
-  return homePin(
-    residences.filter((item) => !careerMonth(item.startDate ?? "")),
-    null,
-  );
 }
 
 function toHomePin(residence: Residence): (WorkMapHome & { id: string }) | null {
@@ -2060,39 +1597,6 @@ function MediaSheet({ role }: { role: WorkMapRole }) {
   );
 }
 
-
-function currentCareerMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function asTimelineResidence(residence: Residence): CareerTimelineResidence {
-  return {
-    id: residence.id,
-    label: residence.label,
-    address: residence.address,
-    startDate: residence.startDate,
-    endDate: residence.endDate,
-    pinned: residence.latitude != null && residence.longitude != null,
-  };
-}
-
-function asTimelineRole(role: WorkMapRole): CareerTimelineRole {
-  return {
-    id: role.id,
-    title: role.title,
-    organization: role.organization,
-    place: formatHistoryPlace(role),
-    startDate: role.startDate,
-    endDate: role.endDate,
-    isCurrent: role.isCurrent,
-    pinned: role.locations.some(
-      (location) => Number.isFinite(location.latitude) && Number.isFinite(location.longitude),
-    ),
-    milestones: role.details?.milestones ?? [],
-    events: role.details?.events ?? [],
-  };
-}
 
 function ImportIcon() {
   return (

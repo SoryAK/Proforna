@@ -3,8 +3,11 @@ import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Icon } from "@astryxdesign/core/Icon";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
+import { Selector } from "@astryxdesign/core/Selector";
 import { Heading } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { Toolbar } from "@astryxdesign/core/Toolbar";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import {
   flagIdenticalRoles,
   formatHistoryGist,
@@ -51,10 +54,9 @@ export function CareerHistoryCard({
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
-  const [sort, setSort] = useState<"newest" | "oldest">("newest");
-  const [sortOpen, setSortOpen] = useState(false);
+  const [sort, setSort] = useState<HistorySort>("newest");
+  const [listFilter, setListFilter] = useState<HistoryFilter>("all");
   const [moreOpen, setMoreOpen] = useState(false);
-  const [findOpen, setFindOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selecting, setSelecting] = useState((selectedRoleIds?.length ?? 0) > 0);
   const [checked, setChecked] = useState<Set<string>>(() => new Set(selectedRoleIds ?? []));
@@ -64,7 +66,6 @@ export function CareerHistoryCard({
   const [note, setNote] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [creatingKind, setCreatingKind] = useState<CareerHistorySectionKey | null>(null);
-  const sortRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -117,22 +118,6 @@ export function CareerHistoryCard({
     if (!ready) return;
     onSelectionChangeRef.current?.(roles.filter((role) => checked.has(role.id)));
   }, [checked, roles, ready]);
-
-  useEffect(() => {
-    if (!sortOpen) return;
-    function onPointer(event: MouseEvent) {
-      if (sortRef.current && !sortRef.current.contains(event.target as Node)) setSortOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setSortOpen(false);
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [sortOpen]);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -189,6 +174,7 @@ export function CareerHistoryCard({
   );
   const needle = query.trim().toLowerCase();
   const shown = ordered.filter((role) => {
+    if (listFilter !== "all" && role.kind !== listFilter) return false;
     if (!needle) return true;
     return `${role.organization} ${role.title} ${formatHistoryPlace(role)}`.toLowerCase().includes(needle);
   });
@@ -320,10 +306,7 @@ export function CareerHistoryCard({
                     aria-label="More"
                     aria-haspopup="menu"
                     aria-expanded={moreOpen}
-                    onClick={() => {
-                      setSortOpen(false);
-                      setMoreOpen((open) => !open);
-                    }}
+                    onClick={() => setMoreOpen((open) => !open)}
                   >
                     <svg className="pch-more-mark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                       <circle cx="6" cy="12" r="1.6" />
@@ -351,69 +334,12 @@ export function CareerHistoryCard({
                     </div>
                   ) : null}
                 </div>
-                <div className="pch-sort" ref={sortRef}>
-                  <button
-                    className="pch-tool"
-                    type="button"
-                    aria-label="Sort"
-                    aria-haspopup="menu"
-                    aria-expanded={sortOpen}
-                    onClick={() => {
-                      setMoreOpen(false);
-                      setSortOpen((open) => !open);
-                    }}
-                  >
-                    <Icon className="pch-mark" icon="funnel" size="sm" />
-                  </button>
-                  {sortOpen ? (
-                    <div className="pch-sort-menu" role="menu" aria-label="Sort">
-                      <button
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={sort === "newest"}
-                        onClick={() => {
-                          setSort("newest");
-                          setSortOpen(false);
-                        }}
-                      >
-                        Newest
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={sort === "oldest"}
-                        onClick={() => {
-                          setSort("oldest");
-                          setSortOpen(false);
-                        }}
-                      >
-                        Oldest
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <button
-                  className="pch-tool"
-                  type="button"
-                  aria-label="Search career history"
-                  aria-pressed={findOpen}
-                  onClick={() => {
-                    setSortOpen(false);
-                    setFindOpen((open) => {
-                      if (open) setQuery("");
-                      return !open;
-                    });
-                  }}
-                >
-                  <Icon className="pch-mark" icon="search" size="sm" />
-                </button>
                 <button
                   className="pch-tool"
                   type="button"
                   aria-label={selecting ? "Done selecting" : "Select"}
                   aria-pressed={selecting}
                   onClick={() => {
-                    setSortOpen(false);
                     if (selecting) stopSelecting();
                     else setSelecting(true);
                   }}
@@ -431,7 +357,6 @@ export function CareerHistoryCard({
                       aria-expanded={addOpen}
                       isDisabled={creatingKind !== null}
                       onClick={() => {
-                        setSortOpen(false);
                         setMoreOpen(false);
                         setAddOpen((open) => !open);
                       }}
@@ -515,24 +440,50 @@ export function CareerHistoryCard({
               }
             />
           ) : null}
-          {findOpen ? (
-            <div className="pch-find">
-              <input
-                type="search"
+          <div className="pch-controls">
+            <div className="pch-controls-bar">
+              <TextInput
+                label="Search career history"
+                isLabelHidden
+                placeholder="Search..."
+                size="sm"
+                hasClear
+                startIcon={MagnifyingGlassIcon}
                 value={query}
-                placeholder="Search"
-                aria-label="Search career history"
-                autoFocus
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    setQuery("");
-                    setFindOpen(false);
-                  }
+                onChange={setQuery}
+              />
+              <Selector
+                label="Filter career history"
+                isLabelHidden
+                size="sm"
+                variant="ghost"
+                value={listFilter}
+                onChange={(value) => {
+                  setListFilter(
+                    value === "job" || value === "internship" || value === "school" ? value : "all",
+                  );
                 }}
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "job", label: "Jobs" },
+                  { value: "internship", label: "Internships" },
+                  { value: "school", label: "Education" },
+                ]}
+              />
+              <Selector
+                label="Sort career history"
+                isLabelHidden
+                size="sm"
+                variant="ghost"
+                value={sort}
+                onChange={(value) => setSort(value === "oldest" ? "oldest" : "newest")}
+                options={[
+                  { value: "newest", label: "Newest" },
+                  { value: "oldest", label: "Oldest" },
+                ]}
               />
             </div>
-          ) : null}
+          </div>
           {note ? <p className="pch-status">{note}</p> : null}
           {error ? <p className="pch-status">{error}</p> : null}
           <ScrollableArea className="pch-groups pch-frame" label="Roles">
@@ -586,6 +537,9 @@ function RoleButton({ role, onOpen }: { role: WorkMapRole; onOpen: () => void })
     </button>
   );
 }
+
+type HistoryFilter = "all" | "job" | "internship" | "school";
+type HistorySort = "newest" | "oldest";
 
 function groups(roles: WorkMapRole[]) {
   return [
