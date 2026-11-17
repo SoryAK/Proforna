@@ -276,7 +276,16 @@
     grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 26rem);
   }
 
-  .home-sheet.is-home:not(.is-left-closed) .home-center {
+  .home-sheet {
+    column-gap: 0;
+  }
+
+  .home-sheet:not(.is-left-closed) > .home-center,
+  .home-sheet:not(.is-left-closed) > .home-stage {
+    margin-left: 0.4rem;
+  }
+
+  .home-sheet.is-right-open > .home-proforna {
     margin-left: 0.4rem;
   }
 }
