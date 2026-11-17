@@ -1501,7 +1501,7 @@
 
 .work-map-stage > .action-canvas-slot {
   position: absolute;
-  z-index: 4;
+  z-index: 800;
   right: 0.75rem;
   bottom: 0.75rem;
   border: 1px solid rgba(199, 164, 123, 0.28);

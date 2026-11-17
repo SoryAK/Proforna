@@ -93,8 +93,8 @@
   gap: 0.65rem;
   min-width: 0;
   min-height: 0;
-  margin: -1rem 0 0;
-  padding: 1rem 0.9rem 0.85rem;
+  margin: -1rem 0 -1rem;
+  padding: 1rem 0.9rem 0.35rem;
   border-left: 1px solid #e4e4e7;
   border-radius: 0;
   background: #fff;
@@ -140,8 +140,22 @@
 }
 
 .home-story-recent-find {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
   width: 100%;
   min-width: 0;
+}
+
+.home-story-recent-find > :first-child {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.home-story-recent-find > :not(:first-child) {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 38%;
 }
 
 .home-story-recent-scroll {
@@ -165,6 +179,14 @@
 .home-story-recent-scroll:hover::-webkit-scrollbar-thumb,
 .home-story-recent-scroll:focus-within::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+.home-recent-detail {
+  margin: 0;
+  color: #171717;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .home-story-recent-card {

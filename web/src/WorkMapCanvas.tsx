@@ -399,8 +399,11 @@ function FitPoints({
       if (points.length === 1) {
         map.setView(points[0], selectedId ? 12 : 11);
       } else if (points.length > 1) {
+        const size = map.getSize();
+        const padX = Math.min(96, Math.max(0, Math.floor((size.x - 1) / 2)));
+        const padY = Math.min(96, Math.max(0, Math.floor((size.y - 1) / 2)));
         map.fitBounds(points, {
-          padding: [96, 96],
+          padding: [padX, padY],
           maxZoom: selectedId ? 12 : 11,
         });
       }

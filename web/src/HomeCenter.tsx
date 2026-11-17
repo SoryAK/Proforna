@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "@astryxdesign/core/Button";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Icon } from "@astryxdesign/core/Icon";
+import { Layout, LayoutContent } from "@astryxdesign/core/Layout";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { Selector } from "@astryxdesign/core/Selector";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Thumbnail } from "@astryxdesign/core/Thumbnail";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { formatHistoryPeriod, presentCareerHistoryStats } from "@core/career-history";
 import type { MapSettings } from "@core/map-settings";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
-import { Image, LayoutGrid, Map as MapIcon } from "lucide-react";
+import { ArrowLeft, Image, LayoutGrid, Map as MapIcon } from "lucide-react";
 import { CareerMap } from "./CareerMap";
 import type { MapFitMode } from "./map-camera";
 import "./home-center.css";
@@ -34,11 +38,14 @@ export function HomeCenter({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [recentLens, setRecentLens] = useState<RecentLens>("recent");
   const [recentQuery, setRecentQuery] = useState("");
+  const [recentFilter, setRecentFilter] = useState<RecentFilter>("all");
+  const [recentSort, setRecentSort] = useState<RecentSort>("date");
   const galleryHost = useGalleryHost();
+  const tabRefs = useRef<Partial<Record<CenterView, HTMLButtonElement>>>({});
 
   useEffect(() => {
     if (!viewRequest) return;
-    setView("story");
+    setView(viewRequest.updates ? "story" : "map");
     setUpdateId(viewRequest.updateId);
   }, [viewRequest]);
 
@@ -87,12 +94,16 @@ export function HomeCenter({
   const recentItems = updates.filter((item) =>
     recentLens === "notes" ? item.kind === "Note" : recentLens === "milestones" ? item.kind === "Milestone" : true,
   );
+  const recentFiltered = recentItems.filter((item) => matchesRecentFilter(item, recentFilter));
   const recentNeedle = recentQuery.trim().toLowerCase();
-  const recentShown = recentNeedle
-    ? recentItems.filter((item) =>
+  const recentShown = (recentNeedle
+    ? recentFiltered.filter((item) =>
         [item.kind, item.organization, item.text, item.stamp].join(" ").toLowerCase().includes(recentNeedle),
       )
-    : recentItems;
+    : recentFiltered
+  )
+    .slice()
+    .sort((left, right) => compareRecent(left, right, recentSort));
   const mediaRoles = focus ? [focus] : roles;
   const covers = mediaRoles.flatMap((role) => {
     const photo = roleCoverPhoto(role.media);
@@ -114,6 +125,21 @@ export function HomeCenter({
     setUpdateId(null);
   }
 
+  function moveTab(event: KeyboardEvent<HTMLButtonElement>) {
+    const order: CenterView[] = ["story", "map"];
+    const index = Math.max(0, order.indexOf(view));
+    let next = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (index + 1) % order.length;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (index - 1 + order.length) % order.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = order.length - 1;
+    else return;
+    event.preventDefault();
+    const chosen = order[next];
+    chooseStage(chosen);
+    tabRefs.current[chosen]?.focus();
+  }
+
   function openRecent(id: string) {
     setUpdateId(id);
   }
@@ -124,20 +150,49 @@ export function HomeCenter({
         className="home-stage home-center-live"
         aria-label={view === "map" ? "Map" : "Career story"}
       >
-        <div className="home-center-bar" role="tablist" aria-label="Card views">
-          <div className="home-center-tabs">
-            <button type="button" role="tab" aria-selected={view === "story"} onClick={() => chooseStage("story")}>
+        <div className="home-center-bar">
+          <div className="home-center-tabs" role="tablist" aria-label="Card views">
+            <button
+              ref={(node) => {
+                tabRefs.current.story = node ?? undefined;
+              }}
+              id="home-center-tab-story"
+              type="button"
+              role="tab"
+              aria-selected={view === "story"}
+              aria-controls="home-center-panel"
+              tabIndex={view === "story" ? 0 : -1}
+              onKeyDown={moveTab}
+              onClick={() => chooseStage("story")}
+            >
               <Icon icon={LayoutGrid} size="sm" />
               Story
             </button>
-            <button type="button" role="tab" aria-selected={view === "map"} onClick={() => chooseStage("map")}>
+            <button
+              ref={(node) => {
+                tabRefs.current.map = node ?? undefined;
+              }}
+              id="home-center-tab-map"
+              type="button"
+              role="tab"
+              aria-selected={view === "map"}
+              aria-controls="home-center-panel"
+              tabIndex={view === "map" ? 0 : -1}
+              onKeyDown={moveTab}
+              onClick={() => chooseStage("map")}
+            >
               <Icon icon={MapIcon} size="sm" />
               Map
             </button>
           </div>
           <div className="home-center-pub" />
         </div>
-        <div className="home-center-stage">
+        <div
+          className="home-center-stage"
+          id="home-center-panel"
+          role="tabpanel"
+          aria-labelledby={view === "map" ? "home-center-tab-map" : "home-center-tab-story"}
+        >
           <div className="home-story-layout">
             {view === "map" ? (
               <div className="home-center-map">
@@ -220,28 +275,55 @@ export function HomeCenter({
                       isLabelHidden
                       placeholder="Search..."
                       size="sm"
-                      width="100%"
                       hasClear
                       startIcon={MagnifyingGlassIcon}
                       value={recentQuery}
-                      onChange={setRecentQuery}
+                      onChange={(value) => {
+                        setRecentQuery(value);
+                        setUpdateId(null);
+                      }}
+                    />
+                    <Selector
+                      label="Filter recent"
+                      isLabelHidden
+                      size="sm"
+                      variant="ghost"
+                      value={recentFilter}
+                      onChange={(value) => {
+                        setRecentFilter(
+                          value === "notes" || value === "milestones" || value === "updates" ? value : "all",
+                        );
+                        setUpdateId(null);
+                      }}
+                      options={[
+                        { value: "all", label: "All" },
+                        { value: "notes", label: "Notes" },
+                        { value: "milestones", label: "Milestones" },
+                        { value: "updates", label: "Updates" },
+                      ]}
+                    />
+                    <Selector
+                      label="Sort recent"
+                      isLabelHidden
+                      size="sm"
+                      variant="ghost"
+                      value={recentSort}
+                      onChange={(value) => {
+                        setRecentSort(
+                          value === "type" || value === "company" || value === "achievement" ? value : "date",
+                        );
+                      }}
+                      options={[
+                        { value: "date", label: "Date" },
+                        { value: "type", label: "Type" },
+                        { value: "company", label: "Company" },
+                        { value: "achievement", label: "Achievement" },
+                      ]}
                     />
                   </div>
                   <ScrollableArea className="home-story-recent-scroll" label={recentLensLabel(recentLens)}>
                     <div className="home-story-panel home-story-recent-card">
-                      {openUpdate ? (
-                        <article>
-                          <button type="button" onClick={() => setUpdateId(null)}>
-                            {recentLensLabel(recentLens)}
-                          </button>
-                          <strong>
-                            {openUpdate.organization}
-                            {openUpdate.kind ? ` · ${openUpdate.kind}` : ""}
-                          </strong>
-                          {openUpdate.frame ? <time dateTime={openUpdate.when}>{openUpdate.frame}</time> : null}
-                          <p>{openUpdate.text}</p>
-                        </article>
-                      ) : recentShown.length > 0 ? (
+                      {recentShown.length > 0 ? (
                         <ul>
                           {recentShown.map((item) => (
                             <li key={item.id}>
@@ -254,7 +336,11 @@ export function HomeCenter({
                           ))}
                         </ul>
                       ) : (
-                        <p>{recentNeedle ? "No matches." : recentEmpty(recentLens, focus)}</p>
+                        <p>
+                          {recentNeedle || recentFilter !== "all"
+                            ? "No matches."
+                            : recentEmpty(recentLens, focus)}
+                        </p>
                       )}
                     </div>
                   </ScrollableArea>
@@ -262,6 +348,42 @@ export function HomeCenter({
           </div>
         </div>
       </main>
+      <Dialog
+        isOpen={openUpdate != null}
+        onOpenChange={(open) => {
+          if (!open) setUpdateId(null);
+        }}
+        purpose="info"
+        width={560}
+      >
+        {openUpdate ? (
+          <Layout
+            padding={4}
+            header={
+              <DialogHeader
+                title={openUpdate.organization || "Update"}
+                subtitle={[openUpdate.kind, openUpdate.frame].filter(Boolean).join(" · ") || undefined}
+                hasDivider={false}
+                startContent={
+                  <Button
+                    label="Back"
+                    variant="ghost"
+                    isIconOnly
+                    icon={<Icon icon={ArrowLeft} />}
+                    onClick={() => setUpdateId(null)}
+                  />
+                }
+                onOpenChange={() => setUpdateId(null)}
+              />
+            }
+            content={
+              <LayoutContent label="Recent detail">
+                <p className="home-recent-detail">{openUpdate.text}</p>
+              </LayoutContent>
+            }
+          />
+        ) : null}
+      </Dialog>
       {galleryHost
         ? createPortal(
             <>
@@ -326,6 +448,32 @@ function useGalleryHost() {
 
 type CenterView = "story" | "map";
 type RecentLens = "recent" | "notes" | "milestones";
+type RecentFilter = "all" | "notes" | "milestones" | "updates";
+type RecentSort = "date" | "type" | "company" | "achievement";
+
+function matchesRecentFilter(item: LiveUpdate, filter: RecentFilter) {
+  if (filter === "notes") return item.kind === "Note";
+  if (filter === "milestones") return item.kind === "Milestone";
+  if (filter === "updates") return item.kind !== "Note" && item.kind !== "Milestone";
+  return true;
+}
+
+function compareRecent(left: LiveUpdate, right: LiveUpdate, sort: RecentSort) {
+  if (sort === "date") {
+    const ranked = (right.when || "").localeCompare(left.when || "");
+    if (ranked !== 0) return ranked;
+  } else {
+    const value =
+      sort === "type"
+        ? [left.kind, right.kind]
+        : sort === "company"
+          ? [left.organization, right.organization]
+          : [left.text, right.text];
+    const ranked = value[0].localeCompare(value[1], undefined, { sensitivity: "base" });
+    if (ranked !== 0) return ranked;
+  }
+  return left.id.localeCompare(right.id);
+}
 
 function recentLensLabel(lens: RecentLens) {
   if (lens === "notes") return "Notes";
