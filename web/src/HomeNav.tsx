@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from "react";
+import { Button } from "@astryxdesign/core/Button";
 import { Thumbnail } from "@astryxdesign/core/Thumbnail";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import { ChevronDown, Frame, House, Plug, Puzzle, Wrench } from "lucide-react";
@@ -336,27 +337,35 @@ function GalleryResource({
 }) {
   const [open, setOpen] = useState(false);
   const [covers, setCovers] = useState<GalleryCover[]>([]);
+  const [status, setStatus] = useState<GalleryStatus>("idle");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
     let cancelled = false;
+    setStatus("loading");
     void fetch("/api/work-map", { signal: controller.signal })
       .then(async (response) => {
-        if (cancelled || !response.ok) return;
+        if (cancelled) return;
+        if (!response.ok) {
+          setStatus("error");
+          return;
+        }
         const body = (await response.json()) as { roles?: WorkMapRole[] };
         if (cancelled) return;
         setCovers(coverPhotos(body.roles ?? []));
+        setStatus("ready");
       })
       .catch((error: unknown) => {
         if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
-        setCovers([]);
+        setStatus("error");
       });
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [open]);
+  }, [open, attempt]);
 
   return (
     <>
@@ -365,14 +374,24 @@ function GalleryResource({
         className={open ? "home-nav-item is-current" : "home-nav-item"}
         aria-expanded={open}
         title={slim ? "Gallery" : undefined}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) setStatus("loading");
+          setOpen((value) => !value);
+        }}
       >
         <Icon name="gallery" />
         {slim ? <span className="sr-only">Gallery</span> : "Gallery"}
       </button>
       {open ? (
         <div className="home-nav-gallery">
-          {covers.length > 0 ? (
+          {status === "error" ? (
+            <div className="home-nav-gallery-error">
+              <p>The gallery could not be loaded.</p>
+              <Button label="Try again" variant="ghost" size="sm" onClick={() => setAttempt((value) => value + 1)} />
+            </div>
+          ) : status === "loading" ? (
+            <p>Loading photos.</p>
+          ) : covers.length > 0 ? (
             <div className="home-nav-photos">
               {covers.map((item) => (
                 <Thumbnail
@@ -393,6 +412,8 @@ function GalleryResource({
     </>
   );
 }
+
+type GalleryStatus = "idle" | "loading" | "ready" | "error";
 
 type GalleryCover = {
   id: string;

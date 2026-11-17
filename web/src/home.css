@@ -780,6 +780,12 @@ button.home-nav-item:focus-visible {
   font-size: 0.8125rem;
 }
 
+.home-nav-gallery-error {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+}
+
 .home-nav-main {
   display: flex;
   min-height: 0;
