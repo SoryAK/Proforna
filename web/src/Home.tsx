@@ -336,6 +336,7 @@ export function Home({
           "home-sheet",
           leftClosed ? "is-left-closed" : "",
           profornaOpen ? "is-right-open" : "",
+          page === "home" ? "is-home" : "",
           page === "home" || page === "history" ? "" : "is-stage-full",
           page === "history" && bioMode === "preview" ? "" : "is-bio-hidden",
         ]

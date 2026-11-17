@@ -241,6 +241,35 @@
   grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 26rem);
 }
 
+.home-sheet.is-home {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  column-gap: 0;
+  row-gap: 0.75rem;
+}
+
+.home-sheet.is-home .home-history {
+  border-right: 0;
+  border-radius: 16px 0 0 16px;
+  box-shadow: none;
+}
+
+.home-sheet.is-home.is-right-open > .home-proforna {
+  margin-left: 0.4rem;
+}
+
+@media (min-width: 801px) {
+  .home-sheet.is-home {
+    grid-template-columns: 16.5rem minmax(0, 1fr);
+  }
+
+  .home-sheet.is-home.is-right-open {
+    grid-template-columns: 16.5rem minmax(12rem, 1fr) minmax(14rem, 26rem);
+  }
+}
+
 .home-sheet > .home-bar {
   grid-column: 1 / -1;
   grid-row: 1;
@@ -916,6 +945,7 @@ button.home-nav-item:focus-visible {
 
   .home-bio,
   .home-history,
+  .home-center,
   .home-stage,
   .home-media,
   .home-sheet.is-right-open > .home-proforna,
@@ -968,6 +998,12 @@ button.home-nav-item:focus-visible {
   display: inline-flex;
   align-items: center;
   margin-right: 0.35rem;
+}
+
+.home-pub-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .home-pub-menu {
