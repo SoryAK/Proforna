@@ -69,7 +69,7 @@ export function CareerHistoryCard({
   const [note, setNote] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [draftKind, setDraftKind] = useState<CareerHistorySectionKey | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsedSections);
   const moreRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -91,6 +91,10 @@ export function CareerHistoryCard({
   useEffect(() => {
     void load().finally(() => setReady(true));
   }, [revision]);
+
+  useEffect(() => {
+    writeCollapsedSections(collapsed);
+  }, [collapsed]);
 
   useEffect(() => {
     if (focusRoleId) setFocusId(focusRoleId);
@@ -566,6 +570,36 @@ function RoleButton({ role, onOpen }: { role: WorkMapRole; onOpen: () => void })
 
 type HistoryFilter = "all" | "job" | "internship" | "school";
 type HistorySort = "newest" | "oldest";
+
+const COLLAPSED_SECTIONS_KEY = "proforna.career-history.collapsed";
+
+const SECTION_KIND: Record<string, Exclude<HistoryFilter, "all">> = {
+  Jobs: "job",
+  Internships: "internship",
+  Education: "school",
+};
+
+function readCollapsedSections(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_SECTIONS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((item): item is string => typeof item === "string" && item in SECTION_KIND));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeCollapsedSections(collapsed: Set<string>) {
+  try {
+    const labels = [...collapsed].filter((label) => label in SECTION_KIND);
+    if (labels.length === 0) window.localStorage.removeItem(COLLAPSED_SECTIONS_KEY);
+    else window.localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify(labels));
+  } catch {
+    /* ignore quota or private mode */
+  }
+}
 
 function groups(roles: WorkMapRole[]) {
   return [
