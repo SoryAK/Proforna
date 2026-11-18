@@ -66,7 +66,14 @@ export function NetworkPage() {
   const [removing, setRemoving] = useState<NetworkContact | null>(null);
   const [allowRemote, setAllowRemote] = useState(false);
   const [agencyBusy, setAgencyBusy] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const agencyAbort = useRef<AbortController | null>(null);
+  const [savingPerson, setSavingPerson] = useState(false);
+  const sendingRef = useRef(false);
+  const approvingRef = useRef(false);
+  const savingPersonRef = useRef(false);
+  const selectedRef = useRef<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -91,9 +98,17 @@ export function NetworkPage() {
   }
 
   async function openThread(contactId: string) {
+    const switching = contactId !== selectedRef.current;
+    if (switching) setAllowRemote(false);
+    selectedRef.current = contactId;
     setSelectedId(contactId);
     setStatus("");
+    if (switching) {
+      setMessages([]);
+      setProposedReplies([]);
+    }
     const response = await fetch(`/api/contacts/${contactId}/messages`);
+    if (selectedRef.current !== contactId) return;
     if (!response.ok) {
       setMessages([]);
       setProposedReplies([]);
@@ -103,6 +118,7 @@ export function NetworkPage() {
       messages: ThreadMessage[];
       proposedReplies?: ProposedReply[];
     };
+    if (selectedRef.current !== contactId) return;
     setMessages(body.messages);
     setProposedReplies(body.proposedReplies ?? []);
     window.dispatchEvent(new Event("proforna:notices-changed"));
@@ -126,65 +142,105 @@ export function NetworkPage() {
   }
 
   async function savePerson() {
-    if (!person) return;
+    if (!person || savingPersonRef.current) return;
     const payload = {
       name: person.name,
       organization: person.organization,
       role: person.role,
       email: person.email,
     };
-    const response = await fetch(
-      person.id ? `/api/contacts/${person.id}` : "/api/contacts",
-      {
-        method: person.id ? "PUT" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setFormError(contactError(body?.error));
-      return;
+    savingPersonRef.current = true;
+    setSavingPerson(true);
+    setFormError("");
+    try {
+      const response = await fetch(
+        person.id ? `/api/contacts/${person.id}` : "/api/contacts",
+        {
+          method: person.id ? "PUT" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setFormError(contactError(body?.error));
+        return;
+      }
+      setPerson(null);
+      await load();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setFormError("That person could not be saved.");
+    } finally {
+      savingPersonRef.current = false;
+      setSavingPerson(false);
     }
-    setPerson(null);
-    await load();
   }
 
   async function removePerson() {
     if (!removing) return;
-    const response = await fetch(`/api/contacts/${removing.id}`, { method: "DELETE" });
-    if (!response.ok) {
+    setStatus("");
+    try {
+      const response = await fetch(`/api/contacts/${removing.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setStatus(
+          body?.error === "send-pending"
+            ? "Wait for the message to finish sending."
+            : "Could not remove that person.",
+        );
+        setRemoving(null);
+        return;
+      }
+      if (selectedRef.current === removing.id) {
+        selectedRef.current = null;
+        setSelectedId(null);
+        setAllowRemote(false);
+        setMessages([]);
+        setProposedReplies([]);
+      }
+      setRemoving(null);
+      await load();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setStatus("Could not remove that person.");
       setRemoving(null);
-      return;
     }
-    if (selectedId === removing.id) {
-      setSelectedId(null);
-      setMessages([]);
-      setProposedReplies([]);
-    }
-    setRemoving(null);
-    await load();
   }
 
   async function sendMessage() {
+    if (sendingRef.current) return;
     if (!selectedId || !draft.trim()) {
       setStatus("Add a message before sending.");
       return;
     }
-    const response = await fetch(`/api/contacts/${selectedId}/messages`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: draft }),
-    });
-    setStatus(response.ok ? "" : "Add a message before sending.");
-    if (!response.ok) return;
-    setDraft("");
-    await openThread(selectedId);
+    const contactId = selectedId;
+    sendingRef.current = true;
+    setSending(true);
+    setStatus("");
+    try {
+      const response = await fetch(`/api/contacts/${contactId}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: draft }),
+      });
+      setStatus(response.ok ? "" : "Add a message before sending.");
+      if (!response.ok) return;
+      setDraft("");
+      if (selectedRef.current === contactId) await openThread(contactId);
+      else await load();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setStatus("That message could not be sent.");
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   }
 
   async function suggestReply() {
     if (!selectedId || agencyBusy) return;
+    const contactId = selectedId;
     setStatus("");
     const abort = new AbortController();
     agencyAbort.current = abort;
@@ -195,11 +251,12 @@ export function NetworkPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           purpose: "suggest-reply",
-          scope: { type: "contact", id: selectedId },
+          scope: { type: "contact", id: contactId },
           grant: { remoteModel: allowRemote },
         }),
         signal: abort.signal,
       });
+      if (selectedRef.current !== contactId) return;
       if (response.status === 403) {
         setAllowRemote(true);
         setStatus("This uses a cloud model. Suggest again if this thread may leave the machine.");
@@ -213,11 +270,12 @@ export function NetworkPage() {
         setStatus("Connect a model in Settings before asking Proforna.");
         return;
       }
-      await openThread(selectedId);
+      await openThread(contactId);
       window.dispatchEvent(new Event("proforna:notices-changed"));
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      throw error;
+      if (selectedRef.current !== contactId) return;
+      setStatus("A reply could not be suggested.");
     } finally {
       if (agencyAbort.current === abort) agencyAbort.current = null;
       setAgencyBusy(false);
@@ -225,15 +283,29 @@ export function NetworkPage() {
   }
 
   async function approveReply(changeSetId: string) {
-    if (!selectedId) return;
-    const response = await fetch(
-      `/api/contacts/${selectedId}/replies/${changeSetId}/approve`,
-      { method: "POST" },
-    );
-    setStatus(response.ok ? "" : "Could not send that draft.");
-    if (!response.ok) return;
-    await openThread(selectedId);
-    window.dispatchEvent(new Event("proforna:notices-changed"));
+    if (!selectedId || approvingRef.current) return;
+    const contactId = selectedId;
+    approvingRef.current = true;
+    setApprovingId(changeSetId);
+    setStatus("");
+    try {
+      const response = await fetch(
+        `/api/contacts/${contactId}/replies/${changeSetId}/approve`,
+        { method: "POST" },
+      );
+      setStatus(response.ok ? "" : "Could not send that draft.");
+      if (!response.ok) return;
+      if (selectedRef.current === contactId) await openThread(contactId);
+      else await load();
+      window.dispatchEvent(new Event("proforna:notices-changed"));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (selectedRef.current !== contactId) return;
+      setStatus("Could not send that draft.");
+    } finally {
+      approvingRef.current = false;
+      setApprovingId(null);
+    }
   }
 
   const selected = contacts.find((contact) => contact.id === selectedId) ?? null;
@@ -323,7 +395,8 @@ export function NetworkPage() {
                         label="Approve and send"
                         variant="primary"
                         size="sm"
-                        isDisabled={agencyBusy}
+                        isDisabled={agencyBusy || approvingId !== null}
+                        isLoading={approvingId === reply.id}
                         onClick={() => void approveReply(reply.id)}
                       />
                     </VStack>
@@ -340,7 +413,13 @@ export function NetworkPage() {
                   rows={3}
                 />
                 <HStack gap={2}>
-                  <Button label="Send" variant="primary" onClick={() => void sendMessage()} />
+                  <Button
+                    label={sending ? "Sending…" : "Send"}
+                    variant="primary"
+                    isDisabled={sending}
+                    isLoading={sending}
+                    onClick={() => void sendMessage()}
+                  />
                   <Button
                     label={agencyBusy ? "Working…" : "Suggest a reply"}
                     variant="secondary"
@@ -415,7 +494,13 @@ export function NetworkPage() {
             <LayoutFooter>
               <HStack gap={2} vAlign="center">
                 <Button label="Cancel" variant="secondary" onClick={() => setPerson(null)} />
-                <Button label="Save" variant="primary" onClick={() => void savePerson()} />
+                <Button
+                  label={savingPerson ? "Saving…" : "Save"}
+                  variant="primary"
+                  isDisabled={savingPerson}
+                  isLoading={savingPerson}
+                  onClick={() => void savePerson()}
+                />
               </HStack>
             </LayoutFooter>
           }

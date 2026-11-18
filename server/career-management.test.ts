@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
+import { removeContact } from "./career-management";
+import { sendOccupantMessage } from "./conversation";
 import { openDatabase } from "./db";
 import { captureAccessRequest } from "./projections";
 
@@ -250,6 +252,16 @@ describe("career management HTTP seam", () => {
       });
       expect(updated.status).toBe(200);
 
+      for (const body of ["null", "[]", "not-json"]) {
+        const rejected = await app.request(`/api/contacts/${contact.contact.id}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body,
+        });
+        expect(rejected.status).toBe(400);
+        expect(await rejected.json()).toEqual({ error: "invalid-body" });
+      }
+
       const listed = (await (await app.request("/api/career-management")).json()) as {
         contacts: Array<{ id: string; name: string }>;
       };
@@ -265,6 +277,86 @@ describe("career management HTTP seam", () => {
         contacts: Array<{ id: string }>;
       };
       expect(after.contacts.find((item) => item.id === contact.contact.id)).toBeUndefined();
+    } finally {
+      db.close();
+    }
+  });
+
+  it("changes notes and keeps them when an edit leaves them out", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/contacts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Alex Rivera",
+          notes: "Met at the shop.",
+        }),
+      });
+      const contact = (await created.json()) as { contact: { id: string; notes: string } };
+      expect(contact.contact.notes).toBe("Met at the shop.");
+
+      const kept = await app.request(`/api/contacts/${contact.contact.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Alex R." }),
+      });
+      expect(kept.status).toBe(200);
+      expect(await kept.json()).toEqual({
+        contact: expect.objectContaining({
+          name: "Alex R.",
+          notes: "Met at the shop.",
+        }),
+      });
+
+      const changed = await app.request(`/api/contacts/${contact.contact.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Alex R.", notes: "Follow up Friday." }),
+      });
+      expect(changed.status).toBe(200);
+      expect(await changed.json()).toEqual({
+        contact: expect.objectContaining({ notes: "Follow up Friday." }),
+      });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("keeps the person and their messages when removal fails", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/contacts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Alex Rivera",
+          email: "alex@example.com",
+        }),
+      });
+      const contact = (await created.json()) as { contact: { id: string } };
+      const occupant = db.prepare("SELECT id FROM occupants").get() as { id: string };
+      await sendOccupantMessage(db, occupant.id, contact.contact.id, {
+        body: "Thursday",
+      });
+      db.exec(
+        `CREATE TRIGGER fail_contact_delete
+           BEFORE DELETE ON contacts
+         BEGIN
+           SELECT RAISE(ABORT, 'fail');
+         END`,
+      );
+      expect(() => removeContact(db, occupant.id, contact.contact.id)).toThrow();
+      expect(
+        db.prepare("SELECT id FROM contacts WHERE id = ?").get(contact.contact.id),
+      ).toBeTruthy();
+      expect(
+        db
+          .prepare("SELECT body FROM contact_messages WHERE contact_id = ?")
+          .all(contact.contact.id),
+      ).toEqual([{ body: "Thursday" }]);
     } finally {
       db.close();
     }

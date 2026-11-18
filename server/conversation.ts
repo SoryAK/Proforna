@@ -18,6 +18,7 @@ import {
 import {
   CareerManagementStoreError,
   createContact,
+  markContactSend,
   type ExternalActionAdapter,
 } from "./career-management";
 import { saveEvidence } from "./career-memory";
@@ -102,6 +103,8 @@ export async function sendOccupantMessage(
   if (!body) throw new ConversationStoreError("body-required");
   const now = new Date().toISOString();
   const destination = contact.email || `contact:${contact.id}`;
+  markContactSend(contact.id, true);
+  try {
   const minted = await mintOccupantApproval(occupantId, {
     purpose: `Send message to ${contact.name}`,
     destination,
@@ -171,6 +174,9 @@ export async function sendOccupantMessage(
     occurredAt: now,
   });
   return { message, action };
+  } finally {
+    markContactSend(contact.id, false);
+  }
 }
 
 export function listContactMessages(
@@ -321,6 +327,9 @@ export async function commitSuggestedReply(
     operations: JSON.parse(row.operations_json),
     createdAt: row.created_at,
   };
+  if (row.destination !== (contact.email || `contact:${contact.id}`)) {
+    throw new ConversationStoreError("destination-changed");
+  }
   const send = changeSet.operations.find(
     (operation) =>
       operation.action === "send" &&

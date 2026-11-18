@@ -1995,13 +1995,22 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.put("/api/contacts/:id", async (c) => {
     const occupant = ensureOccupant(db);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return c.json({ error: "invalid-body" }, 400);
+    }
     try {
       return c.json({
         contact: updateContact(
           db,
           occupant.id,
           c.req.param("id"),
-          (await c.req.json()) as Record<string, unknown>,
+          body as Record<string, unknown>,
         ),
       });
     } catch (error) {

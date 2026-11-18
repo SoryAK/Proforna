@@ -644,11 +644,14 @@ function RequestDialog({
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const attempt = useRef(0);
 
   useEffect(() => {
+    attempt.current += 1;
     if (!isOpen) return;
     let cancelled = false;
     setReady(false);
+    setSending(false);
     setPersonId("");
     setBody("");
     setError("");
@@ -676,6 +679,7 @@ function RequestDialog({
       setError("Choose a person and write the request.");
       return;
     }
+    const generation = attempt.current;
     setSending(true);
     setError("");
     try {
@@ -684,15 +688,17 @@ function RequestDialog({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ body: body.trim() }),
       });
+      if (generation !== attempt.current) return;
       if (!response.ok) {
         setError("The request could not be sent.");
         return;
       }
       onClose();
     } catch {
+      if (generation !== attempt.current) return;
       setError("The request could not be sent.");
     } finally {
-      setSending(false);
+      if (generation === attempt.current) setSending(false);
     }
   }
 

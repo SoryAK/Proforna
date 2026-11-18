@@ -69,6 +69,7 @@ export function CareerHistoryCard({
   const [note, setNote] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [draftKind, setDraftKind] = useState<CareerHistorySectionKey | null>(null);
+  const draftSession = useRef(0);
   const [collapsed, setCollapsed] = useState<Set<string>>(readCollapsedSections);
   const moreRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLDivElement>(null);
@@ -158,6 +159,16 @@ export function CareerHistoryCard({
       document.removeEventListener("keydown", onKey);
     };
   }, [addOpen]);
+
+  function openDraft(kind: CareerHistorySectionKey) {
+    draftSession.current += 1;
+    setDraftKind(kind);
+  }
+
+  function closeDraft() {
+    draftSession.current += 1;
+    setDraftKind(null);
+  }
 
   async function saveDraft(kind: CareerHistorySectionKey) {
     setNote(`${addKindLabel(kind)} added.`);
@@ -377,7 +388,7 @@ export function CareerHistoryCard({
                       <CareerHistoryAddMenu
                         onChoose={(kind) => {
                           setAddOpen(false);
-                          setDraftKind(kind);
+                          openDraft(kind);
                         }}
                       />
                     ) : null}
@@ -543,13 +554,21 @@ export function CareerHistoryCard({
           </ScrollableArea>
         </div>
       )}
-      {draftKind ? (
-        <RoleDraftDialog
-          kind={draftKind}
-          onClose={() => setDraftKind(null)}
-          onSaved={() => saveDraft(draftKind)}
-        />
-      ) : null}
+      {draftKind
+        ? (() => {
+            const draftOpened = draftSession.current;
+            return (
+              <RoleDraftDialog
+                kind={draftKind}
+                onClose={closeDraft}
+                onSaved={() => {
+                  if (draftSession.current !== draftOpened) return;
+                  void saveDraft(draftKind);
+                }}
+              />
+            );
+          })()
+        : null}
     </div>
   );
 }
@@ -649,17 +668,22 @@ function RoleDraftDialog({
     }
     setSaving(true);
     setError("");
-    const response = await fetch("/api/work-map/roles", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(planned.value),
-    });
-    setSaving(false);
-    if (!response.ok) {
+    try {
+      const response = await fetch("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(planned.value),
+      });
+      if (!response.ok) {
+        setError("That role could not be added.");
+        return;
+      }
+      onSaved();
+    } catch {
       setError("That role could not be added.");
-      return;
+    } finally {
+      setSaving(false);
     }
-    onSaved();
   }
 
   return (
