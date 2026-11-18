@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
+import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Icon } from "@astryxdesign/core/Icon";
+import { HStack } from "@astryxdesign/core/HStack";
+import { Layout, LayoutContent, LayoutFooter } from "@astryxdesign/core/Layout";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Heading } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Toolbar } from "@astryxdesign/core/Toolbar";
+import { VStack } from "@astryxdesign/core/VStack";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import {
   flagIdenticalRoles,
@@ -15,13 +22,9 @@ import {
   formatHistoryPlace,
   type CareerHistorySectionKey,
 } from "@core/career-history";
-import type { WorkMapRole } from "@core/work-map";
+import { prepareWorkMapRoleDraft, type WorkMapRole } from "@core/work-map";
 import { ArrowLeft, Plus, SquareCheck } from "lucide-react";
-import {
-  addKindLabel,
-  CareerHistoryAddMenu,
-  createCareerHistoryRole,
-} from "./CareerHistoryAddMenu";
+import { addKindLabel, CareerHistoryAddMenu } from "./CareerHistoryAddMenu";
 import "./career-history-card.css";
 
 export function CareerHistoryCard({
@@ -65,7 +68,7 @@ export function CareerHistoryCard({
   const [focusId, setFocusId] = useState<string | null>(focusRoleId ?? null);
   const [note, setNote] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [creatingKind, setCreatingKind] = useState<CareerHistorySectionKey | null>(null);
+  const [draftKind, setDraftKind] = useState<CareerHistorySectionKey | null>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -151,16 +154,9 @@ export function CareerHistoryCard({
     };
   }, [addOpen]);
 
-  async function addRole(kind: CareerHistorySectionKey) {
-    setCreatingKind(kind);
-    setNote("");
-    const id = await createCareerHistoryRole(kind);
-    setCreatingKind(null);
-    if (!id) {
-      setNote("Could not add that role.");
-      return;
-    }
+  async function saveDraft(kind: CareerHistorySectionKey) {
     setNote(`${addKindLabel(kind)} added.`);
+    setDraftKind(null);
     await load();
     onAdded?.();
   }
@@ -355,7 +351,6 @@ export function CareerHistoryCard({
                       aria-keyshortcuts="Control+N"
                       aria-haspopup="menu"
                       aria-expanded={addOpen}
-                      isDisabled={creatingKind !== null}
                       onClick={() => {
                         setMoreOpen(false);
                         setAddOpen((open) => !open);
@@ -365,7 +360,7 @@ export function CareerHistoryCard({
                       <CareerHistoryAddMenu
                         onChoose={(kind) => {
                           setAddOpen(false);
-                          void addRole(kind);
+                          setDraftKind(kind);
                         }}
                       />
                     ) : null}
@@ -519,6 +514,13 @@ export function CareerHistoryCard({
           </ScrollableArea>
         </div>
       )}
+      {draftKind ? (
+        <RoleDraftDialog
+          kind={draftKind}
+          onClose={() => setDraftKind(null)}
+          onSaved={() => saveDraft(draftKind)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -547,4 +549,136 @@ function groups(roles: WorkMapRole[]) {
     { label: "Internships", roles: roles.filter((role) => role.kind === "internship") },
     { label: "Education", roles: roles.filter((role) => role.kind === "school") },
   ].filter((group) => group.roles.length > 0);
+}
+
+function RoleDraftDialog({
+  kind,
+  onClose,
+  onSaved,
+}: {
+  kind: CareerHistorySectionKey;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const school = kind === "school";
+  const [title, setTitle] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [place, setPlace] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [current, setCurrent] = useState(false);
+  const [description, setDescription] = useState("");
+  const [achievements, setAchievements] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const planned = prepareWorkMapRoleDraft({
+      kind,
+      title,
+      organization,
+      locationLabel: place,
+      startDate,
+      endDate: current ? "" : endDate,
+      isCurrent: current,
+      description,
+      achievements: achievements.split("\n"),
+    });
+    if (!planned.ok) {
+      setError(school ? "Add a program or a school." : "Add a title or an organization.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    const response = await fetch("/api/work-map/roles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(planned.value),
+    });
+    setSaving(false);
+    if (!response.ok) {
+      setError("That role could not be added.");
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <Dialog
+      isOpen
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      width={520}
+      purpose="form"
+    >
+      <Layout
+        padding={4}
+        header={
+          <DialogHeader
+            title={`New ${addKindLabel(kind).toLowerCase()}`}
+            onOpenChange={onClose}
+            hasDivider={false}
+          />
+        }
+        content={
+          <LayoutContent label={`New ${addKindLabel(kind).toLowerCase()}`}>
+            <VStack gap={3}>
+              {error ? (
+                <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
+              ) : null}
+              <TextInput
+                label={school ? "Program" : "Title"}
+                value={title}
+                onChange={setTitle}
+              />
+              <TextInput
+                label={school ? "School" : "Organization"}
+                value={organization}
+                onChange={setOrganization}
+              />
+              <TextInput label="Place" value={place} onChange={setPlace} />
+              <TextInput
+                label="Start"
+                value={startDate}
+                placeholder="YYYY-MM"
+                onChange={setStartDate}
+              />
+              <TextInput
+                label="End"
+                value={endDate}
+                placeholder="YYYY-MM"
+                isDisabled={current}
+                onChange={setEndDate}
+              />
+              <CheckboxInput
+                label={school ? "Current school" : "Current role"}
+                value={current}
+                onChange={setCurrent}
+              />
+              <TextArea
+                label={school ? "What it involved" : "What the role involved"}
+                value={description}
+                onChange={setDescription}
+              />
+              <TextArea
+                label="Achievements"
+                description="One on each line."
+                value={achievements}
+                onChange={setAchievements}
+              />
+            </VStack>
+          </LayoutContent>
+        }
+        footer={
+          <LayoutFooter>
+            <HStack gap={2} vAlign="center">
+              <Button label="Cancel" variant="secondary" isDisabled={saving} onClick={onClose} />
+              <Button label="Add" variant="primary" isDisabled={saving} onClick={() => void save()} />
+            </HStack>
+          </LayoutFooter>
+        }
+      />
+    </Dialog>
+  );
 }

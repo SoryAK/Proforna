@@ -27,6 +27,7 @@ import {
   type LinkedEvidence,
   type PreparedLinkedEvidence,
   prepareWorkMapRoleCreate,
+  prepareWorkMapRoleDraft,
   prepareWorkMapRoleDelete,
   readCanvasBoards,
   readRoleAchievements,
@@ -196,11 +197,12 @@ export async function createWorkMapRole(
   occupantId: string,
   input: JsonObject,
 ) {
-  const prepared = prepareWorkMapRoleCreate(input);
+  const prepared = prepareWorkMapRoleDraft(input);
   if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
   backfillCareerMemory(db, occupantId);
   const id = randomUUID();
   const now = new Date().toISOString();
+  const achievements = reconcileRoleAchievements([], prepared.value.achievements, randomUUID);
   db.prepare(
     `INSERT INTO work_history
       (id, occupant_id, kind, title, company, location, start_date, end_date,
@@ -210,14 +212,14 @@ export async function createWorkMapRole(
     id,
     occupantId,
     prepared.value.kind,
-    "",
-    "",
-    "",
-    "",
-    "",
-    0,
-    "",
-    "[]",
+    prepared.value.title,
+    prepared.value.organization,
+    prepared.value.locationLabel,
+    prepared.value.startDate,
+    prepared.value.endDate,
+    Number(prepared.value.isCurrent),
+    prepared.value.description,
+    JSON.stringify(achievements),
     "",
     "",
     now,
@@ -233,7 +235,7 @@ export async function createWorkMapRole(
   const evidence = saveEvidence(db, occupantId, {
     sourceType: "work-map",
     sourceRef: `work-map:${id}:${randomUUID()}`,
-    title: `Work Map create: ${prepared.value.kind}`,
+    title: `Work Map create: ${prepared.value.title || prepared.value.organization || prepared.value.kind}`,
     content: {
       roleId: id,
       kind: prepared.value.kind,

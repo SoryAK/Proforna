@@ -423,6 +423,7 @@ export {
   prepareLinkedEvidenceDelete,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  prepareWorkMapRoleDraft,
   prepareWorkMapRoleDelete,
   nominatimAddressLine,
   presentWorkMapPlace,

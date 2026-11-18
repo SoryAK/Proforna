@@ -14,6 +14,7 @@ import {
   prepareLinkedEvidenceDelete,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  prepareWorkMapRoleDraft,
   prepareWorkMapRoleDelete,
   nominatimAddressLine,
   presentWorkMapPlace,
@@ -567,6 +568,39 @@ describe("Work Map role create", () => {
     expect(prepareWorkMapRoleCreate({ kind: "gig" })).toEqual({
       ok: false,
       error: "kind-invalid",
+    });
+  });
+
+  it("keeps a named role and refuses a blank name", () => {
+    expect(
+      prepareWorkMapRoleDraft({
+        kind: "school",
+        title: " Mechanical engineering ",
+        organization: " Delaware County Community College ",
+        locationLabel: " Media, PA ",
+        startDate: "2018-08",
+        endDate: "2020-12",
+        isCurrent: false,
+        description: " Associate program ",
+        achievements: [" Built a fixture ", ""],
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        kind: "school",
+        title: "Mechanical engineering",
+        organization: "Delaware County Community College",
+        locationLabel: "Media, PA",
+        startDate: "2018-08",
+        endDate: "2020-12",
+        isCurrent: false,
+        description: "Associate program",
+        achievements: ["Built a fixture"],
+      },
+    });
+    expect(prepareWorkMapRoleDraft({ kind: "job", title: " ", organization: "" })).toEqual({
+      ok: false,
+      error: "name-required",
     });
   });
 });
