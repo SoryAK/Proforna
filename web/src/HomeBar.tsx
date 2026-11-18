@@ -255,7 +255,7 @@ export function HomeBar({
           <Icon name={menuExpanded ? "rail" : "railOff"} />
         </button>
         <img className="home-bar-mark" src={mark} alt="" />
-        <p className="home-bar-brand">Proforna</p>
+        <p className="home-bar-brand">Docier</p>
       </div>
       <div className="home-bar-search">
         <button
