@@ -69,6 +69,7 @@ export function CareerHistoryCard({
   const [note, setNote] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [draftKind, setDraftKind] = useState<CareerHistorySectionKey | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const moreRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLDivElement>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -183,6 +184,15 @@ export function CareerHistoryCard({
     [roles],
   );
   const focus = roles.find((role) => role.id === focusId) ?? null;
+
+  function toggleSection(label: string) {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   function stopSelecting() {
     setSelecting(false);
@@ -485,11 +495,20 @@ export function CareerHistoryCard({
           {note ? <p className="pch-status">{note}</p> : null}
           {error ? <p className="pch-status">{error}</p> : null}
           <ScrollableArea className="pch-groups pch-frame" label="Roles">
-            {groups(shown).map((group) => (
+            {groups(shown).map((group) => {
+              const open = !collapsed.has(group.label);
+              return (
               <section key={group.label}>
                 <h3>
-                  {group.label} ({group.roles.length})
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => toggleSection(group.label)}
+                  >
+                    {group.label} ({group.roles.length})
+                  </button>
                 </h3>
+                {open ? (
                 <ul>
                   {group.roles.map((role) => (
                     <li key={role.id}>
@@ -511,8 +530,10 @@ export function CareerHistoryCard({
                     </li>
                   ))}
                 </ul>
+                ) : null}
               </section>
-            ))}
+              );
+            })}
             {ready && shown.length === 0 ? <p className="pch-empty">No roles match.</p> : null}
           </ScrollableArea>
         </div>

@@ -255,6 +255,29 @@
   text-transform: uppercase;
 }
 
+.pch-groups h3 button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.pch-groups h3 button:hover,
+.pch-groups h3 button:focus-visible {
+  color: #171717;
+  outline: none;
+}
+
 .pch-groups section:first-child h3 {
   margin-top: 0.5rem;
 }
@@ -270,7 +293,7 @@
   margin-top: 0;
 }
 
-.pch-groups button {
+.pch-groups li button {
   display: block;
   width: 100%;
   padding: 0.5rem 0.45rem;
@@ -287,12 +310,12 @@
   border-top: 0;
 }
 
-.pch-groups button:hover,
-.pch-groups button:focus-visible {
+.pch-groups li button:hover,
+.pch-groups li button:focus-visible {
   background: #f3f3f4;
 }
 
-.pch-groups button > span {
+.pch-groups li button > span {
   display: grid;
   min-width: 0;
   gap: 0.12rem;
