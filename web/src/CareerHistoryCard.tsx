@@ -386,7 +386,27 @@ export function CareerHistoryCard({
               </>
             }
           />
-          {selecting ? (
+          {selecting && removeAsk ? (
+            <div className="pch-confirm" role="group" aria-label="Confirm remove">
+              <p className="pch-note">{removeAsk.detail}</p>
+              <div className="pch-confirm-actions">
+                <Button
+                  label="Remove"
+                  variant="destructive"
+                  size="sm"
+                  isLoading={removing}
+                  onClick={() => void removeChecked(removeAsk.ids)}
+                />
+                <Button
+                  label="Keep"
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={removing}
+                  onClick={() => setRemoveAsk(null)}
+                />
+              </div>
+            </div>
+          ) : selecting ? (
             <Toolbar
               className="pch-bulk"
               label="Career history actions"
@@ -394,25 +414,6 @@ export function CareerHistoryCard({
               variant="muted"
               dividers={["bottom"]}
               startContent={
-                removeAsk ? (
-                  <>
-                    <span className="pch-note">{removeAsk.detail}</span>
-                    <Button
-                      label="Remove"
-                      variant="destructive"
-                      size="sm"
-                      isLoading={removing}
-                      onClick={() => void removeChecked(removeAsk.ids)}
-                    />
-                    <Button
-                      label="Keep"
-                      variant="ghost"
-                      size="sm"
-                      isDisabled={removing}
-                      onClick={() => setRemoveAsk(null)}
-                    />
-                  </>
-                ) : (
                   <>
                     <Badge label={checked.size === 0 ? "Select roles" : `${checked.size} selected`} />
                     <Button
@@ -448,7 +449,6 @@ export function CareerHistoryCard({
                       }}
                     />
                   </>
-                )
               }
             />
           ) : null}
