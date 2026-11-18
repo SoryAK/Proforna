@@ -343,8 +343,7 @@ export function Home({
           "home-sheet",
           leftClosed ? "is-left-closed" : "",
           profornaOpen ? "is-right-open" : "",
-          page === "home" ? "is-home" : "",
-          page === "home" || page === "history" ? "" : "is-stage-full",
+          page === "historyReserve" ? "" : "is-home",
           page === "history" && bioMode === "preview" ? "" : "is-bio-hidden",
         ]
           .filter(Boolean)
@@ -516,15 +515,14 @@ export function Home({
               }}
             />
           </main>
-        ) : page !== "home" && page !== "history" ? (
-          <main className="home-card home-stage">
-            <CareerWorkspace page={page} />
-          </main>
         ) : (
           <HomeCenter
             revision={careerRevision}
             focusRoleId={focusJobId}
             viewRequest={centerView}
+            pageContent={
+              page !== "home" && page !== "history" ? <CareerWorkspace page={page} /> : null
+            }
             onSelectRole={(id) => {
               setEditing(false);
               setFocusJobId(id);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button } from "@astryxdesign/core/Button";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Icon } from "@astryxdesign/core/Icon";
@@ -21,11 +21,13 @@ export function HomeCenter({
   focusRoleId,
   onSelectRole,
   viewRequest = null,
+  pageContent = null,
 }: {
   revision?: number;
   focusRoleId: string | null;
   onSelectRole: (id: string) => void;
   viewRequest?: { id: number; updates: boolean; updateId: string | null } | null;
+  pageContent?: ReactNode;
 }) {
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
   const [settings, setSettings] = useState<MapSettings | null>(null);
@@ -137,9 +139,12 @@ export function HomeCenter({
     <div className="home-center">
       <main
         className="home-stage home-center-live"
-        aria-label={view === "map" ? "Map" : "Career story"}
+        aria-label={pageContent ? "Page" : view === "map" ? "Map" : "Career story"}
       >
         <div className="home-center-bar">
+          {pageContent ? (
+            <div className="home-center-tabs" />
+          ) : (
           <div className="home-center-tabs" role="tablist" aria-label="Card views">
             <button
               ref={(node) => {
@@ -174,16 +179,21 @@ export function HomeCenter({
               Map
             </button>
           </div>
+          )}
           <div className="home-center-pub" />
         </div>
         <div
           className="home-center-stage"
           id="home-center-panel"
-          role="tabpanel"
-          aria-labelledby={view === "map" ? "home-center-tab-map" : "home-center-tab-story"}
+          role={pageContent ? undefined : "tabpanel"}
+          aria-labelledby={
+            pageContent ? undefined : view === "map" ? "home-center-tab-map" : "home-center-tab-story"
+          }
         >
           <div className="home-story-layout">
-            {view === "map" ? (
+            {pageContent ? (
+              <div className="home-story-page">{pageContent}</div>
+            ) : view === "map" ? (
               <div className="home-center-map">
                 {error ? <p className="home-center-empty">{error}</p> : null}
                 <CareerMap
