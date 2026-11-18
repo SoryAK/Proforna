@@ -302,7 +302,10 @@ export function CareerHistoryCard({
                     aria-label="More"
                     aria-haspopup="menu"
                     aria-expanded={moreOpen}
-                    onClick={() => setMoreOpen((open) => !open)}
+                    onClick={() => {
+                      setAddOpen(false);
+                      setMoreOpen((open) => !open);
+                    }}
                   >
                     <svg className="pch-more-mark" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                       <circle cx="6" cy="12" r="1.6" />
