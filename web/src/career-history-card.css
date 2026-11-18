@@ -272,6 +272,15 @@
   cursor: pointer;
 }
 
+.pch-groups h3 .pch-chevron {
+  flex: none;
+  transition: transform 120ms ease;
+}
+
+.pch-groups h3 button[aria-expanded="false"] .pch-chevron {
+  transform: rotate(-90deg);
+}
+
 .pch-groups h3 button:hover,
 .pch-groups h3 button:focus-visible {
   color: #171717;

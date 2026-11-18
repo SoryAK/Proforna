@@ -23,7 +23,7 @@ import {
   type CareerHistorySectionKey,
 } from "@core/career-history";
 import { prepareWorkMapRoleDraft, type WorkMapRole } from "@core/work-map";
-import { ArrowLeft, Plus, SquareCheck } from "lucide-react";
+import { ArrowLeft, ChevronDown, Plus, SquareCheck } from "lucide-react";
 import { addKindLabel, CareerHistoryAddMenu } from "./CareerHistoryAddMenu";
 import "./career-history-card.css";
 
@@ -509,6 +509,7 @@ export function CareerHistoryCard({
                     aria-expanded={open}
                     onClick={() => toggleSection(group.label)}
                   >
+                    <Icon className="pch-chevron" icon={ChevronDown} size="xsm" />
                     {group.label} ({group.roles.length})
                   </button>
                 </h3>
