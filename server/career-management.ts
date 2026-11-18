@@ -364,6 +364,49 @@ export function createContact(
   return contact;
 }
 
+export function updateContact(
+  db: DatabaseSync,
+  occupantId: string,
+  contactId: string,
+  input: JsonObject,
+) {
+  const name = text(input.name);
+  if (!name) throw new CareerManagementStoreError("name-required");
+  const organization = text(input.organization);
+  const role = text(input.role);
+  const email = text(input.email);
+  const result = db
+    .prepare(
+      `UPDATE contacts
+          SET name = ?, organization = ?, role = ?, email = ?
+        WHERE id = ? AND occupant_id = ?`,
+    )
+    .run(name, organization, role, email, contactId, occupantId);
+  if (result.changes === 0) throw new CareerManagementStoreError("not-found");
+  return { id: contactId, name, organization, role, email };
+}
+
+export function removeContact(
+  db: DatabaseSync,
+  occupantId: string,
+  contactId: string,
+) {
+  const existing = db
+    .prepare("SELECT id FROM contacts WHERE id = ? AND occupant_id = ?")
+    .get(contactId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("not-found");
+  db.prepare(
+    "DELETE FROM contact_messages WHERE contact_id = ? AND occupant_id = ?",
+  ).run(contactId, occupantId);
+  db.prepare(
+    "UPDATE opportunities SET contact_id = NULL WHERE contact_id = ? AND occupant_id = ?",
+  ).run(contactId, occupantId);
+  db.prepare("DELETE FROM contacts WHERE id = ? AND occupant_id = ?").run(
+    contactId,
+    occupantId,
+  );
+}
+
 export function createPlan(
   db: DatabaseSync,
   occupantId: string,

@@ -950,7 +950,8 @@ button.home-nav-item:focus-visible {
   overflow: hidden;
 }
 
-.home-stage:has(.documents-page) {
+.home-stage:has(.documents-page),
+.home-stage:has(.network-page) {
   background: #fff;
   color: #171717;
 }

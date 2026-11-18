@@ -220,4 +220,53 @@ describe("career management HTTP seam", () => {
       db.close();
     }
   });
+
+  it("changes and removes a person in My Network", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/contacts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Alex Rivera",
+          organization: "Northstar",
+          role: "Recruiter",
+          email: "alex@example.com",
+        }),
+      });
+      expect(created.status).toBe(201);
+      const contact = (await created.json()) as { contact: { id: string } };
+
+      const updated = await app.request(`/api/contacts/${contact.contact.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Alex R.",
+          organization: "Northstar",
+          role: "Recruiter",
+          email: "alex@example.com",
+        }),
+      });
+      expect(updated.status).toBe(200);
+
+      const listed = (await (await app.request("/api/career-management")).json()) as {
+        contacts: Array<{ id: string; name: string }>;
+      };
+      expect(listed.contacts).toContainEqual(
+        expect.objectContaining({ id: contact.contact.id, name: "Alex R." }),
+      );
+
+      const removed = await app.request(`/api/contacts/${contact.contact.id}`, {
+        method: "DELETE",
+      });
+      expect(removed.status).toBe(200);
+      const after = (await (await app.request("/api/career-management")).json()) as {
+        contacts: Array<{ id: string }>;
+      };
+      expect(after.contacts.find((item) => item.id === contact.contact.id)).toBeUndefined();
+    } finally {
+      db.close();
+    }
+  });
 });

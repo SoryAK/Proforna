@@ -108,6 +108,8 @@ import {
   approveExternalAction,
   createApplication,
   createContact,
+  removeContact,
+  updateContact,
   deleteApplication,
   deleteOpportunity,
   createInterview,
@@ -1986,6 +1988,38 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/contacts/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json({
+        contact: updateContact(
+          db,
+          occupant.id,
+          c.req.param("id"),
+          (await c.req.json()) as Record<string, unknown>,
+        ),
+      });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/contacts/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeContact(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
       }
       throw error;
     }
