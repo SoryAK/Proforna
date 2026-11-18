@@ -407,7 +407,7 @@ export function HomeBar({
         ) : null}
         {onRequest && onProforna ? (
           <span className="home-bar-request-divider">
-            <Divider orientation="vertical" />
+            <Divider orientation="vertical" variant="strong" />
           </span>
         ) : null}
         {onProforna ? (
