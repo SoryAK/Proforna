@@ -9,11 +9,13 @@ import { Button } from "@astryxdesign/core/Button";
 import { Carousel } from "@astryxdesign/core/Carousel";
 import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Grid } from "@astryxdesign/core/Grid";
 import { HStack } from "@astryxdesign/core/HStack";
 import { Icon } from "@astryxdesign/core/Icon";
 import { Layout, LayoutContent, LayoutFooter, LayoutHeader } from "@astryxdesign/core/Layout";
 import { ScrollableArea } from "@astryxdesign/core/ScrollableArea";
+import { Selector } from "@astryxdesign/core/Selector";
 import { Step, Stepper } from "@astryxdesign/core/Stepper";
 import { Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
@@ -80,7 +82,7 @@ export function Home({
   const [collapsed, setCollapsed] = useState(() => (isCareerPreview() ? false : readCollapsed()));
   const bioPopRef = useRef<HTMLDivElement>(null);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
-  const [requestNonce, setRequestNonce] = useState(0);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [previewNote, setPreviewNote] = useState("");
   const [bioDialog, setBioDialog] = useState<"know" | "contact" | "place" | null>(null);
   const [desktop, setDesktop] = useState(readDesktop);
@@ -199,9 +201,7 @@ export function Home({
   }
 
   function openRequest() {
-    setProfornaOpen(true);
-    writePanelOpen(true);
-    setRequestNonce((value) => value + 1);
+    setRequestOpen(true);
   }
 
   function goPage(next: HomePage) {
@@ -532,7 +532,6 @@ export function Home({
         )}
         <HomeProforna
           open={profornaOpen}
-          requestNonce={requestNonce}
           onToggle={togglePanel}
           roles={chatRoles}
           focusRoleId={focusJobId}
@@ -583,6 +582,14 @@ export function Home({
         </div>
       ) : null}
       <ContactNoteDialog isOpen={bioDialog === "contact"} onClose={() => setBioDialog(null)} />
+      <RequestDialog
+        isOpen={requestOpen}
+        onClose={() => setRequestOpen(false)}
+        onOpenNetwork={() => {
+          setRequestOpen(false);
+          goPage("network");
+        }}
+      />
     </div>
   );
 }
@@ -618,6 +625,142 @@ function meetDayKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;
+}
+
+type RequestPerson = { id: string; name: string; organization: string };
+
+function RequestDialog({
+  isOpen,
+  onClose,
+  onOpenNetwork,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onOpenNetwork: () => void;
+}) {
+  const [people, setPeople] = useState<RequestPerson[]>([]);
+  const [ready, setReady] = useState(false);
+  const [personId, setPersonId] = useState("");
+  const [body, setBody] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    setReady(false);
+    setPersonId("");
+    setBody("");
+    setError("");
+    void fetch("/api/career-management")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("load");
+        const payload = (await response.json()) as { contacts?: RequestPerson[] };
+        if (cancelled) return;
+        setPeople(payload.contacts ?? []);
+        setReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPeople([]);
+        setReady(true);
+        setError("People could not be loaded.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  async function send() {
+    if (!personId || !body.trim() || sending) {
+      setError("Choose a person and write the request.");
+      return;
+    }
+    setSending(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/contacts/${personId}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: body.trim() }),
+      });
+      if (!response.ok) {
+        setError("The request could not be sent.");
+        return;
+      }
+      onClose();
+    } catch {
+      setError("The request could not be sent.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      width={440}
+      purpose="form"
+    >
+      <Layout
+        padding={4}
+        header={<DialogHeader title="Request" onOpenChange={onClose} hasDivider={false} />}
+        content={
+          <LayoutContent label="Request">
+            {error ? (
+              <Banner status="error" title={error} container="section" collapsible={false} role="alert" />
+            ) : null}
+            {ready && people.length === 0 ? (
+              <EmptyState
+                title="No one yet"
+                description="Add a person in My Network, then send them a request."
+                actions={<Button label="My Network" variant="secondary" onClick={onOpenNetwork} />}
+              />
+            ) : ready ? (
+              <VStack gap={3}>
+                <Selector
+                  label="Person"
+                  value={personId}
+                  onChange={setPersonId}
+                  options={people.map((person) => ({
+                    value: person.id,
+                    label: person.organization
+                      ? `${person.name} · ${person.organization}`
+                      : person.name,
+                  }))}
+                />
+                <TextArea
+                  label="Request"
+                  value={body}
+                  onChange={setBody}
+                  placeholder="What are you asking for?"
+                  rows={4}
+                />
+              </VStack>
+            ) : null}
+          </LayoutContent>
+        }
+        footer={
+          ready && people.length > 0 ? (
+            <LayoutFooter>
+              <HStack gap={2}>
+                <Button label="Cancel" variant="secondary" onClick={onClose} />
+                <Button
+                  label={sending ? "Sending…" : "Send"}
+                  variant="primary"
+                  isDisabled={sending}
+                  onClick={() => void send()}
+                />
+              </HStack>
+            </LayoutFooter>
+          ) : null
+        }
+      />
+    </Dialog>
+  );
 }
 
 function ContactNoteDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
