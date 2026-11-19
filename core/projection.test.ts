@@ -4,6 +4,7 @@ import {
   canViewProjection,
   planProjectionGrant,
   planProjectionRevoke,
+  presentRelayStatus,
 } from "./projection";
 import type { WorkMapSnapshot } from "./work-map";
 
@@ -102,5 +103,45 @@ describe("interactive projection", () => {
         tokenHash: "abc123",
       },
     });
+  });
+});
+
+describe("presentRelayStatus", () => {
+  const live = { publishedAt: "2026-11-12T15:00:00.000Z", sourceFingerprint: "abc" };
+
+  it("keeps a private career off the relay", () => {
+    expect(presentRelayStatus({ visibility: "private", sourceFingerprint: "abc", live })).toEqual({
+      state: "private",
+    });
+  });
+
+  it("reports a career that has no live publication", () => {
+    expect(presentRelayStatus({ visibility: "public", sourceFingerprint: "abc", live: null })).toEqual({
+      state: "unpublished",
+    });
+  });
+
+  it("reports the relay as current when the source matches what was published", () => {
+    expect(presentRelayStatus({ visibility: "public", sourceFingerprint: "abc", live })).toEqual({
+      state: "current",
+      publishedAt: live.publishedAt,
+    });
+  });
+
+  it("reports changes when the source moved on since the publish", () => {
+    expect(presentRelayStatus({ visibility: "public", sourceFingerprint: "def", live })).toEqual({
+      state: "changed",
+      publishedAt: live.publishedAt,
+    });
+  });
+
+  it("reports changes when the published fingerprint is unknown", () => {
+    expect(
+      presentRelayStatus({
+        visibility: "access-controlled",
+        sourceFingerprint: "abc",
+        live: { publishedAt: live.publishedAt, sourceFingerprint: null },
+      }),
+    ).toEqual({ state: "changed", publishedAt: live.publishedAt });
   });
 });

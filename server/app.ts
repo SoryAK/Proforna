@@ -97,6 +97,7 @@ import {
   listProjections,
   previewWorkMapProjection,
   publishProjection,
+  readRelayStatus,
   recordProjectionEvent,
   resolveOpportunityAccess,
   resolvePublishedProjection,
@@ -1506,6 +1507,11 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       publishable: preview.publishable,
       exactLocations: preview.exactLocations,
     });
+  });
+
+  app.get("/api/work-map/relay", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ relay: readRelayStatus(db, occupant.id) });
   });
 
   app.post("/api/work-map/publish", async (c) => {

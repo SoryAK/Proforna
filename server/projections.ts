@@ -11,9 +11,11 @@ import {
   planProjectionGrant,
   planProjectionRevoke,
   presentInboundAccessRequest,
+  presentRelayStatus,
   resolveInboundAccessRequest,
   type ChangeSet,
   type InteractiveProjection,
+  type RelayStatus,
 } from "../core/index";
 import { createContact, createOpportunity } from "./career-management";
 import {
@@ -62,6 +64,39 @@ export function listProjections(db: DatabaseSync, occupantId: string) {
         },
       };
     });
+}
+
+export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStatus {
+  const snapshot = composeWorkMapSnapshot(db, occupantId);
+  const publication = db
+    .prepare(
+      `SELECT published_at FROM publications
+       WHERE occupant_id = ? AND slug = ? AND revoked_at IS NULL
+       ORDER BY published_at DESC LIMIT 1`,
+    )
+    .get(occupantId, snapshot.slug) as { published_at: string } | undefined;
+  const commits = db
+    .prepare(
+      `SELECT operations_json FROM change_sets
+       WHERE occupant_id = ? AND destination = ? AND status = 'committed'
+       ORDER BY created_at DESC`,
+    )
+    .all(occupantId, `relay:${snapshot.slug}`) as Array<{ operations_json: string }>;
+  let publishedFingerprint: string | null = null;
+  for (const row of commits) {
+    const operation = (JSON.parse(row.operations_json) as ChangeSet["operations"])[0];
+    if (operation?.action !== "publish") continue;
+    const value = operation.values?.sourceFingerprint;
+    publishedFingerprint = typeof value === "string" ? value : null;
+    break;
+  }
+  return presentRelayStatus({
+    visibility: snapshot.visibility,
+    sourceFingerprint: snapshot.sourceFingerprint,
+    live: publication
+      ? { publishedAt: publication.published_at, sourceFingerprint: publishedFingerprint }
+      : null,
+  });
 }
 
 export function previewWorkMapProjection(db: DatabaseSync, occupantId: string) {

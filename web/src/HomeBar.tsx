@@ -7,6 +7,7 @@ import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
 import mark from "./docier-mark.svg";
+import { announceRelayChange } from "./relay-status";
 
 export type HomeBioMode = "browse" | "preview" | "share";
 
@@ -224,6 +225,7 @@ export function HomeBar({
         setPublishNote(
           "Published this Work Map snapshot to the public link. Private edits stay local until you publish an update.",
         );
+        announceRelayChange();
         return;
       }
       const body = (await response.json().catch(() => ({}))) as { error?: string };

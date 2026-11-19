@@ -47,6 +47,24 @@ export function mayPublishProjection(
     : { ok: true };
 }
 
+export type RelayStatus =
+  | { state: "private" }
+  | { state: "unpublished" }
+  | { state: "current"; publishedAt: string }
+  | { state: "changed"; publishedAt: string };
+
+export function presentRelayStatus(input: {
+  visibility: ProjectionVisibility;
+  sourceFingerprint: string;
+  live: { publishedAt: string; sourceFingerprint: string | null } | null;
+}): RelayStatus {
+  if (input.visibility === "private") return { state: "private" };
+  if (!input.live) return { state: "unpublished" };
+  return input.live.sourceFingerprint === input.sourceFingerprint
+    ? { state: "current", publishedAt: input.live.publishedAt }
+    : { state: "changed", publishedAt: input.live.publishedAt };
+}
+
 export function canViewProjection(
   projection: InteractiveProjection,
   input: { now: string; hasAccessGrant: boolean },
