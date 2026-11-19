@@ -499,24 +499,30 @@ function StoryTimeline({
   for (let year = firstYear; year <= lastYear; year += step) years.push(year);
   return (
     <div className="home-story-timeline-track" style={{ height: `${lanes.length * 22 + 22}px` }}>
-      {placed.map(({ role, start, end, lane }) => (
-        <button
-          key={role.id}
-          type="button"
-          className={role.isCurrent ? "home-story-timeline-bar is-current" : "home-story-timeline-bar"}
-          style={{
-            left: `${((start - first) / width) * 100}%`,
-            width: `max(0.5rem, ${((end - start + 1) / width) * 100}%)`,
-            top: `${lane * 22}px`,
-          }}
-          title={[role.organization, role.title, formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent)]
-            .filter(Boolean)
-            .join(" · ")}
-          onClick={() => onSelect(role.id)}
-        >
-          {role.organization || role.title || "Role"}
-        </button>
-      ))}
+      {placed.map(({ role, start, end, lane }) => {
+        const about = [role.organization, role.title, formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent)]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <button
+            key={role.id}
+            type="button"
+            className={role.isCurrent ? "home-story-timeline-bar is-current" : "home-story-timeline-bar"}
+            style={{
+              left: `${((start - first) / width) * 100}%`,
+              width: `max(0.5rem, ${((end - start + 1) / width) * 100}%)`,
+              top: `${lane * 22}px`,
+            }}
+            title={about}
+            aria-label={about}
+            onClick={() => onSelect(role.id)}
+          >
+            <span className="home-story-timeline-label" aria-hidden="true">
+              {role.organization || role.title || "Role"}
+            </span>
+          </button>
+        );
+      })}
       <div className="home-story-timeline-axis" aria-hidden="true">
         {years.map((year) => (
           <span key={year} style={{ left: `${((year * 12 - first) / width) * 100}%` }}>

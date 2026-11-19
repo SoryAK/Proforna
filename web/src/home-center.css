@@ -162,6 +162,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  container-type: inline-size;
+}
+
+.home-story-panel .home-story-timeline-bar .home-story-timeline-label {
+  display: block;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-line-clamp: none;
+}
+
+@container (max-width: 4.5rem) {
+  .home-story-panel .home-story-timeline-bar .home-story-timeline-label {
+    visibility: hidden;
+  }
 }
 
 .home-story-panel .home-story-timeline-bar.is-current {
