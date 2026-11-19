@@ -67,6 +67,7 @@
 
 .home-menu-btn svg,
 .home-notice-btn svg,
+.home-request-btn svg,
 .home-nav svg {
   fill: none;
   stroke: currentColor;
@@ -79,14 +80,6 @@
 .home-notice-btn svg {
   width: 18px;
   height: 18px;
-}
-
-.home-notice-btn svg.home-request-mark,
-.home-notice-btn svg.home-request-mark path {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-  stroke: none;
 }
 
 .home-bar-mark {
@@ -198,7 +191,7 @@
   flex: none;
   align-items: center;
   gap: 4px;
-  height: 36px;
+  height: 32px;
 }
 
 .home-sync-track,
@@ -219,12 +212,14 @@
 .home-sync-track {
   display: inline-flex;
   align-items: center;
-  height: 36px;
-  padding: 0 12px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #cecece;
   border-radius: 999px;
   background: #fff;
   color: #3b3b3b;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .home-sync-track:hover,
@@ -240,8 +235,8 @@
 }
 
 .home-sync-node {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   box-sizing: border-box;
   border-radius: 50%;
 }
@@ -273,8 +268,8 @@
 }
 
 .home-sync-link {
-  width: 26px;
-  height: 8px;
+  width: 22px;
+  height: 7px;
   margin: 0 2px;
   overflow: visible;
 }
@@ -305,7 +300,7 @@
 }
 
 .home-sync-label {
-  margin-left: 8px;
+  margin-left: 6px;
   font-weight: 500;
 }
 
@@ -1447,6 +1442,77 @@ button.home-nav-item:focus-visible {
   border-radius: 6px;
   background: transparent;
   color: #3f3f46;
+}
+
+.home-request-btn {
+  display: none;
+  align-items: center;
+  height: 32px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid #cecece;
+  border-radius: 999px;
+  background: #fff;
+  color: #3b3b3b;
+  font: 500 12px/16px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.home-request-node {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #3b3b3b;
+}
+
+.home-request-btn .home-request-link {
+  width: 22px;
+  height: 7px;
+  margin: 0 2px;
+  flex: none;
+  overflow: visible;
+}
+
+.home-request-btn .home-request-link path {
+  stroke: #6b6b70;
+  stroke-width: 2;
+  stroke-dasharray: 3 10;
+}
+
+.home-request-plane {
+  display: inline-flex;
+  margin-left: 2px;
+  transform: rotate(45deg);
+}
+
+.home-request-btn .home-request-plane svg {
+  width: 14px;
+  height: 14px;
+}
+
+.home-request-label {
+  margin-left: 6px;
+}
+
+.home-request-btn:hover,
+.home-request-btn:focus-visible {
+  border-color: #b5b5b5;
+}
+
+.home-request-btn:focus-visible {
+  outline: 2px solid #0090f1;
+  outline-offset: 1px;
+}
+
+@media (min-width: 768px) {
+  .home-request-btn {
+    display: inline-flex;
+  }
+
+  .home-notice-btn.home-request-icon {
+    display: none;
+  }
 }
 
 .home-notice-btn:hover,

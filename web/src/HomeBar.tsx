@@ -391,9 +391,21 @@ export function HomeBar({
           </p>
         ) : null}
         {onRequest ? (
-          <button type="button" className="home-notice-btn" aria-label="Request" onClick={onRequest}>
-            <Icon name="request" />
-          </button>
+          <>
+            <button type="button" className="home-request-btn" onClick={onRequest}>
+              <span className="home-request-node" aria-hidden="true" />
+              <svg className="home-request-link" viewBox="0 0 40 8" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M1 4H39" />
+              </svg>
+              <span className="home-request-plane" aria-hidden="true">
+                <Icon name="request" />
+              </span>
+              <span className="home-request-label">Request</span>
+            </button>
+            <button type="button" className="home-notice-btn home-request-icon" aria-label="Request" onClick={onRequest}>
+              <Icon name="request" />
+            </button>
+          </>
         ) : null}
         {onRequest && onProforna ? (
           <span className="home-bar-request-divider">
