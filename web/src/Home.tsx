@@ -373,6 +373,7 @@ export function Home({
           notice={previewNote}
           onPreview={openCareerPreview}
           onExitPreview={() => chooseBioMode("browse")}
+          revision={careerRevision}
           onNotice={(href) => {
             setEditing(false);
             setMobileOpen(false);

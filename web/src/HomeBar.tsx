@@ -31,6 +31,7 @@ export function HomeBar({
   onExitPreview,
   notice = "",
   onNotice,
+  revision = 0,
 }: {
   name: string;
   headline: string;
@@ -50,6 +51,7 @@ export function HomeBar({
   onExitPreview?: () => void;
   notice?: string;
   onNotice: (href: OccupantNoticeHref) => void;
+  revision?: number;
 }) {
   const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -63,7 +65,7 @@ export function HomeBar({
   const pubRef = useRef<HTMLDivElement>(null);
   const [pubHost, setPubHost] = useState<HTMLElement | null>(null);
   const [holdPub, setHoldPub] = useState(false);
-  const relay = useRelayStatus(0);
+  const relay = useRelayStatus(revision);
   const publishQuiet = relay?.state === "private";
   const publishLead = relay?.state !== "current" && !publishQuiet;
   const publishPlan = describePublish(relay);
