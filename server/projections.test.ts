@@ -311,6 +311,57 @@ describe("interactive projections HTTP seam", () => {
     }
   });
 
+  it("treats an expired publication as off the relay without using an older one", async () => {
+    const relay: ProjectionRelay = {
+      publish: vi.fn(async () => undefined),
+      revoke: vi.fn(async () => undefined),
+    };
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { relay });
+    const read = async () =>
+      ((await (await app.request("/api/work-map/relay")).json()) as {
+        relay: { state: string };
+      }).relay;
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: "sory-systems",
+          visibility: "public",
+          sections: ["profile", "history"],
+        }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect((await read()).state).toBe("current");
+
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expiresAt: "2000-01-01T00:00:00.000Z" }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect(await read()).toEqual({ state: "unpublished" });
+
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expiresAt: "2099-01-01T00:00:00.000Z" }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect((await read()).state).toBe("current");
+    } finally {
+      db.close();
+    }
+  });
+
   it("records occupant-approved change sets for settings, grants, and revoke", async () => {
     const grant = vi.fn(
       async (_slug: string, _grant: { token: string; expiresAt: string }) =>

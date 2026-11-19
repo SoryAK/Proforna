@@ -71,11 +71,14 @@ export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStat
   const snapshot = composeWorkMapSnapshot(db, occupantId);
   const publication = db
     .prepare(
-      `SELECT published_at FROM publications
+      `SELECT published_at, expires_at FROM publications
        WHERE occupant_id = ? AND slug = ? AND revoked_at IS NULL
        ORDER BY published_at DESC LIMIT 1`,
     )
-    .get(occupantId, snapshot.slug) as { published_at: string } | undefined;
+    .get(occupantId, snapshot.slug) as
+    | { published_at: string; expires_at: string | null }
+    | undefined;
+  const live = publication && !publicationExpired(publication.expires_at) ? publication : undefined;
   const commits = db
     .prepare(
       `SELECT operations_json FROM change_sets
@@ -102,9 +105,9 @@ export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStat
     : undefined;
   return presentRelayStatus({
     current: snapshot,
-    live: publication
+    live: live
       ? {
-          publishedAt: publication.published_at,
+          publishedAt: live.published_at,
           snapshot: published
             ? (JSON.parse(published.snapshot_json) as WorkMapSnapshot)
             : null,
@@ -616,6 +619,10 @@ export function recordProjectionEvent(
     section ?? null,
     new Date().toISOString(),
   );
+}
+
+function publicationExpired(expiresAt: string | null, now = new Date().toISOString()): boolean {
+  return Boolean(expiresAt && expiresAt <= now);
 }
 
 function readProjection(
