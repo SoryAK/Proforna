@@ -9,7 +9,7 @@ import { Selector } from "@astryxdesign/core/Selector";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { formatHistoryPeriod, presentCareerHistoryStats } from "@core/career-history";
-import { careerMonth } from "@core/career-timeline";
+import { careerMonth, rolesToConfirmCurrent } from "@core/career-timeline";
 import type { MapSettings } from "@core/map-settings";
 import type { RelayStatus } from "@core/projection";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
@@ -592,6 +592,16 @@ function storyHighlights(roles: WorkMapRole[]): StoryHighlight[] {
 }
 
 function storyMissing(roles: WorkMapRole[]): StoryGap[] {
+  const unsure = rolesToConfirmCurrent(roles).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const check: StoryGap[] =
+    unsure.length > 0
+      ? [
+          {
+            label: `Check ${unsure.length === 1 ? "1 role is" : `${unsure.length} roles are`} still current`,
+            roleId: unsure[0].id,
+          },
+        ]
+      : [];
   const newest = roles.slice().sort((a, b) => b.startDate.localeCompare(a.startDate));
   const gaps = [
     { verb: "Add skills to", lacks: (role: WorkMapRole) => role.details.skills.length === 0 },
@@ -608,16 +618,19 @@ function storyMissing(roles: WorkMapRole[]): StoryGap[] {
         ),
     },
   ];
-  return gaps.flatMap((gap) => {
-    const lacking = newest.filter(gap.lacks);
-    if (lacking.length === 0) return [];
-    return [
-      {
-        label: `${gap.verb} ${lacking.length} ${lacking.length === 1 ? "role" : "roles"}`,
-        roleId: lacking[0].id,
-      },
-    ];
-  });
+  return [
+    ...check,
+    ...gaps.flatMap((gap) => {
+      const lacking = newest.filter(gap.lacks);
+      if (lacking.length === 0) return [];
+      return [
+        {
+          label: `${gap.verb} ${lacking.length} ${lacking.length === 1 ? "role" : "roles"}`,
+          roleId: lacking[0].id,
+        },
+      ];
+    }),
+  ];
 }
 
 type LiveUpdate = {

@@ -145,6 +145,24 @@ export function rolesActiveAt(roles: CareerTimelineRole[], month: string): Caree
   });
 }
 
+export function rolesToConfirmCurrent<
+  Role extends Pick<CareerTimelineRole, "id" | "startDate" | "endDate" | "isCurrent">,
+>(roles: Role[]): Role[] {
+  return roles.filter((role) => {
+    const start = careerMonth(role.startDate);
+    if (!role.isCurrent || !start) return false;
+    return roles.some((other) => {
+      const otherStart = careerMonth(other.startDate);
+      return (
+        !other.isCurrent &&
+        otherStart != null &&
+        otherStart > start &&
+        careerMonth(other.endDate) != null
+      );
+    });
+  });
+}
+
 export function rolesStartedBy(roles: CareerTimelineRole[], month: string): CareerTimelineRole[] {
   return roles.filter((role) => {
     const start = careerMonth(role.startDate);
