@@ -6,7 +6,7 @@ import type { OccupantNoticeHref } from "@core/notices";
 import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
-import mark from "./proforna-mark.svg";
+import mark from "./docier-mark.svg";
 
 export type HomeBioMode = "browse" | "preview" | "share";
 

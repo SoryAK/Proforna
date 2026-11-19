@@ -15,12 +15,12 @@
 
 .home-sheet.is-home .home-center {
   border: 1px solid #e4e4e7;
-  border-radius: 16px;
+  border-radius: 8px;
   background: #fff;
 }
 
 .home-sheet.is-home.is-left-closed .home-center {
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .home-center > .home-stage {
@@ -82,7 +82,7 @@
 .home-story-panel {
   min-width: 0;
   border: 1px solid #e4e4e7;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -94,8 +94,8 @@
 }
 
 .home-story-stat span {
-  color: #6b6b70;
-  font-size: 0.75rem;
+  color: #5b5b61;
+  font-size: 0.8125rem;
 }
 
 .home-story-stat strong {
@@ -163,6 +163,7 @@
   min-width: 0;
   height: 1.5rem;
   padding: 0 0.55rem;
+  border-radius: 6px;
   font-size: 0.75rem;
   line-height: 1;
 }
@@ -219,7 +220,7 @@
   min-height: 0;
   flex: 1 1 auto;
   border: 1px solid #e4e4e7;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   scrollbar-color: transparent transparent;
 }
@@ -263,8 +264,8 @@
 .home-story-recent article > button {
   width: auto;
   padding: 0;
-  color: #6b6b70;
-  font-size: 0.78rem;
+  color: #5b5b61;
+  font-size: 0.8125rem;
 }
 
 .home-story-recent article p {
@@ -282,8 +283,8 @@
 .home-story-panel > p,
 .home-story-panel li span,
 .home-story-panel time {
-  color: #6b6b70;
-  font-size: 0.78rem;
+  color: #5b5b61;
+  font-size: 0.8125rem;
   line-height: 1.35;
 }
 
