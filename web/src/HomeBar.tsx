@@ -255,7 +255,7 @@ export function HomeBar({
           <Icon name={menuExpanded ? "rail" : "railOff"} />
         </button>
         <img className="home-bar-mark" src={mark} alt="" />
-        <p className="home-bar-brand">Proforna</p>
+        <p className="home-bar-brand">Docier</p>
       </div>
       <div className="home-bar-search">
         <button
@@ -407,7 +407,7 @@ export function HomeBar({
         ) : null}
         {onRequest && onProforna ? (
           <span className="home-bar-request-divider">
-            <Divider orientation="vertical" />
+            <Divider orientation="vertical" variant="strong" />
           </span>
         ) : null}
         {onProforna ? (

@@ -87,7 +87,7 @@
   margin: 0;
   color: #171717;
   font-family: var(--sans);
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -242,6 +242,8 @@
 }
 
 .home-sheet.is-home {
+  margin: 0 0.5rem 0.5rem;
+  padding: 0.15rem 0.25rem 0.35rem;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -264,8 +266,9 @@
     grid-template-columns: 16.5rem minmax(0, 1fr);
   }
 
-  .home-sheet.is-home.is-right-open {
-    grid-template-columns: 16.5rem minmax(12rem, 1fr) minmax(14rem, 26rem);
+  .home-sheet.is-home.is-right-open,
+  .home-sheet.is-home.is-right-open:has(.pch) {
+    grid-template-columns: 14rem minmax(20rem, 1fr) minmax(0, 1fr);
   }
 
   .home-sheet.is-home.is-left-closed {
@@ -273,7 +276,11 @@
   }
 
   .home-sheet.is-home.is-left-closed.is-right-open {
-    grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 26rem);
+    grid-template-columns: minmax(20rem, 1fr) minmax(14rem, 26rem);
+  }
+
+  .home-sheet.is-home:has(.pch) {
+    grid-template-columns: 26rem minmax(0, 1fr);
   }
 
   .home-sheet {
@@ -287,6 +294,22 @@
 
   .home-sheet.is-right-open > .home-proforna {
     margin-left: 0.4rem;
+  }
+}
+
+@media (min-width: 52rem) {
+  .home-sheet.is-home.is-right-open {
+    grid-template-columns: 16.5rem minmax(20rem, 1fr) minmax(14rem, 26rem);
+  }
+
+  .home-sheet.is-home.is-right-open:has(.pch) {
+    grid-template-columns: 26rem minmax(20rem, 1fr) minmax(14rem, 26rem);
+  }
+}
+
+@media (min-width: 52rem) and (max-width: 1279px) {
+  .home-sheet.is-home.is-right-open:has(.pch) {
+    grid-template-columns: 16.5rem minmax(20rem, 1fr) minmax(14rem, 18rem);
   }
 }
 
@@ -934,7 +957,8 @@ button.home-nav-item:focus-visible {
   overflow: hidden;
 }
 
-.home-stage:has(.documents-page) {
+.home-stage:has(.documents-page),
+.home-stage:has(.network-page) {
   background: #fff;
   color: #171717;
 }
@@ -993,8 +1017,8 @@ button.home-nav-item:focus-visible {
 
   .home-bio,
   .home-history,
-  .home-center,
-  .home-stage,
+  .home-sheet > .home-center,
+  .home-sheet > .home-stage,
   .home-media,
   .home-sheet.is-right-open > .home-proforna,
   .home-sheet.is-left-closed.is-right-open > .home-proforna {
@@ -1006,6 +1030,10 @@ button.home-nav-item:focus-visible {
 
   .home-stage {
     min-height: 24rem;
+  }
+
+  .home-sheet > .home-center {
+    min-height: 36rem;
   }
 
   .home-bio,

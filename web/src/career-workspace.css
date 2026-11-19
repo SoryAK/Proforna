@@ -308,7 +308,7 @@
 
 .opportunity-board {
   display: grid;
-  grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 26rem) minmax(12rem, 1fr);
   gap: 0.75rem;
   flex: 1;
   min-height: 0;
@@ -316,6 +316,7 @@
 }
 
 .opportunity-column {
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   padding-right: 0.2rem;
@@ -493,6 +494,8 @@
   flex-wrap: wrap;
   align-items: end;
   gap: 0.75rem 1rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .opportunity-search input,
@@ -532,8 +535,11 @@
 .opportunity-radius ul {
   position: absolute;
   z-index: 3;
-  width: 100%;
-  margin: 0.25rem 0 0;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
   padding: 0.25rem 0;
   list-style: none;
   background: #080706;
@@ -769,13 +775,95 @@
   color: var(--gold-light);
 }
 
-.network-form {
-  grid-template-columns: repeat(2, 1fr);
-  margin-top: 2rem;
+.network-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 1.25rem 1.5rem 1.5rem;
+  overflow: hidden;
+  background: #fff;
+  color: #171717;
 }
 
-.network-form button {
-  grid-column: 1 / -1;
+.network-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.network-split {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.network-people,
+.network-thread {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.network-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-left: 1.25rem;
+  border-left: 1px solid #e4e4e7;
+}
+
+.network-thread-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.network-meta,
+.network-draft {
+  margin: 0.25rem 0 0;
+  color: #6b6b70;
+  line-height: 1.45;
+}
+
+.network-messages {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.network-message {
+  max-width: min(36rem, 100%);
+}
+
+.network-message.is-outbound {
+  align-self: flex-end;
+}
+
+.network-message span {
+  color: #6b6b70;
+  font-size: 0.75rem;
+}
+
+.network-message p {
+  margin: 0.2rem 0 0;
+  color: #171717;
+}
+
+.network-composer {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: auto;
 }
 
 .contact-list {
@@ -1098,13 +1186,15 @@
 
   .opportunity-board,
   .opportunity-grid,
-  .network-form,
-  .network-layout,
-  .contact-list {
+  .contact-list,
+  .network-split {
     grid-template-columns: 1fr;
   }
 
-  .network-form button {
-    grid-column: auto;
+  .network-thread {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid #e4e4e7;
+    padding-top: 1rem;
   }
 }

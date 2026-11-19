@@ -19,6 +19,13 @@ import {
 
 type JsonObject = Record<string, unknown>;
 
+const contactSends = new Set<string>();
+
+export function markContactSend(contactId: string, pending: boolean) {
+  if (pending) contactSends.add(contactId);
+  else contactSends.delete(contactId);
+}
+
 export type ExternalActionAdapter = {
   perform(action: ExternalAction): Promise<Record<string, unknown>>;
 };
@@ -362,6 +369,63 @@ export function createContact(
     contact.createdAt,
   );
   return contact;
+}
+
+export function updateContact(
+  db: DatabaseSync,
+  occupantId: string,
+  contactId: string,
+  input: JsonObject,
+) {
+  const name = text(input.name);
+  if (!name) throw new CareerManagementStoreError("name-required");
+  const current = db
+    .prepare(
+      "SELECT notes FROM contacts WHERE id = ? AND occupant_id = ?",
+    )
+    .get(contactId, occupantId) as { notes: string } | undefined;
+  if (!current) throw new CareerManagementStoreError("not-found");
+  const organization = text(input.organization);
+  const role = text(input.role);
+  const email = text(input.email);
+  const notes = "notes" in input ? text(input.notes) : current.notes;
+  db.prepare(
+    `UPDATE contacts
+        SET name = ?, organization = ?, role = ?, email = ?, notes = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(name, organization, role, email, notes, contactId, occupantId);
+  return { id: contactId, name, organization, role, email, notes };
+}
+
+export function removeContact(
+  db: DatabaseSync,
+  occupantId: string,
+  contactId: string,
+) {
+  const existing = db
+    .prepare("SELECT id FROM contacts WHERE id = ? AND occupant_id = ?")
+    .get(contactId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("not-found");
+  if (contactSends.has(contactId)) {
+    throw new CareerManagementStoreError("send-pending");
+  }
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      "DELETE FROM contact_messages WHERE contact_id = ? AND occupant_id = ?",
+    ).run(contactId, occupantId);
+    db.prepare(
+      "UPDATE opportunities SET contact_id = NULL WHERE contact_id = ? AND occupant_id = ?",
+    ).run(contactId, occupantId);
+    db.prepare("DELETE FROM contacts WHERE id = ? AND occupant_id = ?").run(
+      contactId,
+      occupantId,
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function createPlan(

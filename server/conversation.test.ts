@@ -190,4 +190,100 @@ describe("contact conversation HTTP seam", () => {
       db.close();
     }
   });
+
+  it("refuses a suggested reply after the person's email changes", async () => {
+    const perform = vi.fn(async () => ({ externalId: "sent-3" }));
+    const complete = vi.fn(async () => ({
+      text: JSON.stringify({ body: "Thursday works." }),
+      model: "local-test",
+    }));
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { complete, externalActions: { perform } });
+    try {
+      await app.request("/api/models", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          hosting: "local",
+          baseUrl: "http://127.0.0.1:11434/v1",
+          model: "local-test",
+        }),
+      });
+      const inbound = (await (
+        await app.request("/api/contacts/inbound", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: "Alex Rivera",
+            email: "alex@example.com",
+            body: "May we talk Thursday?",
+          }),
+        })
+      ).json()) as { contact: { id: string } };
+      const ran = await app.request("/api/agency/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "suggest-reply",
+          scope: { type: "contact", id: inbound.contact.id },
+          grant: { remoteModel: false },
+        }),
+      });
+      const body = (await ran.json()) as { run: { changeSet: { id: string } } };
+      const updated = await app.request(`/api/contacts/${inbound.contact.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Alex Rivera",
+          email: "alex.new@example.com",
+        }),
+      });
+      expect(updated.status).toBe(200);
+      const approved = await app.request(
+        `/api/contacts/${inbound.contact.id}/replies/${body.run.changeSet.id}/approve`,
+        { method: "POST" },
+      );
+      expect(approved.status).toBe(400);
+      expect(await approved.json()).toEqual({ error: "destination-changed" });
+      expect(perform).not.toHaveBeenCalled();
+    } finally {
+      db.close();
+    }
+  });
+
+  it("keeps a person while their message is still sending", async () => {
+    const db = openDatabase(":memory:");
+    let contactId = "";
+    const perform = vi.fn(async () => {
+      const removed = await app.request(`/api/contacts/${contactId}`, {
+        method: "DELETE",
+      });
+      expect(removed.status).toBe(400);
+      expect(await removed.json()).toEqual({ error: "send-pending" });
+      return { externalId: "held" };
+    });
+    const app = createApp(db, { externalActions: { perform } });
+    try {
+      const created = await app.request("/api/contacts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Alex Rivera", email: "alex@example.com" }),
+      });
+      contactId = ((await created.json()) as { contact: { id: string } }).contact.id;
+      const sent = await app.request(`/api/contacts/${contactId}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: "Thursday" }),
+      });
+      expect(sent.status).toBe(201);
+      const still = (await (await app.request("/api/career-management")).json()) as {
+        contacts: Array<{ id: string }>;
+      };
+      expect(still.contacts.some((contact) => contact.id === contactId)).toBe(true);
+      const removed = await app.request(`/api/contacts/${contactId}`, { method: "DELETE" });
+      expect(removed.status).toBe(200);
+    } finally {
+      db.close();
+    }
+  });
 });

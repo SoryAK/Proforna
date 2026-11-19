@@ -430,6 +430,65 @@ export function prepareWorkMapRoleCreate(input: {
   return { ok: false, error: "kind-invalid" };
 }
 
+export type WorkMapRoleDraft = {
+  kind: WorkMapRole["kind"];
+  title: string;
+  organization: string;
+  locationLabel: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  description: string;
+  achievements: string[];
+};
+
+function draftText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/** Details for a new role. A kind alone stays blank. Naming fields with no name are refused. */
+export function prepareWorkMapRoleDraft(input: {
+  kind?: unknown;
+  title?: unknown;
+  organization?: unknown;
+  locationLabel?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+  isCurrent?: unknown;
+  description?: unknown;
+  achievements?: unknown;
+}):
+  | { ok: true; value: WorkMapRoleDraft }
+  | { ok: false; error: "kind-invalid" | "name-required" } {
+  const kind = prepareWorkMapRoleCreate(input);
+  if (!kind.ok) return kind;
+  const title = draftText(input.title);
+  const organization = draftText(input.organization);
+  if (("title" in input || "organization" in input) && !title && !organization) {
+    return { ok: false, error: "name-required" };
+  }
+  const achievements = Array.isArray(input.achievements)
+    ? input.achievements
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+  return {
+    ok: true,
+    value: {
+      kind: kind.value.kind,
+      title,
+      organization,
+      locationLabel: draftText(input.locationLabel),
+      startDate: draftText(input.startDate),
+      endDate: draftText(input.endDate),
+      isCurrent: input.isCurrent === true,
+      description: draftText(input.description),
+      achievements,
+    },
+  };
+}
+
 export type WorkMapSnapshot = {
   id: string;
   occupantId: string;

@@ -494,12 +494,53 @@ describe("Work Map role create HTTP seam", () => {
       expect(body.role.title).toBe("");
       expect(body.role.organization).toBe("");
 
+      const named = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "job",
+          title: "Assembler",
+          organization: "Dialog Check",
+          locationLabel: "Media, PA",
+          startDate: "2024-01",
+          isCurrent: true,
+          description: "Built fixtures",
+          achievements: ["Set a line"],
+        }),
+      });
+      expect(named.status).toBe(201);
+      const namedBody = (await named.json()) as {
+        role: { title: string; organization: string; isCurrent: boolean; achievements: string[] };
+      };
+      expect(namedBody.role).toMatchObject({
+        title: "Assembler",
+        organization: "Dialog Check",
+        isCurrent: true,
+        achievements: ["Set a line"],
+      });
+
+      const blank = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "school", title: " ", organization: "" }),
+      });
+      expect(blank.status).toBe(400);
+      await expect(blank.json()).resolves.toEqual({ error: "name-required" });
+
       const map = (await (await app.request("/api/work-map")).json()) as {
         roles: Array<{ id: string; kind: string }>;
       };
-      expect(map.roles).toEqual([
-        expect.objectContaining({ id: body.role.id, kind: "internship" }),
-      ]);
+      expect(map.roles).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: body.role.id, kind: "internship" }),
+          expect.objectContaining({
+            title: "Assembler",
+            organization: "Dialog Check",
+            kind: "job",
+          }),
+        ]),
+      );
+      expect(map.roles).toHaveLength(2);
 
       const rejected = await app.request("/api/work-map/roles", {
         method: "POST",
