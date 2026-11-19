@@ -1,10 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { Button } from "@astryxdesign/core/Button";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Divider } from "@astryxdesign/core/Divider";
 import type { OccupantNoticeHref } from "@core/notices";
 import type { RelayStatus } from "@core/projection";
-import { publicationEmbed } from "@core/work-map";
+import type { WorkMapPublicationSettings } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
 import mark from "./docier-mark.svg";
@@ -53,21 +51,22 @@ export function HomeBar({
   onNotice: (href: OccupantNoticeHref) => void;
   revision?: number;
 }) {
-  const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | null>(null);
+  const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | "relay" | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [publication, setPublication] = useState<PublicationDraft | null>(null);
+  const [visibilityNote, setVisibilityNote] = useState("");
+  const [visibilityBusy, setVisibilityBusy] = useState(false);
   const [publishNote, setPublishNote] = useState("");
-  const [share, setShare] = useState<{ note: string; page?: string; code?: string } | null>(null);
-  const [copied, setCopied] = useState<"link" | "frame" | null>(null);
   const [searchMax, setSearchMax] = useState<number | null>(null);
   const barRef = useRef<HTMLElement>(null);
   const startRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const relayRef = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const pubRef = useRef<HTMLDivElement>(null);
-  const [pubHost, setPubHost] = useState<HTMLElement | null>(null);
-  const [holdPub, setHoldPub] = useState(false);
   const relay = useRelayStatus(revision);
-  const publishQuiet = relay?.state === "private";
-  const publishLead = relay?.state !== "current" && !publishQuiet;
+  const relayState = relay?.state;
+  const showPublish = relayState === "unpublished" || relayState === "changed" || relayState === "current";
+  const publishLead = relayState === "unpublished" || relayState === "changed";
   const publishPlan = describePublish(relay);
   const planId = useId();
   const menuId = useId();
@@ -80,7 +79,8 @@ export function HomeBar({
     if (!header || !brand || !end) return;
     const fit = () => {
       const side = Math.max(brand.offsetWidth, end.offsetWidth);
-      const room = Math.max(header.clientWidth - side * 2 - 24, 0);
+      const relayWidth = relayRef.current?.offsetWidth ?? 0;
+      const room = Math.max(header.clientWidth - side * 2 - 24 - relayWidth - (relayWidth ? 8 : 0), 0);
       setSearchMax((current) => (current === room ? current : room));
     };
     fit();
@@ -88,25 +88,42 @@ export function HomeBar({
     observer.observe(header);
     observer.observe(brand);
     observer.observe(end);
+    if (relayRef.current) observer.observe(relayRef.current);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    if (!menu && !share) return;
+    if (menu !== "relay") return;
+    let cancel = false;
+    setVisibilityNote("");
+    void fetch("/api/work-map/settings")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("load");
+        const body = (await response.json()) as {
+          settings?: WorkMapPublicationSettings;
+          updatedAt?: string | null;
+        };
+        if (cancel || !body.settings) return;
+        setPublication({ settings: body.settings, updatedAt: body.updatedAt ?? null });
+      })
+      .catch(() => {
+        if (!cancel) setVisibilityNote("Could not load visibility.");
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [menu]);
+
+  useEffect(() => {
+    if (!menu) return;
     function onPointer(event: MouseEvent) {
       const target = event.target as Node;
       const insideBar = root.current?.contains(target);
-      const insidePub = pubRef.current?.contains(target);
-      if (!insideBar && !insidePub) {
-        setMenu(null);
-        setShare(null);
-      }
+      const insideSearch = searchRef.current?.contains(target);
+      if (!insideBar && !insideSearch) setMenu(null);
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenu(null);
-        setShare(null);
-      }
+      if (event.key === "Escape") setMenu(null);
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -114,30 +131,7 @@ export function HomeBar({
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [menu, share]);
-
-  useEffect(() => {
-    const place = () => {
-      const host = document.querySelector(".home-center-pub");
-      const center = document.querySelector(".home-center");
-      if (host instanceof HTMLElement) {
-        setPubHost(host);
-        setHoldPub(true);
-        return;
-      }
-      setPubHost(null);
-      setHoldPub(center instanceof HTMLElement);
-    };
-    place();
-    const rootNode = document.querySelector(".home") ?? document.body;
-    const observer = new MutationObserver(place);
-    observer.observe(rootNode, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-    window.addEventListener("resize", place);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", place);
-    };
-  }, []);
+  }, [menu]);
 
   function publishFailure(code: string | undefined) {
     if (code === "slug-required") {
@@ -150,76 +144,6 @@ export function HomeBar({
       return "A private Work Map cannot be published.";
     }
     return code ?? "The Work Map could not be published.";
-  }
-
-  async function openShare() {
-    setShare({ note: "Loading the share link…" });
-    setCopied(null);
-    try {
-      const [settingsResponse, publicationResponse] = await Promise.all([
-        fetch("/api/work-map/settings"),
-        fetch("/api/projections"),
-      ]);
-      if (!settingsResponse.ok) {
-        setShare({ note: "Could not load the share link." });
-        return;
-      }
-      const body = (await settingsResponse.json()) as {
-        settings?: { slug?: string; visibility?: string };
-        relayOrigin?: string | null;
-      };
-      const settings = body.settings;
-      if (!settings || typeof settings.visibility !== "string") {
-        setShare({ note: "Could not load the share link." });
-        return;
-      }
-      const embed = publicationEmbed({
-        origin: body.relayOrigin,
-        slug: settings.slug ?? "",
-        visibility: settings.visibility as Parameters<typeof publicationEmbed>[0]["visibility"],
-      });
-      if (!embed.ok) {
-        setShare({
-          note:
-            embed.reason === "private"
-              ? "A private career stays off the relay, so there is no link to share."
-              : embed.reason === "access-controlled"
-                ? "An access-controlled career uses its own link, so there is no public link to copy."
-                : embed.reason === "slug"
-                  ? "Save a public slug in publication settings before sharing."
-                  : "The share link appears once the relay is connected.",
-        });
-        return;
-      }
-      let published = false;
-      if (publicationResponse.ok) {
-        const listed = (await publicationResponse.json()) as {
-          projections?: Array<{ slug: string; status: string }>;
-        };
-        published = (listed.projections ?? []).some(
-          (item) => item.slug === settings.slug && item.status === "published",
-        );
-      }
-      setShare({
-        page: embed.page.replace(/\?embed=1$/, ""),
-        code: embed.code,
-        note: published
-          ? "This link shows the published career. A later edit stays private until you publish again."
-          : "Publish once, then this link shows the career. A later edit stays private until you publish again.",
-      });
-    } catch {
-      setShare({ note: "Could not load the share link." });
-    }
-  }
-
-  function copyShare(value: string, which: "link" | "frame") {
-    void navigator.clipboard.writeText(value).then(
-      () => {
-        setCopied(which);
-        window.setTimeout(() => setCopied((current) => (current === which ? null : current)), 2000);
-      },
-      () => setCopied(null),
-    );
   }
 
   async function confirmPublish() {
@@ -245,6 +169,71 @@ export function HomeBar({
     }
   }
 
+  async function chooseVisibility(value: WorkMapPublicationSettings["visibility"]) {
+    if (!publication || visibilityBusy || publication.settings.visibility === value) return;
+    setVisibilityBusy(true);
+    setVisibilityNote("");
+    const next = { ...publication.settings, visibility: value };
+    try {
+      const response = await fetch("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...next, updatedAt: publication.updatedAt }),
+      });
+      if (response.status === 409) {
+        setVisibilityNote("Publication settings changed. Open this again.");
+        return;
+      }
+      if (!response.ok) {
+        setVisibilityNote("Could not save visibility.");
+        return;
+      }
+      const body = (await response.json()) as {
+        settings?: WorkMapPublicationSettings;
+        updatedAt?: string | null;
+      };
+      if (body.settings) {
+        setPublication({ settings: body.settings, updatedAt: body.updatedAt ?? null });
+      }
+      announceRelayChange();
+    } catch {
+      setVisibilityNote("Could not save visibility.");
+    } finally {
+      setVisibilityBusy(false);
+    }
+  }
+
+  function publishMenu() {
+    return (
+      <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
+        {publishPlan ? (
+          <div className="home-pub-plan" id={planId}>
+            <p>{publishPlan.lead}</p>
+            {publishPlan.lines.length > 0 ? (
+              <ul>
+                {publishPlan.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          role="menuitem"
+          aria-describedby={publishPlan ? planId : undefined}
+          disabled={publishing}
+          onClick={() => void confirmPublish()}
+        >
+          Confirm publish
+        </button>
+        <button type="button" role="menuitem" onClick={() => setMenu(null)}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   return (
     <header
       className="home-bar"
@@ -267,7 +256,7 @@ export function HomeBar({
         <img className="home-bar-mark" src={mark} alt="" />
         <p className="home-bar-brand">Docier</p>
       </div>
-      <div className="home-bar-search">
+      <div className="home-bar-search" ref={searchRef}>
         <button
           type="button"
           className="home-search-pill"
@@ -286,78 +275,90 @@ export function HomeBar({
         >
           <Icon name="search" />
         </button>
-      </div>
-      <div className="home-bar-end" ref={root}>
-        {(pubHost
-          ? (node: ReactNode) => createPortal(node, pubHost)
-          : holdPub
-            ? () => null
-            : (node: ReactNode) => node)(
-          <div className="home-pub" ref={pubRef}>
-          <div className="home-pub-actions" role="group" aria-label="Publication">
-            {previewOpen || bioMode === "preview" ? (
-              <Button
-                label="Exit preview"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  if (previewOpen) onExitPreview?.();
-                  else onBioMode("browse");
-                  setMenu(null);
-                }}
-              />
-            ) : (
-              <Button
-                label="Preview"
-                variant="secondary"
-                size="sm"
-                aria-expanded={menu === "preview"}
-                aria-pressed={bioMode !== "browse"}
-                aria-haspopup="menu"
-                onClick={() => setMenu((current) => (current === "preview" ? null : "preview"))}
-              />
-            )}
-            <Button
-              label="Publish"
-              variant={publishLead ? "primary" : "secondary"}
-              size="sm"
-              isDisabled={publishQuiet}
-              tooltip={publishQuiet ? "A private career stays off the Relay." : undefined}
-              aria-expanded={publishQuiet ? undefined : menu === "publish"}
-              aria-haspopup={publishQuiet ? undefined : "menu"}
+        <div className={`home-sync is-${relayState ?? "private"}`} ref={relayRef}>
+          <button
+            type="button"
+            className="home-sync-track"
+            aria-expanded={menu === "relay"}
+            aria-label={relayName(relay)}
+            onClick={() => setMenu((current) => (current === "relay" ? null : "relay"))}
+          >
+            <span className="home-sync-node is-you" aria-hidden="true" />
+            <svg className="home-sync-link" viewBox="0 0 40 8" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M1 4H39" />
+            </svg>
+            <span className="home-sync-node is-relay" aria-hidden="true" />
+            <span className="home-sync-label">Relay</span>
+            {relayState === "changed" && (relay?.changes.length ?? 0) > 0 ? (
+              <span className="home-sync-count">{relay?.changes.length}</span>
+            ) : null}
+          </button>
+          {previewOpen || bioMode === "preview" ? (
+            <button
+              type="button"
+              className="home-sync-ghost"
+              onClick={() => {
+                if (previewOpen) onExitPreview?.();
+                else onBioMode("browse");
+                setMenu(null);
+              }}
+            >
+              Exit preview
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="home-sync-ghost"
+              aria-expanded={menu === "preview"}
+              aria-haspopup="menu"
+              onClick={() => setMenu((current) => (current === "preview" ? null : "preview"))}
+            >
+              Preview
+            </button>
+          )}
+          {showPublish ? (
+            <button
+              type="button"
+              className={publishLead ? "home-sync-send is-lead" : "home-sync-send"}
+              aria-expanded={menu === "publish"}
+              aria-haspopup="menu"
               onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
-            />
-          </div>
-          {menu === "publish" ? (
-            <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
-              {publishPlan ? (
-                <div className="home-pub-plan" id={planId}>
-                  <p>{publishPlan.lead}</p>
-                  {publishPlan.lines.length > 0 ? (
-                    <ul>
-                      {publishPlan.lines.map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ) : null}
-              <button
-                type="button"
-                role="menuitem"
-                aria-describedby={publishPlan ? planId : undefined}
-                disabled={publishing}
-                onClick={() => void confirmPublish()}
-              >
-                Confirm publish
-              </button>
-              <button type="button" role="menuitem" onClick={() => setMenu(null)}>
-                Cancel
-              </button>
+            >
+              Publish
+            </button>
+          ) : null}
+          {menu === "relay" ? (
+            <div className="home-pub-menu home-sync-menu home-sync-settings">
+              <div className="home-pub-plan">
+                <p>{relayState === "private" || !publishPlan ? "A private career stays off the Relay." : publishPlan.lead}</p>
+                {publishPlan && publishPlan.lines.length > 0 ? (
+                  <ul>
+                    {publishPlan.lines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+              <p className="home-sync-setting">Visibility</p>
+              <div role="radiogroup" aria-label="Visibility">
+                {VISIBILITY_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={publication?.settings.visibility === option.value}
+                    disabled={!publication || visibilityBusy}
+                    onClick={() => void chooseVisibility(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {visibilityNote ? <p className="home-sync-setting-note">{visibilityNote}</p> : null}
             </div>
           ) : null}
           {menu === "preview" && bioMode !== "preview" ? (
-            <div className="home-pub-menu" role="menu" aria-label="Preview and share">
+            <div className="home-pub-menu home-sync-menu" role="menu" aria-label="Preview">
               <button
                 type="button"
                 role="menuitem"
@@ -378,57 +379,21 @@ export function HomeBar({
               >
                 New window
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  void openShare();
-                }}
-              >
-                Edit for sharing
-              </button>
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={bioMode === "browse"}
-                onClick={() => {
-                  onBioMode("browse");
-                  setMenu(null);
-                }}
-              >
-                Browsing
-              </button>
             </div>
           ) : null}
-          {share ? (
-            <div className="home-pub-share" role="dialog" aria-label="Share">
-              <p>{share.note}</p>
-              {share.page ? <p className="home-pub-share-link">{share.page}</p> : null}
-              {share.page && share.code ? (
-                <div className="home-pub-share-actions">
-                  <button type="button" onClick={() => copyShare(share.page ?? "", "link")}>
-                    {copied === "link" ? "Copied" : "Copy link"}
-                  </button>
-                  <button type="button" onClick={() => copyShare(share.code ?? "", "frame")}>
-                    {copied === "frame" ? "Copied" : "Copy frame"}
-                  </button>
-                </div>
-              ) : null}
-              <button type="button" onClick={() => setShare(null)}>
-                Close
-              </button>
-            </div>
-          ) : null}
-          {publishNote || notice ? (
-            <p className="home-pub-status" role="status">
-              {publishNote || notice}
-            </p>
-          ) : null}
-        </div>,
-        )}
+          {menu === "publish" ? publishMenu() : null}
+        </div>
+      </div>
+      <div className="home-bar-end" ref={root}>
+        {publishNote || notice ? (
+          <p className="home-pub-status" role="status">
+            {publishNote || notice}
+          </p>
+        ) : null}
         {onRequest ? (
-          <Button label="Request" variant="secondary" size="sm" onClick={onRequest} />
+          <button type="button" className="home-notice-btn" aria-label="Request" onClick={onRequest}>
+            <Icon name="request" />
+          </button>
         ) : null}
         {onRequest && onProforna ? (
           <span className="home-bar-request-divider">
@@ -526,6 +491,28 @@ export function HomeBar({
       </div>
     </header>
   );
+}
+
+const VISIBILITY_OPTIONS: Array<{ value: WorkMapPublicationSettings["visibility"]; label: string }> = [
+  { value: "public", label: "Public" },
+  { value: "unlisted", label: "Unlisted" },
+  { value: "access-controlled", label: "Access controlled" },
+  { value: "stealth", label: "Stealth — hide identity" },
+  { value: "anonymous", label: "Anonymous — redact career detail" },
+  { value: "private", label: "Private — keep off the relay" },
+];
+
+type PublicationDraft = {
+  settings: WorkMapPublicationSettings;
+  updatedAt: string | null;
+};
+
+function relayName(relay: RelayStatus | null): string {
+  if (!relay || relay.state === "private") return "Relay, private";
+  if (relay.state === "unpublished") return "Relay, not published";
+  if (relay.state === "current") return "Relay, up to date";
+  const count = relay.changes.length;
+  return count > 0 ? `Relay, ${count} ${count === 1 ? "change" : "changes"}` : "Relay, changes to publish";
 }
 
 function describePublish(relay: RelayStatus | null): { lead: string; lines: string[] } | null {

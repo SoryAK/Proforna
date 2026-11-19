@@ -446,11 +446,19 @@ type IconName =
   | "railOff"
   | "proforna"
   | "panel"
-  | "panelOff";
+  | "panelOff"
+  | "request";
 
 export function Icon({ name }: { name: IconName }) {
+  const request = name === "request";
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className={request ? "home-request-mark" : undefined}
+      width="20"
+      height="20"
+      viewBox={request ? "0 0 80 80" : "0 0 24 24"}
+      aria-hidden="true"
+    >
       {name === "home" ? (
         <path d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" />
       ) : null}
@@ -530,6 +538,12 @@ export function Icon({ name }: { name: IconName }) {
           <rect x="3" y="4" width="18" height="16" rx="1.5" />
           <path d="M14.5 4v16" />
         </>
+      ) : null}
+      {name === "request" ? (
+        <path
+          fillRule="evenodd"
+          d="M10 8H36C58 8 64 20 64 34C64 46 52 52 40 54L62 66H10V8ZM31 16L46 32Q48 38 40 38H36V72H26V38H22Q14 38 16 32Z"
+        />
       ) : null}
     </svg>
   );

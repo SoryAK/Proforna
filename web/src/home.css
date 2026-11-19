@@ -81,6 +81,14 @@
   height: 18px;
 }
 
+.home-notice-btn svg.home-request-mark,
+.home-notice-btn svg.home-request-mark path {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke: none;
+}
+
 .home-bar-mark {
   display: block;
   width: 28px;
@@ -104,6 +112,7 @@
   top: 50%;
   display: flex;
   align-items: center;
+  gap: 8px;
   transform: translate(-50%, -50%);
 }
 
@@ -183,6 +192,200 @@
   color: #171717;
 }
 
+.home-sync {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+}
+
+.home-sync-track,
+.home-sync-ghost,
+.home-sync-send {
+  margin: 0;
+  font: 400 13px/18px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.home-sync-ghost,
+.home-sync-send {
+  height: 28px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.home-sync-track {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #cecece;
+  border-radius: 999px;
+  background: #fff;
+  color: #3b3b3b;
+}
+
+.home-sync-track:hover,
+.home-sync-track:focus-visible {
+  border-color: #b5b5b5;
+}
+
+.home-sync-track:focus-visible,
+.home-sync-ghost:focus-visible,
+.home-sync-send:focus-visible {
+  outline: 2px solid #0090f1;
+  outline-offset: 1px;
+}
+
+.home-sync-node {
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.home-sync-node.is-you {
+  background: #3b3b3b;
+}
+
+.home-sync-node.is-relay {
+  background: #b08968;
+}
+
+.home-sync.is-changed .home-sync-node.is-relay {
+  background: #e8502a;
+}
+
+.home-sync.is-current .home-sync-node.is-relay {
+  background: #22a06b;
+}
+
+.home-sync.is-private .home-sync-node.is-relay,
+.home-sync.is-unpublished .home-sync-node.is-relay {
+  background: transparent;
+  border: 1.5px solid #b08968;
+}
+
+.home-sync.is-private .home-sync-node.is-relay {
+  border-color: #a1a1aa;
+}
+
+.home-sync-link {
+  width: 26px;
+  height: 8px;
+  margin: 0 2px;
+  overflow: visible;
+}
+
+.home-sync-link path {
+  fill: none;
+  stroke: #b08968;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.home-sync.is-changed .home-sync-link path {
+  stroke: #e8502a;
+  stroke-dasharray: 3 4;
+}
+
+.home-sync.is-current .home-sync-link path {
+  stroke: #22a06b;
+}
+
+.home-sync.is-unpublished .home-sync-link path {
+  stroke-dasharray: 3 4;
+}
+
+.home-sync.is-private .home-sync-link path {
+  stroke: #a1a1aa;
+  stroke-dasharray: 10 18;
+}
+
+.home-sync-label {
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.home-sync-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #e8502a;
+  color: #fff;
+  font: 600 11px/1 system-ui, sans-serif;
+}
+
+.home-sync-ghost {
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #3b3b3b;
+}
+
+.home-sync-ghost:hover,
+.home-sync-ghost:focus-visible {
+  background: #e6e6e8;
+}
+
+.home-sync-send {
+  padding: 0 10px;
+  border: 1px solid #cecece;
+  border-radius: 999px;
+  background: #fff;
+  color: #3b3b3b;
+}
+
+.home-sync-send:hover {
+  background: #f2f2f2;
+}
+
+.home-sync-send.is-lead {
+  border-color: #005fb8;
+  background: #005fb8;
+  color: #fff;
+  font-weight: 600;
+}
+
+.home-sync-send.is-lead:hover {
+  background: #0258a8;
+}
+
+.home-sync-menu {
+  right: 0;
+  left: auto;
+}
+
+.home-sync-settings {
+  min-width: 17rem;
+  padding-bottom: 4px;
+}
+
+.home-sync-setting,
+.home-sync-setting-note {
+  margin: 8px 4px 2px;
+  padding: 0 1.2em;
+  color: #6b6b70;
+  font-size: 12px;
+}
+
+.home-sync-setting {
+  font-weight: 600;
+}
+
+.home-sync-settings [aria-checked="true"] {
+  font-weight: 600;
+  background: #ececee;
+}
+
 .home-palette-hit {
   display: flex;
   flex-direction: column;
@@ -210,12 +413,6 @@
 @media (min-width: 1024px) {
   .home-search-pill kbd {
     display: inline;
-  }
-}
-
-@media (min-width: 1200px) {
-  .home-search-pill {
-    width: min(20rem, var(--home-search-max, 20rem));
   }
 }
 
@@ -1116,7 +1313,8 @@ button.home-nav-item:focus-visible {
   max-width: 18rem;
 }
 
-.home-center-pub .home-pub-menu.is-publish {
+.home-center-pub .home-pub-menu.is-publish,
+.home-sync .home-pub-menu.is-publish {
   right: 0;
   left: auto;
 }

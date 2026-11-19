@@ -11,12 +11,10 @@ import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { formatHistoryPeriod, presentCareerHistoryStats } from "@core/career-history";
 import { careerMonth, rolesToConfirmCurrent } from "@core/career-timeline";
 import type { MapSettings } from "@core/map-settings";
-import type { RelayStatus } from "@core/projection";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import { ArrowLeft } from "lucide-react";
 import { CareerMap } from "./CareerMap";
 import type { MapFitMode } from "./map-camera";
-import { useRelayStatus } from "./relay-status";
 import "./home-center.css";
 
 export function HomeCenter({
@@ -42,7 +40,6 @@ export function HomeCenter({
   const [recentQuery, setRecentQuery] = useState("");
   const [recentFilter, setRecentFilter] = useState<RecentFilter>("all");
   const [recentSort, setRecentSort] = useState<RecentSort>("date");
-  const relay = useRelayStatus(revision);
 
   useEffect(() => {
     if (!viewRequest) return;
@@ -129,25 +126,17 @@ export function HomeCenter({
         className="home-stage home-center-live"
         aria-label={pageContent ? "Page" : view === "map" ? "Map" : "Career story"}
       >
-        <div className="home-center-bar">
-          <div className="home-center-tabs">
-            {pageContent ? null : view === "map" ? (
-              <>
-                <button type="button" className="home-center-back" onClick={() => chooseStage("story")}>
-                  <Icon icon={ArrowLeft} size="sm" />
-                  Story
-                </button>
-                <h1 className="home-center-title">Map</h1>
-              </>
-            ) : (
-              <h1 className="home-center-title">Story</h1>
-            )}
+        {pageContent || view !== "map" ? null : (
+          <div className="home-center-bar">
+            <div className="home-center-tabs">
+              <button type="button" className="home-center-back" onClick={() => chooseStage("story")}>
+                <Icon icon={ArrowLeft} size="sm" />
+                Story
+              </button>
+              <h1 className="home-center-title">Map</h1>
+            </div>
           </div>
-          <div className="home-center-actions">
-            <RelayState status={relay} />
-            <div className="home-center-pub" />
-          </div>
-        </div>
+        )}
         <div className="home-center-stage" id="home-center-panel">
           <div className="home-story-layout">
             {pageContent ? (
@@ -428,38 +417,6 @@ function recentEmpty(lens: RecentLens, focus: WorkMapRole | null) {
   if (lens === "notes") return "No notes yet.";
   if (lens === "milestones") return "No milestones yet.";
   return focus ? "Nothing recorded for this role yet." : "Nothing new from the jobs you're in.";
-}
-
-function RelayState({ status }: { status: RelayStatus | null }) {
-  if (!status) return null;
-  const since =
-    status.state === "current" || status.state === "changed" ? inboxStamp(status.publishedAt) : "";
-  const label =
-    status.state === "private"
-      ? "Private"
-      : status.state === "unpublished"
-        ? "Not published"
-        : status.state === "current"
-          ? "Relay up to date"
-          : "Changes to publish";
-  const title =
-    status.state === "unpublished"
-      ? "Not on the Relay yet"
-      : status.state === "changed"
-        ? [`Last published ${since}`, ...status.changes].join("\n")
-        : since
-          ? `Last published ${since}`
-          : undefined;
-  return (
-    <p
-      className={`home-center-relay is-${status.state}`}
-      role="status"
-      title={title}
-    >
-      <span className="home-center-relay-dot" aria-hidden="true" />
-      {label}
-    </p>
-  );
 }
 
 function StoryTimeline({
