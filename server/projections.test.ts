@@ -255,7 +255,7 @@ describe("interactive projections HTTP seam", () => {
     const app = createApp(db, { relay });
     const read = async () =>
       ((await (await app.request("/api/work-map/relay")).json()) as {
-        relay: { state: string; publishedAt?: string };
+        relay: { state: string; publishedAt?: string; changes?: string[] };
       }).relay;
     try {
       await app.request("/api/history", {
@@ -291,7 +291,11 @@ describe("interactive projections HTTP seam", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ title: "Principal" }),
       });
-      expect(await read()).toEqual({ state: "changed", publishedAt: current.publishedAt });
+      expect(await read()).toEqual({
+        state: "changed",
+        publishedAt: current.publishedAt,
+        changes: ["Edited Acme"],
+      });
 
       expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
       expect((await read()).state).toBe("current");

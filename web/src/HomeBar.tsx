@@ -3,11 +3,12 @@ import { createPortal } from "react-dom";
 import { Button } from "@astryxdesign/core/Button";
 import { Divider } from "@astryxdesign/core/Divider";
 import type { OccupantNoticeHref } from "@core/notices";
+import type { RelayStatus } from "@core/projection";
 import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
 import mark from "./docier-mark.svg";
-import { announceRelayChange } from "./relay-status";
+import { announceRelayChange, useRelayStatus } from "./relay-status";
 
 export type HomeBioMode = "browse" | "preview" | "share";
 
@@ -62,6 +63,9 @@ export function HomeBar({
   const pubRef = useRef<HTMLDivElement>(null);
   const [pubHost, setPubHost] = useState<HTMLElement | null>(null);
   const [holdPub, setHoldPub] = useState(false);
+  const relay = useRelayStatus(0);
+  const publishPlan = describePublish(relay);
+  const planId = useId();
   const menuId = useId();
   const letters = initials(name);
 
@@ -320,9 +324,22 @@ export function HomeBar({
           </div>
           {menu === "publish" ? (
             <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
+              {publishPlan ? (
+                <div className="home-pub-plan" id={planId}>
+                  <p>{publishPlan.lead}</p>
+                  {publishPlan.lines.length > 0 ? (
+                    <ul>
+                      {publishPlan.lines.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
               <button
                 type="button"
                 role="menuitem"
+                aria-describedby={publishPlan ? planId : undefined}
                 disabled={publishing}
                 onClick={() => void confirmPublish()}
               >
@@ -503,6 +520,23 @@ export function HomeBar({
       </div>
     </header>
   );
+}
+
+function describePublish(relay: RelayStatus | null): { lead: string; lines: string[] } | null {
+  if (!relay || relay.state === "private") return null;
+  if (relay.state === "unpublished") {
+    return { lead: "This puts your career on the Relay for the first time.", lines: [] };
+  }
+  if (relay.state === "current") {
+    return { lead: "The Relay already matches your career.", lines: [] };
+  }
+  const since = new Date(relay.publishedAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return relay.changes.length > 0
+    ? { lead: `Since ${since}:`, lines: relay.changes }
+    : { lead: "Only private details changed. The Relay looks the same.", lines: [] };
 }
 
 function initials(name: string): string {

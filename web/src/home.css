@@ -1113,6 +1113,30 @@ button.home-nav-item:focus-visible {
 .home-pub-menu.is-publish {
   right: auto;
   left: 0;
+  max-width: 18rem;
+}
+
+.home-center-pub .home-pub-menu.is-publish {
+  right: 0;
+  left: auto;
+}
+
+.home-pub-plan {
+  margin: 0 4px 4px;
+  padding: 6px 1.2em 8px;
+  border-bottom: 1px solid #ececee;
+  color: #3b3b3b;
+  font: 400 13px/1.4 system-ui, sans-serif;
+}
+
+.home-pub-plan p {
+  margin: 0;
+  color: #5b5b61;
+}
+
+.home-pub-plan ul {
+  margin: 4px 0 0;
+  padding-left: 1rem;
 }
 
 .home-pub-status {

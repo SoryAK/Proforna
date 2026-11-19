@@ -51,18 +51,77 @@ export type RelayStatus =
   | { state: "private" }
   | { state: "unpublished" }
   | { state: "current"; publishedAt: string }
-  | { state: "changed"; publishedAt: string };
+  | { state: "changed"; publishedAt: string; changes: string[] };
 
 export function presentRelayStatus(input: {
-  visibility: ProjectionVisibility;
-  sourceFingerprint: string;
-  live: { publishedAt: string; sourceFingerprint: string | null } | null;
+  current: WorkMapSnapshot;
+  live: { publishedAt: string; snapshot: WorkMapSnapshot | null } | null;
 }): RelayStatus {
-  if (input.visibility === "private") return { state: "private" };
+  if (input.current.visibility === "private") return { state: "private" };
   if (!input.live) return { state: "unpublished" };
-  return input.live.sourceFingerprint === input.sourceFingerprint
-    ? { state: "current", publishedAt: input.live.publishedAt }
-    : { state: "changed", publishedAt: input.live.publishedAt };
+  const published = input.live.snapshot;
+  if (published?.sourceFingerprint === input.current.sourceFingerprint) {
+    return { state: "current", publishedAt: input.live.publishedAt };
+  }
+  return {
+    state: "changed",
+    publishedAt: input.live.publishedAt,
+    changes: published ? describeRelayChanges(published, input.current) : [],
+  };
+}
+
+export function describeRelayChanges(
+  published: WorkMapSnapshot,
+  current: WorkMapSnapshot,
+): string[] {
+  const lines: string[] = [];
+  if (
+    !sameValue(published.profile, current.profile) ||
+    published.targetRole !== current.targetRole
+  ) {
+    lines.push("Profile updated");
+  }
+  const before = new Map(published.roles.map((role) => [role.id, role]));
+  const after = new Map(current.roles.map((role) => [role.id, role]));
+  const added = current.roles.filter((role) => !before.has(role.id));
+  const removed = published.roles.filter((role) => !after.has(role.id));
+  const edited = current.roles.filter((role) => {
+    const earlier = before.get(role.id);
+    return earlier != null && !sameValue(earlier, role);
+  });
+  lines.push(...roleLines("Added", added));
+  lines.push(...roleLines("Edited", edited));
+  lines.push(...roleLines("Removed", removed));
+  const skillsAdded = current.skills.filter((skill) => !published.skills.includes(skill)).length;
+  const skillsRemoved = published.skills.filter((skill) => !current.skills.includes(skill)).length;
+  if (skillsAdded > 0) lines.push(`Added ${count(skillsAdded, "skill")}`);
+  if (skillsRemoved > 0) lines.push(`Removed ${count(skillsRemoved, "skill")}`);
+  if (
+    published.visibility !== current.visibility ||
+    published.theme !== current.theme ||
+    published.expiresAt !== current.expiresAt ||
+    !sameValue(published.sections, current.sections)
+  ) {
+    lines.push("Publication settings changed");
+  }
+  return lines;
+}
+
+function roleLines(
+  verb: string,
+  roles: Array<{ organization: string; title: string }>,
+): string[] {
+  if (roles.length === 0) return [];
+  if (roles.length > 2) return [`${verb} ${count(roles.length, "role")}`];
+  return roles.map((role) => `${verb} ${role.organization || role.title || "a role"}`);
+}
+
+function count(value: number, noun: string): string {
+  return `${value} ${noun}${value === 1 ? "" : "s"}`;
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 export function canViewProjection(

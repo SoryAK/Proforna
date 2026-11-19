@@ -684,6 +684,14 @@
   background: #a1a1aa;
 }
 
+.home-center-relay.is-private .home-center-relay-dot {
+  background: #a1a1aa;
+}
+
+.home-center-relay.is-unpublished .home-center-relay-dot {
+  background: #b08968;
+}
+
 .home-center-relay.is-changed .home-center-relay-dot {
   background: #e8502a;
 }

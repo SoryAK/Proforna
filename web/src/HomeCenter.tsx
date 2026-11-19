@@ -438,15 +438,23 @@ function RelayState({ status }: { status: RelayStatus | null }) {
     status.state === "private"
       ? "Private"
       : status.state === "unpublished"
-        ? "Not on the Relay yet"
+        ? "Not published"
         : status.state === "current"
           ? "Relay up to date"
           : "Changes to publish";
+  const title =
+    status.state === "unpublished"
+      ? "Not on the Relay yet"
+      : status.state === "changed"
+        ? [`Last published ${since}`, ...status.changes].join("\n")
+        : since
+          ? `Last published ${since}`
+          : undefined;
   return (
     <p
       className={`home-center-relay is-${status.state}`}
       role="status"
-      title={since ? `Last published ${since}` : undefined}
+      title={title}
     >
       <span className="home-center-relay-dot" aria-hidden="true" />
       {label}

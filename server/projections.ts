@@ -16,6 +16,7 @@ import {
   type ChangeSet,
   type InteractiveProjection,
   type RelayStatus,
+  type WorkMapSnapshot,
 } from "../core/index";
 import { createContact, createOpportunity } from "./career-management";
 import {
@@ -90,11 +91,24 @@ export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStat
     publishedFingerprint = typeof value === "string" ? value : null;
     break;
   }
+  const published = publishedFingerprint
+    ? (db
+        .prepare(
+          `SELECT snapshot_json FROM work_map_snapshots
+           WHERE occupant_id = ? AND source_fingerprint = ?
+           ORDER BY created_at DESC LIMIT 1`,
+        )
+        .get(occupantId, publishedFingerprint) as { snapshot_json: string } | undefined)
+    : undefined;
   return presentRelayStatus({
-    visibility: snapshot.visibility,
-    sourceFingerprint: snapshot.sourceFingerprint,
+    current: snapshot,
     live: publication
-      ? { publishedAt: publication.published_at, sourceFingerprint: publishedFingerprint }
+      ? {
+          publishedAt: publication.published_at,
+          snapshot: published
+            ? (JSON.parse(published.snapshot_json) as WorkMapSnapshot)
+            : null,
+        }
       : null,
   });
 }
