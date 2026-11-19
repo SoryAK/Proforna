@@ -64,6 +64,8 @@ export function HomeBar({
   const [pubHost, setPubHost] = useState<HTMLElement | null>(null);
   const [holdPub, setHoldPub] = useState(false);
   const relay = useRelayStatus(0);
+  const publishQuiet = relay?.state === "private";
+  const publishLead = relay?.state !== "current" && !publishQuiet;
   const publishPlan = describePublish(relay);
   const planId = useId();
   const menuId = useId();
@@ -315,10 +317,12 @@ export function HomeBar({
             )}
             <Button
               label="Publish"
-              variant="primary"
+              variant={publishLead ? "primary" : "secondary"}
               size="sm"
-              aria-expanded={menu === "publish"}
-              aria-haspopup="menu"
+              isDisabled={publishQuiet}
+              tooltip={publishQuiet ? "A private career stays off the Relay." : undefined}
+              aria-expanded={publishQuiet ? undefined : menu === "publish"}
+              aria-haspopup={publishQuiet ? undefined : "menu"}
               onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
             />
           </div>
