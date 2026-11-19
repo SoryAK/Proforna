@@ -254,10 +254,12 @@ export {
   planProjectionAccessDecision,
   planProjectionGrant,
   planProjectionRevoke,
+  presentRelayStatus,
   type InteractiveProjection,
   type ProjectionDisclosure,
   type ProjectionError,
   type ProjectionVisibility,
+  type RelayStatus,
 } from "./projection";
 export {
   presentInboundAccessRequest,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@astryxdesign/core/Button";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { Icon } from "@astryxdesign/core/Icon";
@@ -9,11 +9,14 @@ import { Selector } from "@astryxdesign/core/Selector";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { formatHistoryPeriod, presentCareerHistoryStats } from "@core/career-history";
+import { careerMonth, rolesToConfirmCurrent } from "@core/career-timeline";
 import type { MapSettings } from "@core/map-settings";
+import type { RelayStatus } from "@core/projection";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
-import { ArrowLeft, LayoutGrid, Map as MapIcon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { CareerMap } from "./CareerMap";
 import type { MapFitMode } from "./map-camera";
+import { useRelayStatus } from "./relay-status";
 import "./home-center.css";
 
 export function HomeCenter({
@@ -39,7 +42,7 @@ export function HomeCenter({
   const [recentQuery, setRecentQuery] = useState("");
   const [recentFilter, setRecentFilter] = useState<RecentFilter>("all");
   const [recentSort, setRecentSort] = useState<RecentSort>("date");
-  const tabRefs = useRef<Partial<Record<CenterView, HTMLButtonElement>>>({});
+  const relay = useRelayStatus(revision);
 
   useEffect(() => {
     if (!viewRequest) return;
@@ -116,21 +119,6 @@ export function HomeCenter({
     setUpdateId(null);
   }
 
-  function moveTab(event: KeyboardEvent<HTMLButtonElement>) {
-    const order: CenterView[] = ["story", "map"];
-    const index = Math.max(0, order.indexOf(view));
-    let next = index;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (index + 1) % order.length;
-    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (index - 1 + order.length) % order.length;
-    else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = order.length - 1;
-    else return;
-    event.preventDefault();
-    const chosen = order[next];
-    chooseStage(chosen);
-    tabRefs.current[chosen]?.focus();
-  }
-
   function openRecent(id: string) {
     setUpdateId(id);
   }
@@ -142,54 +130,25 @@ export function HomeCenter({
         aria-label={pageContent ? "Page" : view === "map" ? "Map" : "Career story"}
       >
         <div className="home-center-bar">
-          {pageContent ? (
-            <div className="home-center-tabs" />
-          ) : (
-          <div className="home-center-tabs" role="tablist" aria-label="Card views">
-            <button
-              ref={(node) => {
-                tabRefs.current.story = node ?? undefined;
-              }}
-              id="home-center-tab-story"
-              type="button"
-              role="tab"
-              aria-selected={view === "story"}
-              aria-controls="home-center-panel"
-              tabIndex={view === "story" ? 0 : -1}
-              onKeyDown={moveTab}
-              onClick={() => chooseStage("story")}
-            >
-              <Icon icon={LayoutGrid} size="sm" />
-              Story
-            </button>
-            <button
-              ref={(node) => {
-                tabRefs.current.map = node ?? undefined;
-              }}
-              id="home-center-tab-map"
-              type="button"
-              role="tab"
-              aria-selected={view === "map"}
-              aria-controls="home-center-panel"
-              tabIndex={view === "map" ? 0 : -1}
-              onKeyDown={moveTab}
-              onClick={() => chooseStage("map")}
-            >
-              <Icon icon={MapIcon} size="sm" />
-              Map
-            </button>
+          <div className="home-center-tabs">
+            {pageContent ? null : view === "map" ? (
+              <>
+                <button type="button" className="home-center-back" onClick={() => chooseStage("story")}>
+                  <Icon icon={ArrowLeft} size="sm" />
+                  Story
+                </button>
+                <h1 className="home-center-title">Map</h1>
+              </>
+            ) : (
+              <h1 className="home-center-title">Story</h1>
+            )}
           </div>
-          )}
-          <div className="home-center-pub" />
+          <div className="home-center-actions">
+            <RelayState status={relay} />
+            <div className="home-center-pub" />
+          </div>
         </div>
-        <div
-          className="home-center-stage"
-          id="home-center-panel"
-          role={pageContent ? undefined : "tabpanel"}
-          aria-labelledby={
-            pageContent ? undefined : view === "map" ? "home-center-tab-map" : "home-center-tab-story"
-          }
-        >
+        <div className="home-center-stage" id="home-center-panel">
           <div className="home-story-layout">
             {pageContent ? (
               <div className="home-story-page">{pageContent}</div>
@@ -225,7 +184,15 @@ export function HomeCenter({
                     <span>Tenure</span>
                     <strong>{story.tenure}</strong>
                   </article>
-                  <section className="home-story-panel" aria-label="Highlights">
+                  <article className="home-story-stat">
+                    <span>Places</span>
+                    <strong>{placed.length}</strong>
+                  </article>
+                  <section className="home-story-panel home-story-timeline" aria-label="Career timeline">
+                    <h2>Career timeline</h2>
+                    <StoryTimeline roles={roles} now={now} onSelect={onSelectRole} />
+                  </section>
+                  <section className="home-story-panel home-story-highlights" aria-label="Highlights">
                     <h2>Highlights</h2>
                     <ul>
                       {story.highlights.map((item) => (
@@ -239,13 +206,48 @@ export function HomeCenter({
                       ))}
                     </ul>
                   </section>
+                  <section className="home-story-panel home-story-mapcard" aria-label="Map">
+                    <h2>Map</h2>
+                    <div className="home-story-map">
+                      <CareerMap
+                        emptyNote={
+                          placed.length === 0
+                            ? { title: "No places yet.", detail: "Roles with a workplace show up here." }
+                            : null
+                        }
+                        fitKey={`card:${focusRoleId ?? "all"}:${mapFit}:${placed.map((role) => role.id).join(",")}`}
+                        fitMode={mapFit}
+                        onSelect={onSelectRole}
+                        roles={roles}
+                        selectedId={focusRoleId}
+                        settings={settings}
+                        viewKey="home-story-card"
+                      />
+                    </div>
+                    <div className="home-story-mapfoot">
+                      <span>{placed.length === 1 ? "1 place" : `${placed.length} places`}</span>
+                      <button type="button" onClick={() => chooseStage("map")}>
+                        Open map
+                      </button>
+                    </div>
+                  </section>
                   <section className="home-story-panel home-story-gaps" aria-label="Missing">
                     <h2>Missing</h2>
-                    <p>
-                      {story.missing.length > 0
-                        ? `Still missing ${story.missing.join(", ")}.`
-                        : "The main pieces are here."}
-                    </p>
+                    {story.missing.length > 0 ? (
+                      <ul>
+                        {story.missing.map((gap) => (
+                          <li key={gap.label}>
+                            <button type="button" onClick={() => onSelectRole(gap.roleId)}>
+                              <span className="home-story-gap-box" aria-hidden="true" />
+                              <span>{gap.label}</span>
+                              <span className="home-story-gap-go" aria-hidden="true">›</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>The main pieces are here.</p>
+                    )}
                   </section>
                 </div>
               ) : (
@@ -428,12 +430,128 @@ function recentEmpty(lens: RecentLens, focus: WorkMapRole | null) {
   return focus ? "Nothing recorded for this role yet." : "Nothing new from the jobs you're in.";
 }
 
+function RelayState({ status }: { status: RelayStatus | null }) {
+  if (!status) return null;
+  const since =
+    status.state === "current" || status.state === "changed" ? inboxStamp(status.publishedAt) : "";
+  const label =
+    status.state === "private"
+      ? "Private"
+      : status.state === "unpublished"
+        ? "Not published"
+        : status.state === "current"
+          ? "Relay up to date"
+          : "Changes to publish";
+  const title =
+    status.state === "unpublished"
+      ? "Not on the Relay yet"
+      : status.state === "changed"
+        ? [`Last published ${since}`, ...status.changes].join("\n")
+        : since
+          ? `Last published ${since}`
+          : undefined;
+  return (
+    <p
+      className={`home-center-relay is-${status.state}`}
+      role="status"
+      title={title}
+    >
+      <span className="home-center-relay-dot" aria-hidden="true" />
+      {label}
+    </p>
+  );
+}
+
+function StoryTimeline({
+  roles,
+  now,
+  onSelect,
+}: {
+  roles: WorkMapRole[];
+  now: Date;
+  onSelect: (id: string) => void;
+}) {
+  const nowIndex = now.getFullYear() * 12 + now.getMonth();
+  const spans = roles
+    .map((role) => {
+      const start = monthIndex(role.startDate);
+      if (start == null) return null;
+      const end = role.isCurrent ? nowIndex : (monthIndex(role.endDate) ?? start);
+      return { role, start, end: Math.max(start, end) };
+    })
+    .filter((span): span is { role: WorkMapRole; start: number; end: number } => span != null)
+    .sort((left, right) => left.start - right.start);
+  if (spans.length === 0) return <p>Add start dates to see the timeline.</p>;
+  const first = Math.floor(spans[0].start / 12) * 12;
+  const last = Math.max(nowIndex, ...spans.map((span) => span.end)) + 1;
+  const width = Math.max(1, last - first);
+  const lanes: number[] = [];
+  const placed = spans.map((span) => {
+    let lane = lanes.findIndex((end) => end < span.start);
+    if (lane === -1) lane = lanes.length;
+    lanes[lane] = span.end;
+    return { ...span, lane };
+  });
+  const firstYear = first / 12;
+  const lastYear = Math.floor((last - 1) / 12);
+  const step = Math.max(1, Math.ceil((lastYear - firstYear) / 6));
+  const years: number[] = [];
+  for (let year = firstYear; year <= lastYear; year += step) years.push(year);
+  return (
+    <div className="home-story-timeline-track" style={{ height: `${lanes.length * 22 + 22}px` }}>
+      {placed.map(({ role, start, end, lane }) => {
+        const about = [role.organization, role.title, formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent)]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <button
+            key={role.id}
+            type="button"
+            className={role.isCurrent ? "home-story-timeline-bar is-current" : "home-story-timeline-bar"}
+            style={{
+              left: `${((start - first) / width) * 100}%`,
+              width: `max(0.5rem, ${((end - start + 1) / width) * 100}%)`,
+              top: `${lane * 22}px`,
+            }}
+            title={about}
+            aria-label={about}
+            onClick={() => onSelect(role.id)}
+          >
+            <span className="home-story-timeline-label" aria-hidden="true">
+              {role.organization || role.title || "Role"}
+            </span>
+          </button>
+        );
+      })}
+      <div className="home-story-timeline-axis" aria-hidden="true">
+        {years.map((year) => (
+          <span key={year} style={{ left: `${((year * 12 - first) / width) * 100}%` }}>
+            {year}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function monthIndex(value: string): number | null {
+  const month = careerMonth(value);
+  if (!month) return null;
+  const [year, part] = month.split("-").map(Number);
+  return year * 12 + (part - 1);
+}
+
+type StoryGap = {
+  label: string;
+  roleId: string;
+};
+
 type StoryFeed = {
   jobs: number;
   roles: number;
   tenure: string;
   highlights: StoryHighlight[];
-  missing: string[];
+  missing: StoryGap[];
 };
 
 type StoryHighlight = {
@@ -473,26 +591,46 @@ function storyHighlights(roles: WorkMapRole[]): StoryHighlight[] {
   });
 }
 
-function storyMissing(roles: WorkMapRole[]): string[] {
+function storyMissing(roles: WorkMapRole[]): StoryGap[] {
+  const unsure = rolesToConfirmCurrent(roles).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const check: StoryGap[] =
+    unsure.length > 0
+      ? [
+          {
+            label: `Check ${unsure.length === 1 ? "1 role is" : `${unsure.length} roles are`} still current`,
+            roleId: unsure[0].id,
+          },
+        ]
+      : [];
+  const newest = roles.slice().sort((a, b) => b.startDate.localeCompare(a.startDate));
   const gaps = [
-    { label: "skills", count: roles.filter((role) => role.details.skills.length === 0).length },
-    { label: "milestones", count: roles.filter((role) => role.details.milestones.length === 0).length },
-    { label: "a workplace", count: roles.filter((role) => !roleHasPlace(role)).length },
-    { label: "a photo", count: roles.filter((role) => !roleCoverPhoto(role.media)).length },
+    { verb: "Add skills to", lacks: (role: WorkMapRole) => role.details.skills.length === 0 },
+    { verb: "Add milestones to", lacks: (role: WorkMapRole) => role.details.milestones.length === 0 },
+    { verb: "Add a workplace to", lacks: (role: WorkMapRole) => !roleHasPlace(role) },
+    { verb: "Add a photo to", lacks: (role: WorkMapRole) => !roleCoverPhoto(role.media) },
     {
-      label: "what you did",
-      count: roles.filter((role) => {
-        const told =
+      verb: "Write what you did for",
+      lacks: (role: WorkMapRole) =>
+        !(
           role.details.summary.trim() ||
           role.achievements.find((line) => line.trim())?.trim() ||
-          role.description.trim();
-        return !told;
-      }).length,
+          role.description.trim()
+        ),
     },
   ];
-  return gaps
-    .filter((gap) => gap.count > 0)
-    .map((gap) => `${gap.label} on ${gap.count} ${gap.count === 1 ? "role" : "roles"}`);
+  return [
+    ...check,
+    ...gaps.flatMap((gap) => {
+      const lacking = newest.filter(gap.lacks);
+      if (lacking.length === 0) return [];
+      return [
+        {
+          label: `${gap.verb} ${lacking.length} ${lacking.length === 1 ? "role" : "roles"}`,
+          roleId: lacking[0].id,
+        },
+      ];
+    }),
+  ];
 }
 
 type LiveUpdate = {

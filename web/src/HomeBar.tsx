@@ -3,10 +3,12 @@ import { createPortal } from "react-dom";
 import { Button } from "@astryxdesign/core/Button";
 import { Divider } from "@astryxdesign/core/Divider";
 import type { OccupantNoticeHref } from "@core/notices";
+import type { RelayStatus } from "@core/projection";
 import { publicationEmbed } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
-import mark from "./proforna-mark.svg";
+import mark from "./docier-mark.svg";
+import { announceRelayChange, useRelayStatus } from "./relay-status";
 
 export type HomeBioMode = "browse" | "preview" | "share";
 
@@ -29,6 +31,7 @@ export function HomeBar({
   onExitPreview,
   notice = "",
   onNotice,
+  revision = 0,
 }: {
   name: string;
   headline: string;
@@ -48,6 +51,7 @@ export function HomeBar({
   onExitPreview?: () => void;
   notice?: string;
   onNotice: (href: OccupantNoticeHref) => void;
+  revision?: number;
 }) {
   const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -61,6 +65,11 @@ export function HomeBar({
   const pubRef = useRef<HTMLDivElement>(null);
   const [pubHost, setPubHost] = useState<HTMLElement | null>(null);
   const [holdPub, setHoldPub] = useState(false);
+  const relay = useRelayStatus(revision);
+  const publishQuiet = relay?.state === "private";
+  const publishLead = relay?.state !== "current" && !publishQuiet;
+  const publishPlan = describePublish(relay);
+  const planId = useId();
   const menuId = useId();
   const letters = initials(name);
 
@@ -224,6 +233,7 @@ export function HomeBar({
         setPublishNote(
           "Published this Work Map snapshot to the public link. Private edits stay local until you publish an update.",
         );
+        announceRelayChange();
         return;
       }
       const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -309,18 +319,33 @@ export function HomeBar({
             )}
             <Button
               label="Publish"
-              variant="primary"
+              variant={publishLead ? "primary" : "secondary"}
               size="sm"
-              aria-expanded={menu === "publish"}
-              aria-haspopup="menu"
+              isDisabled={publishQuiet}
+              tooltip={publishQuiet ? "A private career stays off the Relay." : undefined}
+              aria-expanded={publishQuiet ? undefined : menu === "publish"}
+              aria-haspopup={publishQuiet ? undefined : "menu"}
               onClick={() => setMenu((current) => (current === "publish" ? null : "publish"))}
             />
           </div>
           {menu === "publish" ? (
             <div className="home-pub-menu is-publish" role="menu" aria-label="Publish">
+              {publishPlan ? (
+                <div className="home-pub-plan" id={planId}>
+                  <p>{publishPlan.lead}</p>
+                  {publishPlan.lines.length > 0 ? (
+                    <ul>
+                      {publishPlan.lines.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
               <button
                 type="button"
                 role="menuitem"
+                aria-describedby={publishPlan ? planId : undefined}
                 disabled={publishing}
                 onClick={() => void confirmPublish()}
               >
@@ -501,6 +526,23 @@ export function HomeBar({
       </div>
     </header>
   );
+}
+
+function describePublish(relay: RelayStatus | null): { lead: string; lines: string[] } | null {
+  if (!relay || relay.state === "private") return null;
+  if (relay.state === "unpublished") {
+    return { lead: "This puts your career on the Relay for the first time.", lines: [] };
+  }
+  if (relay.state === "current") {
+    return { lead: "The Relay already matches your career.", lines: [] };
+  }
+  const since = new Date(relay.publishedAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return relay.changes.length > 0
+    ? { lead: `Since ${since}:`, lines: relay.changes }
+    : { lead: "Only private details changed. The Relay looks the same.", lines: [] };
 }
 
 function initials(name: string): string {

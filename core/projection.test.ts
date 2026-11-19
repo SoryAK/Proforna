@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildInteractiveProjection,
   canViewProjection,
+  describeRelayChanges,
   planProjectionGrant,
   planProjectionRevoke,
+  presentRelayStatus,
 } from "./projection";
 import type { WorkMapSnapshot } from "./work-map";
 
@@ -102,5 +104,82 @@ describe("interactive projection", () => {
         tokenHash: "abc123",
       },
     });
+  });
+});
+
+describe("presentRelayStatus", () => {
+  const publishedAt = "2026-11-12T15:00:00.000Z";
+  const live = { publishedAt, snapshot };
+
+  it("keeps a private career off the relay", () => {
+    expect(
+      presentRelayStatus({ current: { ...snapshot, visibility: "private" }, live }),
+    ).toEqual({ state: "private" });
+  });
+
+  it("reports a career that has no live publication", () => {
+    expect(presentRelayStatus({ current: snapshot, live: null })).toEqual({
+      state: "unpublished",
+    });
+  });
+
+  it("reports the relay as current when the source matches what was published", () => {
+    expect(
+      presentRelayStatus({ current: { ...snapshot, id: "snapshot-2" }, live }),
+    ).toEqual({ state: "current", publishedAt });
+  });
+
+  it("lists what moved on since the publish", () => {
+    const current: WorkMapSnapshot = {
+      ...snapshot,
+      sourceFingerprint: "def",
+      roles: [{ ...snapshot.roles[0], title: "Principal Systems Engineer" }],
+      skills: ["Go", "Rust"],
+    };
+    expect(presentRelayStatus({ current, live })).toEqual({
+      state: "changed",
+      publishedAt,
+      changes: ["Edited Acme", "Added 2 skills"],
+    });
+  });
+
+  it("reports changes with no public difference when only private details moved", () => {
+    expect(
+      presentRelayStatus({ current: { ...snapshot, sourceFingerprint: "def" }, live }),
+    ).toEqual({ state: "changed", publishedAt, changes: [] });
+  });
+
+  it("reports changes when the published snapshot is unknown", () => {
+    expect(
+      presentRelayStatus({ current: snapshot, live: { publishedAt, snapshot: null } }),
+    ).toEqual({ state: "changed", publishedAt, changes: [] });
+  });
+});
+
+describe("describeRelayChanges", () => {
+  const role = snapshot.roles[0];
+
+  it("names a few roles and counts many", () => {
+    const added = ["Beta", "Gamma", "Delta"].map((organization, index) => ({
+      ...role,
+      id: `new-${index}`,
+      organization,
+    }));
+    expect(
+      describeRelayChanges(snapshot, {
+        ...snapshot,
+        roles: [...added, { ...role, id: "role-2", organization: "Zeta" }],
+      }),
+    ).toEqual(["Added 4 roles", "Removed Acme"]);
+  });
+
+  it("notes profile and publication setting changes", () => {
+    expect(
+      describeRelayChanges(snapshot, {
+        ...snapshot,
+        profile: { ...snapshot.profile, headline: "Platform leader" },
+        sections: ["profile", "history"],
+      }),
+    ).toEqual(["Profile updated", "Publication settings changed"]);
   });
 });

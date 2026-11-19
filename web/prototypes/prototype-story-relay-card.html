@@ -1,0 +1,323 @@
+<!--
+  Throwaway. Home center card with a Relay card for Preview and Publish,
+  the map folded into Story as a card, a career timeline, and Missing as a checklist.
+  Timeline dates, the places count, and the change count are placeholders.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Story with a Relay card</title>
+    <style>
+      :root {
+        --sans: "Geist Variable", system-ui, sans-serif;
+        --line: #e4e4e7;
+        --soft: #f3f3f4;
+        --muted: #5b5b61;
+        --ink: #171717;
+        --accent: #e8502a;
+        --accent-deep: #b93a17;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        height: 100%;
+        min-width: 1100px;
+        background: var(--soft);
+        color: var(--ink);
+        font: 14px/1.4 var(--sans);
+      }
+
+      button { font: inherit; color: inherit; cursor: pointer; }
+
+      .bar {
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 12px;
+        gap: 8px;
+      }
+      .bar .brand { display: flex; align-items: center; gap: 6px; font-size: 19px; font-weight: 600; letter-spacing: -0.03em; }
+      .bar .search {
+        margin: 0 auto;
+        width: 320px;
+        height: 36px;
+        padding: 0 10px;
+        border: 1px solid #cecece;
+        border-radius: 8px;
+        background: #fff;
+        color: #5b5b61;
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+      }
+      .bar .end { display: flex; align-items: center; gap: 6px; }
+      .chip-btn { height: 28px; padding: 0 12px; border: 0; border-radius: 10px; background: rgba(0,0,0,.06); font-weight: 600; font-size: 13px; }
+      .icon-btn { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; display: grid; place-items: center; color: #3f3f46; }
+      .avatar { width: 24px; height: 24px; border-radius: 50%; background: #c9a98a; }
+
+      .sheet {
+        display: grid;
+        grid-template-columns: 16.5rem minmax(0, 1fr);
+        gap: 8px;
+        height: calc(100% - 48px);
+        padding: 0 8px 8px;
+      }
+
+      .left {
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+      .left .item { padding: 8px; border-radius: 6px; font-weight: 500; font-size: 13px; }
+      .left .item.is-current { background: #ececee; }
+      .left .group { margin-top: 10px; padding: 6px 8px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; }
+
+      .center {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .center-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 14px 16px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .center-head h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
+      .center-head span { color: var(--muted); font-size: 13px; }
+
+      .story {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(15rem, 1.4fr);
+        gap: 10px;
+        padding: 14px 16px 16px;
+        overflow: auto;
+        align-content: start;
+      }
+
+      .card {
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+      .card h2 { margin: 0 0 6px; font-size: 15px; font-weight: 650; }
+      .card .sub { color: var(--muted); font-size: 13px; }
+
+      .stat { display: flex; flex-direction: column; gap: 2px; }
+      .stat span { color: var(--muted); font-size: 13px; }
+      .stat strong { font-size: 1.6rem; font-weight: 650; letter-spacing: -0.03em; }
+
+      .relay { display: flex; flex-direction: column; gap: 8px; }
+      .relay-top { display: flex; align-items: center; justify-content: space-between; }
+      .relay-state { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+      .relay.is-current .dot { background: #22a06b; }
+      .relay .link { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .relay-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: auto; }
+      .btn { height: 28px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+      .btn.secondary { border: 1px solid var(--line); background: #fff; }
+      .btn.primary { border: 0; background: var(--ink); color: #fff; }
+      .relay.is-current .btn.primary { background: #ececee; color: var(--muted); cursor: default; }
+
+      .wide { grid-column: 1 / -1; }
+      .span4 { grid-column: 1 / 5; }
+
+      .timeline { position: relative; height: 56px; margin-top: 4px; }
+      .timeline .axis { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+      .timeline .bar-row { position: absolute; height: 16px; border-radius: 4px; background: #e9c98a; font-size: 12px; font-weight: 600; color: #3d3016; padding-left: 6px; line-height: 16px; white-space: nowrap; overflow: hidden; }
+      .timeline .bar-row.is-now { background: var(--accent-deep); color: #fff; }
+
+      .highlights ul { margin: 0; padding: 0; list-style: none; }
+      .highlights li { padding: 8px 0; }
+      .highlights li + li { border-top: 1px solid #efeff1; }
+      .highlights b { display: block; font-size: 14px; }
+      .highlights span { display: block; color: var(--muted); font-size: 13px; }
+
+      .map { display: flex; flex-direction: column; }
+      .map svg { flex: 1; width: 100%; min-height: 140px; border-radius: 6px; background: #f6f5f1; }
+      .map .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; }
+      .map .foot button { border: 0; background: none; padding: 0; font-weight: 600; }
+
+      .missing ul { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 0; padding: 0; list-style: none; }
+      .missing button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; text-align: left; font-size: 13px; }
+      .missing button:hover { background: #f7f7f8; }
+      .missing .box { width: 14px; height: 14px; border: 1.5px solid #71717a; border-radius: 3px; flex: none; }
+      .missing .go { margin-left: auto; color: var(--muted); }
+
+      body.map-open .story > :not(.map):not(.relay) { display: none; }
+      body.map-open .relay { grid-column: 5; grid-row: 1; align-self: start; }
+      body.map-open .map { grid-column: 1 / 5; grid-row: 1; min-height: 520px; }
+
+      .proto-bar {
+        position: fixed;
+        left: 50%;
+        bottom: 14px;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 6px;
+        padding: 6px;
+        border-radius: 10px;
+        background: #171717;
+        color: #fff;
+        font-size: 13px;
+        box-shadow: 0 6px 24px rgba(0,0,0,.18);
+      }
+      .proto-bar span { padding: 5px 8px; color: #d4d4d8; }
+      .proto-bar button { border: 0; border-radius: 6px; padding: 5px 10px; background: #3a3a3f; color: #fff; }
+      .proto-bar button[aria-pressed="true"] { background: #fff; color: #171717; }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <button class="icon-btn" aria-label="Menu">▤</button>
+      <div class="brand">
+        <img src="../src/docier-mark.svg" width="28" height="28" alt="" />
+        Docier
+      </div>
+      <div class="search">Search…</div>
+      <div class="end">
+        <button class="chip-btn">Request</button>
+        <button class="icon-btn" aria-label="Panel">◫</button>
+        <button class="icon-btn" aria-label="Notices">◔</button>
+        <span class="avatar"></span>
+        <b style="font-size:13px">Sory Kaba</b>
+      </div>
+    </header>
+
+    <div class="sheet">
+      <nav class="left">
+        <div class="item is-current">Home</div>
+        <div class="item">Career History</div>
+        <div class="item">Opportunities</div>
+        <div class="group">RESOURCES</div>
+      </nav>
+
+      <section class="center">
+        <div class="center-head">
+          <h1>Story</h1>
+          <span>Sory Kaba · Mechatronics and Robotics Technician</span>
+        </div>
+
+        <div class="story">
+          <div class="card stat"><span>Jobs</span><strong>8</strong></div>
+          <div class="card stat"><span>Roles</span><strong>10</strong></div>
+          <div class="card stat"><span>Tenure</span><strong>10y 8m</strong></div>
+          <div class="card stat"><span>Places</span><strong>5</strong></div>
+
+          <div class="card relay" id="relay">
+            <div class="relay-top">
+              <h2 style="margin:0">Relay</h2>
+              <span class="relay-state"><span class="dot"></span><span id="relay-text">3 changes to publish</span></span>
+            </div>
+            <span class="link">Last published Nov 12</span>
+            <div class="relay-actions">
+              <button class="btn secondary">Preview</button>
+              <button class="btn primary" id="publish">Publish</button>
+            </div>
+          </div>
+
+          <div class="card wide">
+            <h2>Career timeline</h2>
+            <div class="timeline">
+              <div class="bar-row" style="left:0%;width:30%;top:2px">Values into Action</div>
+              <div class="bar-row" style="left:66%;width:34%;top:2px">Sharp Packaging</div>
+              <div class="bar-row is-now" style="left:80%;width:20%;top:21px">Giants Direct</div>
+              <div class="axis"><span>2016</span><span>2018</span><span>2020</span><span>2022</span><span>2024</span><span>Now</span></div>
+            </div>
+          </div>
+
+          <div class="card highlights span4">
+            <h2>Highlights</h2>
+            <ul>
+              <li>
+                <b>Giants Direct</b>
+                <span>Mechatronics and Robotics Technician · Jun 2024 – Present</span>
+                <span>Maintained pick-and-place robotics and conveyors.</span>
+              </li>
+              <li>
+                <b>Sharp Packaging</b>
+                <span>Systems and Automation Technician · Jan 2023 – Present</span>
+                <span>Set up, calibrated, and maintained material handling equipment and vision systems.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="card map">
+            <h2>Map</h2>
+            <svg viewBox="0 0 300 160" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0 110 C60 90 120 130 180 100 S260 70 300 90" fill="none" stroke="#e6e1d6" stroke-width="10" />
+              <path d="M40 0 L80 160 M200 0 L170 160" stroke="#ece8de" stroke-width="5" />
+              <circle cx="70" cy="60" r="5" fill="#d9b56a" />
+              <circle cx="120" cy="95" r="5" fill="#d9b56a" />
+              <circle cx="190" cy="50" r="5" fill="#d9b56a" />
+              <circle cx="235" cy="110" r="6" fill="#e8502a" />
+              <circle cx="255" cy="70" r="5" fill="#d9b56a" />
+            </svg>
+            <div class="foot">
+              <span class="sub">5 places</span>
+              <button id="map-toggle">Open map ↗</button>
+            </div>
+          </div>
+
+          <div class="card missing wide">
+            <h2>Missing</h2>
+            <ul>
+              <li><button><span class="box"></span>Add skills to 10 roles<span class="go">›</span></button></li>
+              <li><button><span class="box"></span>Add milestones to 10 roles<span class="go">›</span></button></li>
+              <li><button><span class="box"></span>Add a workplace to 6 roles<span class="go">›</span></button></li>
+              <li><button><span class="box"></span>Add a photo to 8 roles<span class="go">›</span></button></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="proto-bar">
+      <span>Relay</span>
+      <button data-relay="changes" aria-pressed="true">Has changes</button>
+      <button data-relay="current" aria-pressed="false">Up to date</button>
+      <span>Map</span>
+      <button data-map="card" aria-pressed="true">Card</button>
+      <button data-map="open" aria-pressed="false">Opened</button>
+    </div>
+
+    <script>
+      const relay = document.getElementById("relay");
+      const text = document.getElementById("relay-text");
+      const publish = document.getElementById("publish");
+      const mapToggle = document.getElementById("map-toggle");
+
+      function setRelay(state) {
+        relay.classList.toggle("is-current", state === "current");
+        text.textContent = state === "current" ? "Up to date" : "3 changes to publish";
+        publish.textContent = state === "current" ? "Published" : "Publish";
+        document.querySelectorAll("[data-relay]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.relay === state)));
+      }
+
+      function setMap(state) {
+        document.body.classList.toggle("map-open", state === "open");
+        mapToggle.textContent = state === "open" ? "Back to story" : "Open map ↗";
+        document.querySelectorAll("[data-map]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.map === state)));
+      }
+
+      document.querySelectorAll("[data-relay]").forEach((b) => b.addEventListener("click", () => setRelay(b.dataset.relay)));
+      document.querySelectorAll("[data-map]").forEach((b) => b.addEventListener("click", () => setMap(b.dataset.map)));
+      mapToggle.addEventListener("click", () => setMap(document.body.classList.contains("map-open") ? "card" : "open"));
+    </script>
+  </body>
+</html>

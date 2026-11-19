@@ -78,6 +78,7 @@ import {
 } from "@core/work-map";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { readPreviewPlacement, writePreviewPlacement, type PreviewPlacement } from "./preview-placement";
+import { announceRelayChange } from "./relay-status";
 import "./home-settings-rows.css";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -1749,6 +1750,7 @@ export function PublicationSettingsPanel() {
     setSettings(body.settings);
     setUpdatedAt(body.updatedAt ?? null);
     setMessage("Publication settings saved.");
+    announceRelayChange();
   }
 
   if (!settings) {

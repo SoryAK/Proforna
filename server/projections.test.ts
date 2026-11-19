@@ -246,6 +246,122 @@ describe("interactive projections HTTP seam", () => {
     }
   });
 
+  it("tells the occupant whether the relay matches their career", async () => {
+    const relay: ProjectionRelay = {
+      publish: vi.fn(async () => undefined),
+      revoke: vi.fn(async () => undefined),
+    };
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { relay });
+    const read = async () =>
+      ((await (await app.request("/api/work-map/relay")).json()) as {
+        relay: { state: string; publishedAt?: string; changes?: string[] };
+      }).relay;
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: "sory-systems",
+          visibility: "public",
+          sections: ["profile", "history"],
+        }),
+      });
+      expect(await read()).toEqual({ state: "unpublished" });
+
+      const published = await app.request("/api/work-map/publish", { method: "POST" });
+      expect(published.status).toBe(201);
+      const current = await read();
+      expect(current.state).toBe("current");
+      expect(typeof current.publishedAt).toBe("string");
+
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string }>;
+      };
+      expect((await read()).state).toBe("current");
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Principal" }),
+      });
+      expect(await read()).toEqual({
+        state: "changed",
+        publishedAt: current.publishedAt,
+        changes: ["Edited Acme"],
+      });
+
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect((await read()).state).toBe("current");
+
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ visibility: "private" }),
+      });
+      expect(await read()).toEqual({ state: "private" });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("treats an expired publication as off the relay without using an older one", async () => {
+    const relay: ProjectionRelay = {
+      publish: vi.fn(async () => undefined),
+      revoke: vi.fn(async () => undefined),
+    };
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { relay });
+    const read = async () =>
+      ((await (await app.request("/api/work-map/relay")).json()) as {
+        relay: { state: string };
+      }).relay;
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: "sory-systems",
+          visibility: "public",
+          sections: ["profile", "history"],
+        }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect((await read()).state).toBe("current");
+
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expiresAt: "2000-01-01T00:00:00.000Z" }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect(await read()).toEqual({ state: "unpublished" });
+
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expiresAt: "2099-01-01T00:00:00.000Z" }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(201);
+      expect((await read()).state).toBe("current");
+    } finally {
+      db.close();
+    }
+  });
+
   it("records occupant-approved change sets for settings, grants, and revoke", async () => {
     const grant = vi.fn(
       async (_slug: string, _grant: { token: string; expiresAt: string }) =>

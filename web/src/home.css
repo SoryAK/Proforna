@@ -50,11 +50,11 @@
 .home-menu-btn {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: #3f3f46;
 }
@@ -75,11 +75,17 @@
   stroke-linejoin: round;
 }
 
+.home-menu-btn svg,
+.home-notice-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .home-bar-mark {
   display: block;
-  width: 32px;
-  height: 32px;
-  margin: 0 calc(8px - 0.2rem) 0 0.2rem;
+  width: 28px;
+  height: 28px;
+  margin: 0 calc(6px - 0.2rem) 0 0.2rem;
   object-fit: contain;
 }
 
@@ -87,9 +93,9 @@
   margin: 0;
   color: #171717;
   font-family: var(--sans);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .home-bar-search {
@@ -761,7 +767,7 @@ button.home-nav-item:focus-visible {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #6b6b70;
+  color: #5b5b61;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -860,7 +866,7 @@ button.home-nav-item:focus-visible {
   border-radius: 6px;
   background: transparent;
   color: #1f1f1f;
-  font: 500 0.75rem/1.2 system-ui, sans-serif;
+  font: 500 0.8125rem/1.2 system-ui, sans-serif;
   text-align: left;
   cursor: pointer;
 }
@@ -898,10 +904,10 @@ button.home-nav-item:focus-visible {
   margin: 0 10px;
   padding: 6px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: #1f1f1f;
-  font: 400 0.75rem/1.2 system-ui, sans-serif;
+  font: 400 0.8125rem/1.2 system-ui, sans-serif;
   text-align: left;
   cursor: pointer;
 }
@@ -1107,6 +1113,30 @@ button.home-nav-item:focus-visible {
 .home-pub-menu.is-publish {
   right: auto;
   left: 0;
+  max-width: 18rem;
+}
+
+.home-center-pub .home-pub-menu.is-publish {
+  right: 0;
+  left: auto;
+}
+
+.home-pub-plan {
+  margin: 0 4px 4px;
+  padding: 6px 1.2em 8px;
+  border-bottom: 1px solid #ececee;
+  color: #3b3b3b;
+  font: 400 13px/1.4 system-ui, sans-serif;
+}
+
+.home-pub-plan p {
+  margin: 0;
+  color: #5b5b61;
+}
+
+.home-pub-plan ul {
+  margin: 4px 0 0;
+  padding-left: 1rem;
 }
 
 .home-pub-status {
@@ -1212,18 +1242,19 @@ button.home-nav-item:focus-visible {
   position: relative;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: #3f3f46;
 }
 
 .home-notice-btn:hover,
 .home-notice-btn:focus-visible,
-.home-notice-btn[aria-expanded="true"] {
+.home-notice-btn[aria-expanded="true"],
+.home-notice-btn[aria-pressed="true"] {
   background: #ececee;
   color: #171717;
 }
@@ -1323,20 +1354,24 @@ button.home-nav-item:focus-visible {
   align-items: center;
   gap: 0.45rem;
   max-width: 15rem;
-  min-height: 2.35rem;
-  padding: 0.18rem 0.55rem 0.18rem 0.18rem;
-  border: 1px solid #e6e6ea;
-  border-radius: 999px;
-  background: #fff;
+  min-height: 28px;
+  padding: 2px 6px 2px 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: #3f3f46;
 }
 
 .home-user-chip:hover,
 .home-user-chip:focus-visible,
 .home-user-chip[aria-expanded="true"] {
-  border-color: #d4d4d8;
-  background: #fff;
+  background: #ececee;
   color: #171717;
+}
+
+.home-user-chip .home-user-photo {
+  width: 24px;
+  height: 24px;
 }
 
 .home-user-photo {
@@ -2025,7 +2060,7 @@ button.home-nav-item:focus-visible {
   margin: 0;
   overflow: hidden;
   border: 1px solid rgba(167, 139, 113, 0.22);
-  border-radius: 16px;
+  border-radius: 8px;
   background: #080706;
 }
 
