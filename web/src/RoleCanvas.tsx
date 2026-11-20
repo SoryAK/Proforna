@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   CANVAS_NODE_KINDS,
@@ -461,6 +461,10 @@ async function loadSharedMap(): Promise<SharedMap | null> {
   };
 }
 
+function pendingSharedSave() {
+  return sharedPending;
+}
+
 function keepPendingSave(job: { boards: CanvasBoard[]; roleIds: string[] }) {
   if (!sharedPending) sharedPending = job;
 }
@@ -527,7 +531,10 @@ async function flushSharedSave(retry = true): Promise<void> {
     const remote = remoteSharedBoards(loaded, job.roleIds);
     const merged = reconcileSharedBoards(localBoards, remote, baseSharedBoards(job.roleIds));
     const seenVersion = localBoards === job.boards ? sharedBoardVersion : sharedLatestVersion;
-    if (!merged || sharedBoardVersion !== seenVersion || (sharedPending && sharedPending.boards !== localBoards)) {
+    // Read through a call: TypeScript would otherwise keep the `null` this
+    // function assigned before its awaits, though another save may have queued since.
+    const queued = pendingSharedSave();
+    if (!merged || sharedBoardVersion !== seenVersion || (queued && queued.boards !== localBoards)) {
       if (sharedBoardVersion === seenVersion) {
         keepPendingSave(localBoards === job.boards ? job : { boards: localBoards, roleIds: job.roleIds });
       }
@@ -685,7 +692,7 @@ export function RoleCanvasEntry({
   host?: HTMLElement | null;
 }) {
   const catalog = useMemo(
-    () => (scope === "all" ? (roles ?? []) : [role]),
+    (): WorkMapRole[] => (scope === "all" ? (roles ?? []) : role ? [role] : []),
     [scope, role, roles],
   );
   const openingId = scope === "all" ? "" : (role?.id ?? "");
@@ -1370,7 +1377,7 @@ export function RoleCanvasEntry({
     } catch {
       /* capture is optional */
     }
-    function move(next: PointerEvent) {
+    const move = (next: PointerEvent) => {
       if (next.pointerId !== event.pointerId) return;
       const host = cluster.offsetParent instanceof HTMLElement ? cluster.offsetParent : null;
       const maxLeft = Math.max(8, (host?.clientWidth ?? 320) - cluster.offsetWidth - 8);
@@ -1379,12 +1386,12 @@ export function RoleCanvasEntry({
         left: Math.min(Math.max(8, originLeft + next.clientX - startX), maxLeft),
         top: Math.min(Math.max(8, originTop + next.clientY - startY), maxTop),
       });
-    }
-    function up(next: PointerEvent) {
+    };
+    const up = (next: PointerEvent) => {
       if (next.pointerId !== event.pointerId) return;
       bar.removeEventListener("pointermove", move);
       bar.removeEventListener("pointerup", up);
-    }
+    };
     bar.addEventListener("pointermove", move);
     bar.addEventListener("pointerup", up);
   }
@@ -1409,7 +1416,7 @@ export function RoleCanvasEntry({
     } catch {
       /* capture is optional */
     }
-    function move(next: PointerEvent) {
+    const move = (next: PointerEvent) => {
       if (next.pointerId !== event.pointerId) return;
       if (!dragging) {
         if ((next.clientX - startX) ** 2 + (next.clientY - startY) ** 2 < 16) return;
@@ -1422,8 +1429,8 @@ export function RoleCanvasEntry({
         top: Math.min(Math.max(40, originTop + next.clientY - startY), maxTop),
       };
       setPanelPos(place);
-    }
-    function up(next: PointerEvent) {
+    };
+    const up = (next: PointerEvent) => {
       if (next.pointerId !== event.pointerId) return;
       panel.removeEventListener("pointermove", move);
       panel.removeEventListener("pointerup", up);
@@ -1431,7 +1438,7 @@ export function RoleCanvasEntry({
       if (!dragging || !place) return;
       const gap = host.clientWidth - (place.left + width);
       if (gap <= 80) setPanelPos(null);
-    }
+    };
     panel.addEventListener("pointermove", move);
     panel.addEventListener("pointerup", up);
     panel.addEventListener("pointercancel", up);
@@ -1457,7 +1464,7 @@ export function RoleCanvasEntry({
     } catch {
       /* capture is optional */
     }
-    function move(next: PointerEvent) {
+    const move = (next: PointerEvent) => {
       if (next.pointerId !== event.pointerId) return;
       const max = Math.max(240, Math.min(host.clientWidth - 48, host.clientWidth * 0.62));
       const width = Math.round(Math.min(max, Math.max(240, originWidth - (next.clientX - startX))));
@@ -1467,13 +1474,13 @@ export function RoleCanvasEntry({
         left: Math.min(Math.max(8, originLeft + originWidth - width), Math.max(8, host.clientWidth - width - 8)),
         top: originTop,
       });
-    }
-    function up(next: PointerEvent) {
+    };
+    const up = (next: PointerEvent) => {
       if (next.pointerId !== event.pointerId) return;
       grip.removeEventListener("pointermove", move);
       grip.removeEventListener("pointerup", up);
       grip.removeEventListener("pointercancel", up);
-    }
+    };
     grip.addEventListener("pointermove", move);
     grip.addEventListener("pointerup", up);
     grip.addEventListener("pointercancel", up);
@@ -2914,17 +2921,18 @@ export function RoleCanvasEntry({
 
   function removeNode() {
     if (!draft?.id || !canvas) return;
-    const next = removeCanvasNode(canvas.nodes, draft.id);
+    const removedId = draft.id;
+    const next = removeCanvasNode(canvas.nodes, removedId);
     if (!next) return;
     remember();
     setBoards((current) =>
       current.map((board) => {
         if (board.id !== canvas.id) return board;
         const groups = board.groups.flatMap((group) => {
-          const members = group.members.filter((id) => id !== draft.id);
+          const members = group.members.filter((id) => id !== removedId);
           return members.length > 1 ? [{ ...group, members }] : [];
         });
-        const sequence = sequenceWithoutNodes(board.sequence, new Set([draft.id]));
+        const sequence = sequenceWithoutNodes(board.sequence, new Set([removedId]));
         return { ...board, nodes: next, groups, sequence: sequence.length ? sequence : undefined };
       }),
     );
@@ -3096,7 +3104,7 @@ export function RoleCanvasEntry({
       ref={windowRef}
       role="dialog"
       aria-label="Canvas"
-      style={{ ...(geometry ?? {}), "--panel-width": `${panelWidth}px` }}
+      style={{ ...(geometry ?? {}), "--panel-width": `${panelWidth}px` } as CSSProperties}
     >
       {["n", "s", "e", "w", "nw", "ne", "sw", "se"].map((edge) => (
         <div
