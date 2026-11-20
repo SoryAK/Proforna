@@ -616,6 +616,8 @@ export function openDatabase(path: string): DatabaseSync {
     "TEXT NOT NULL DEFAULT 'career'",
   );
   addColumnIfMissing(db, "projection_access_requests", "opportunity_id", "TEXT");
+  // Which access request a link answered, so the owner can see who it is for.
+  addColumnIfMissing(db, "projection_access_grants", "request_id", "TEXT");
   addColumnIfMissing(
     db,
     "contacts",

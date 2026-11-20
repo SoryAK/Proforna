@@ -7,6 +7,7 @@ import {
   planOpportunityNetworkPromotion,
   prepareExternalAction,
   prepareOpportunity,
+  preparePlan,
   transitionApplication,
   type Application,
   type ApplicationStage,
@@ -100,6 +101,72 @@ export function createOpportunity(
     opportunity.status,
     opportunity.createdAt,
     contactId,
+  );
+  return opportunity;
+}
+
+/**
+ * Changes an opportunity with the same fields that add it. A field left out
+ * keeps its value, so a screen that edits only some fields cannot wipe the rest
+ * (a saved listing keeps its link and place when its title is fixed).
+ */
+export function updateOpportunity(
+  db: DatabaseSync,
+  occupantId: string,
+  opportunityId: string,
+  input: JsonObject,
+): Opportunity {
+  const current = db
+    .prepare(
+      `SELECT kind, title, organization, source_url, location, fit_summary,
+              status, created_at, contact_id
+         FROM opportunities WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(opportunityId, occupantId) as
+    | {
+        kind: string;
+        title: string;
+        organization: string;
+        source_url: string;
+        location: string;
+        fit_summary: string;
+        status: Opportunity["status"];
+        created_at: string;
+        contact_id: string | null;
+      }
+    | undefined;
+  if (!current) throw new CareerManagementStoreError("opportunity-missing");
+  const field = (key: string, fallback: string) => (key in input ? text(input[key]) : fallback);
+  const prepared = prepareOpportunity({
+    id: opportunityId,
+    occupantId,
+    kind: parseOpportunityKind("kind" in input ? input.kind : current.kind),
+    title: field("title", current.title),
+    organization: field("organization", current.organization),
+    sourceUrl: field("sourceUrl", current.source_url),
+    location: field("location", current.location),
+    fitSummary: field("fitSummary", current.fit_summary),
+    status: current.status,
+    createdAt: current.created_at,
+  });
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
+  const opportunity = prepared.value;
+  const contactId = "contactId" in input ? text(input.contactId) || null : current.contact_id;
+  db.prepare(
+    `UPDATE opportunities
+        SET kind = ?, title = ?, organization = ?, source_url = ?, location = ?,
+            fit_summary = ?, contact_id = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    opportunity.kind,
+    opportunity.title,
+    opportunity.organization,
+    opportunity.sourceUrl,
+    opportunity.location,
+    opportunity.fitSummary,
+    contactId,
+    opportunityId,
+    occupantId,
   );
   return opportunity;
 }
@@ -433,39 +500,115 @@ export function createPlan(
   occupantId: string,
   input: JsonObject,
 ) {
-  const title = text(input.title);
-  if (!title) throw new CareerManagementStoreError("title-required");
+  const prepared = preparePlan(input);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
   const plan = {
     id: randomUUID(),
     occupantId,
-    title,
-    outcome: text(input.outcome),
-    horizon: text(input.horizon),
+    title: prepared.value.title,
+    outcome: prepared.value.outcome,
+    horizon: prepared.value.horizon ?? "",
     status: "active",
     createdAt: new Date().toISOString(),
   };
-  db.prepare(
-    `INSERT INTO career_plans
-      (id, occupant_id, title, outcome, horizon, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    plan.id,
-    occupantId,
-    plan.title,
-    plan.outcome,
-    plan.horizon,
-    plan.status,
-    plan.createdAt,
-  );
-  for (const task of objectArray(input.tasks)) {
-    const taskTitle = text(task.title);
-    if (!taskTitle) continue;
+  db.exec("BEGIN");
+  try {
     db.prepare(
-      `INSERT INTO career_tasks (id, plan_id, title, due_on, status)
-       VALUES (?, ?, ?, ?, 'todo')`,
-    ).run(randomUUID(), plan.id, taskTitle, text(task.dueOn) || null);
+      `INSERT INTO career_plans
+        (id, occupant_id, title, outcome, horizon, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      plan.id,
+      occupantId,
+      plan.title,
+      plan.outcome,
+      plan.horizon,
+      plan.status,
+      plan.createdAt,
+    );
+    insertPlanTasks(db, plan.id, prepared.value.tasks ?? []);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
   }
   return plan;
+}
+
+/** Changes a plan with the same fields that add it. Tasks are replaced only when sent. */
+export function updatePlan(
+  db: DatabaseSync,
+  occupantId: string,
+  planId: string,
+  input: JsonObject,
+) {
+  const prepared = preparePlan(input);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
+  const current = db
+    .prepare(
+      "SELECT horizon, status, created_at FROM career_plans WHERE id = ? AND occupant_id = ?",
+    )
+    .get(planId, occupantId) as
+    | { horizon: string; status: string; created_at: string }
+    | undefined;
+  if (!current) throw new CareerManagementStoreError("not-found");
+  const horizon = prepared.value.horizon ?? current.horizon;
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `UPDATE career_plans SET title = ?, outcome = ?, horizon = ?
+        WHERE id = ? AND occupant_id = ?`,
+    ).run(prepared.value.title, prepared.value.outcome, horizon, planId, occupantId);
+    if (prepared.value.tasks) {
+      db.prepare("DELETE FROM career_tasks WHERE plan_id = ?").run(planId);
+      insertPlanTasks(db, planId, prepared.value.tasks);
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return {
+    id: planId,
+    occupantId,
+    title: prepared.value.title,
+    outcome: prepared.value.outcome,
+    horizon,
+    status: current.status,
+    createdAt: current.created_at,
+  };
+}
+
+/** Removes a plan and its tasks. */
+export function removePlan(db: DatabaseSync, occupantId: string, planId: string) {
+  const existing = db
+    .prepare("SELECT id FROM career_plans WHERE id = ? AND occupant_id = ?")
+    .get(planId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("not-found");
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM career_tasks WHERE plan_id = ?").run(planId);
+    db.prepare("DELETE FROM career_plans WHERE id = ? AND occupant_id = ?").run(
+      planId,
+      occupantId,
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function insertPlanTasks(
+  db: DatabaseSync,
+  planId: string,
+  tasks: ReadonlyArray<{ title: string; dueOn: string | null }>,
+) {
+  const insert = db.prepare(
+    `INSERT INTO career_tasks (id, plan_id, title, due_on, status)
+     VALUES (?, ?, ?, ?, 'todo')`,
+  );
+  for (const task of tasks) insert.run(randomUUID(), planId, task.title, task.dueOn);
 }
 
 export function createInterview(
@@ -826,10 +969,6 @@ function text(value: unknown): string {
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function objectArray(value: unknown): JsonObject[] {
-  return Array.isArray(value) ? value.filter(isObject) : [];
 }
 
 export class CareerManagementStoreError extends Error {

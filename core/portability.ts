@@ -64,3 +64,38 @@ export const CURATED_CAPABILITIES = {
     "immersive-work-map",
   ],
 } as const;
+
+export type IntegrationError = "kind-invalid" | "label-required" | "secret-not-allowed";
+
+/**
+ * The one reading of an integration submission, shared by adding and changing
+ * one. Adapter settings hold only metadata; secrets belong in the vault.
+ */
+export function prepareIntegration(
+  input: unknown,
+):
+  | { ok: true; value: Pick<IntegrationConnection, "kind" | "label" | "config"> }
+  | { ok: false; error: IntegrationError } {
+  const record =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const kind = record.kind;
+  if (kind !== "calendar" && kind !== "email" && kind !== "job-board") {
+    return { ok: false, error: "kind-invalid" };
+  }
+  const label = typeof record.label === "string" ? record.label.trim() : "";
+  if (!label) return { ok: false, error: "label-required" };
+  const config =
+    record.config && typeof record.config === "object" && !Array.isArray(record.config)
+      ? (record.config as Record<string, unknown>)
+      : {};
+  if (
+    Object.keys(config).some((key) =>
+      /password|secret|api.?key|access.?token|refresh.?token/i.test(key),
+    )
+  ) {
+    return { ok: false, error: "secret-not-allowed" };
+  }
+  return { ok: true, value: { kind, label, config } };
+}
