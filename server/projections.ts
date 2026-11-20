@@ -71,12 +71,12 @@ export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStat
   const snapshot = composeWorkMapSnapshot(db, occupantId);
   const publication = db
     .prepare(
-      `SELECT published_at, expires_at FROM publications
+      `SELECT projection_id, published_at, expires_at FROM publications
        WHERE occupant_id = ? AND slug = ? AND revoked_at IS NULL
        ORDER BY published_at DESC LIMIT 1`,
     )
     .get(occupantId, snapshot.slug) as
-    | { published_at: string; expires_at: string | null }
+    | { projection_id: string; published_at: string; expires_at: string | null }
     | undefined;
   const live = publication && !publicationExpired(publication.expires_at) ? publication : undefined;
   const commits = db
@@ -103,7 +103,7 @@ export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStat
         )
         .get(occupantId, publishedFingerprint) as { snapshot_json: string } | undefined)
     : undefined;
-  return presentRelayStatus({
+  const status = presentRelayStatus({
     current: snapshot,
     live: live
       ? {
@@ -114,6 +114,10 @@ export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStat
         }
       : null,
   });
+  if (status.state === "private" && status.publishedAt && live) {
+    return { ...status, projectionId: live.projection_id };
+  }
+  return status;
 }
 
 export function previewWorkMapProjection(db: DatabaseSync, occupantId: string) {

@@ -358,18 +358,20 @@ export function publicationAllowsSnapshot(
   return visibility !== "private";
 }
 
-export type PublicationEmbed =
-  | { ok: true; page: string; code: string }
-  | {
-      ok: false;
-      reason: "private" | "access-controlled" | "slug" | "origin";
-    };
+type PublicationLinkGap = {
+  ok: false;
+  reason: "private" | "access-controlled" | "slug" | "origin";
+};
 
-export function publicationEmbed(input: {
+export type PublicationLink = { ok: true; url: string } | PublicationLinkGap;
+
+export type PublicationEmbed = { ok: true; page: string; code: string } | PublicationLinkGap;
+
+export function publicationLink(input: {
   origin: string | null | undefined;
   slug: string;
   visibility: WorkMapPublicationSettings["visibility"];
-}): PublicationEmbed {
+}): PublicationLink {
   if (input.visibility === "private") return { ok: false, reason: "private" };
   if (input.visibility === "access-controlled") {
     return { ok: false, reason: "access-controlled" };
@@ -378,7 +380,17 @@ export function publicationEmbed(input: {
   if (!slug) return { ok: false, reason: "slug" };
   const origin = embedOrigin(input.origin);
   if (!origin) return { ok: false, reason: "origin" };
-  const page = `${origin}/r/${encodeURIComponent(slug)}?embed=1`;
+  return { ok: true, url: `${origin}/r/${encodeURIComponent(slug)}` };
+}
+
+export function publicationEmbed(input: {
+  origin: string | null | undefined;
+  slug: string;
+  visibility: WorkMapPublicationSettings["visibility"];
+}): PublicationEmbed {
+  const link = publicationLink(input);
+  if (!link.ok) return link;
+  const page = `${link.url}?embed=1`;
   const code = `<iframe src="${page}" title="Career" width="100%" height="640" style="border:0"></iframe>`;
   return { ok: true, page, code };
 }

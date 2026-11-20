@@ -9,6 +9,7 @@ in routes or React screens.
 
 Humans start at [README.md](README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 Decisions: [docs/adr/](docs/adr/). Merge gate: [docs/ci.md](docs/ci.md).
+Marks and icons: [docs/resources.md](docs/resources.md).
 Governed agency (one Proforna, Agent Runs as purposes): [docs/agent-authority.md](docs/agent-authority.md) — epic #49 is done.
 
 Anything an occupant can add must also be readable, changeable, and removable. Create, read, update, and delete stay together. The fields used to add a record are the fields used to change it.

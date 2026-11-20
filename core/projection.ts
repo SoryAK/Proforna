@@ -48,7 +48,7 @@ export function mayPublishProjection(
 }
 
 export type RelayStatus =
-  | { state: "private" }
+  | { state: "private"; publishedAt?: string; projectionId?: string }
   | { state: "unpublished" }
   | { state: "current"; publishedAt: string }
   | { state: "changed"; publishedAt: string; changes: string[] };
@@ -57,7 +57,9 @@ export function presentRelayStatus(input: {
   current: WorkMapSnapshot;
   live: { publishedAt: string; snapshot: WorkMapSnapshot | null } | null;
 }): RelayStatus {
-  if (input.current.visibility === "private") return { state: "private" };
+  if (input.current.visibility === "private") {
+    return input.live ? { state: "private", publishedAt: input.live.publishedAt } : { state: "private" };
+  }
   if (!input.live) return { state: "unpublished" };
   const published = input.live.snapshot;
   if (published?.sourceFingerprint === input.current.sourceFingerprint) {
