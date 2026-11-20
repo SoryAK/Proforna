@@ -255,7 +255,7 @@ describe("interactive projections HTTP seam", () => {
     const app = createApp(db, { relay });
     const read = async () =>
       ((await (await app.request("/api/work-map/relay")).json()) as {
-        relay: { state: string; publishedAt?: string; changes?: string[] };
+        relay: { state: string; publishedAt?: string; projectionId?: string; changes?: string[] };
       }).relay;
     try {
       await app.request("/api/history", {
@@ -305,7 +305,11 @@ describe("interactive projections HTTP seam", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ visibility: "private" }),
       });
-      expect(await read()).toEqual({ state: "private" });
+      expect((await app.request("/api/public/sory-systems")).status).toBe(200);
+      const hidden = await read();
+      expect(hidden.state).toBe("private");
+      expect(typeof hidden.publishedAt).toBe("string");
+      expect(typeof hidden.projectionId).toBe("string");
     } finally {
       db.close();
     }

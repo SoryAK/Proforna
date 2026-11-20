@@ -61,19 +61,29 @@ export function HomeBar({
   const [publishNote, setPublishNote] = useState("");
   const [relayOrigin, setRelayOrigin] = useState<string | null>(null);
   const [linkNote, setLinkNote] = useState("");
+  const [copiedUrl, setCopiedUrl] = useState("");
   const [visibilityOpen, setVisibilityOpen] = useState(false);
+  const [settingsReady, setSettingsReady] = useState(false);
+  const [settingsFailed, setSettingsFailed] = useState(false);
+  const [settingsLoad, setSettingsLoad] = useState(0);
+  const [heldPrivate, setHeldPrivate] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const publicationRef = useRef(publication);
   const slugDraftRef = useRef(slugDraft);
   const publicationBusyRef = useRef(false);
+  const settingsGeneration = useRef(0);
   const menuRef = useRef(menu);
   publicationRef.current = publication;
   slugDraftRef.current = slugDraft;
   const relay = useRelayStatus(revision);
   const relayState = relay?.state;
-  const showPublish = relayState === "unpublished" || relayState === "changed" || relayState === "current";
-  const publishLead = relayState === "unpublished" || relayState === "changed";
+  const showPublish =
+    !heldPrivate &&
+    (relayState === "unpublished" || relayState === "changed" || relayState === "current");
+  const publishLead =
+    relayState === "unpublished" || (relayState === "changed" && (relay?.changes.length ?? 0) > 0);
   const publishPlan = describePublish(relay);
   const planId = useId();
   const menuId = useId();
@@ -87,10 +97,22 @@ export function HomeBar({
   }, [publishNote]);
 
   useEffect(() => {
+    if (relay && relay.state !== "private") setHeldPrivate(false);
+  }, [relay]);
+
+  useEffect(() => {
+    if (menu === "publish" && !showPublish) setMenu(null);
+  }, [menu, showPublish]);
+
+  useEffect(() => {
     if (menu !== "relay") return;
+    const generation = settingsGeneration.current;
     let cancel = false;
+    setSettingsReady(false);
+    setSettingsFailed(false);
     setVisibilityNote("");
     setLinkNote("");
+    setCopiedUrl("");
     setVisibilityOpen(false);
     void fetch("/api/work-map/settings")
       .then(async (response) => {
@@ -100,21 +122,24 @@ export function HomeBar({
           updatedAt?: string | null;
           relayOrigin?: string | null;
         };
-        if (cancel || !body.settings) return;
+        if (cancel || settingsGeneration.current !== generation || !body.settings) return;
         setRelayOrigin(body.relayOrigin ?? null);
         const next = { settings: body.settings, updatedAt: body.updatedAt ?? null };
         publicationRef.current = next;
         slugDraftRef.current = body.settings.slug;
         setPublication(next);
         setSlugDraft(body.settings.slug);
+        setSettingsReady(true);
       })
       .catch(() => {
-        if (!cancel) setVisibilityNote("Could not load the Relay settings.");
+        if (cancel || settingsGeneration.current !== generation) return;
+        setSettingsFailed(true);
+        setVisibilityNote("Could not load the Relay settings.");
       });
     return () => {
       cancel = true;
     };
-  }, [menu]);
+  }, [menu, settingsLoad]);
 
   useEffect(() => {
     if (!menu) return;
@@ -149,7 +174,7 @@ export function HomeBar({
   }
 
   async function confirmPublish() {
-    if (publishing) return;
+    if (publishing || publicationBusyRef.current) return;
     setPublishing(true);
     setPublishNote("");
     setMenu(null);
@@ -174,6 +199,7 @@ export function HomeBar({
   async function saveSettings(next: WorkMapPublicationSettings, failure: string) {
     const current = publicationRef.current;
     if (!current || publicationBusyRef.current) return;
+    settingsGeneration.current += 1;
     publicationBusyRef.current = true;
     setVisibilityBusy(true);
     setVisibilityNote("");
@@ -196,11 +222,14 @@ export function HomeBar({
         updatedAt?: string | null;
       };
       if (body.settings) {
+        settingsGeneration.current += 1;
         const saved = { settings: body.settings, updatedAt: body.updatedAt ?? null };
         publicationRef.current = saved;
         slugDraftRef.current = body.settings.slug;
         setPublication(saved);
         setSlugDraft(body.settings.slug);
+        setHeldPrivate(body.settings.visibility === "private");
+        setSettingsReady(true);
       }
       announceRelayChange();
     } catch {
@@ -249,11 +278,33 @@ export function HomeBar({
 
   async function copyLink() {
     if (!link?.ok) return;
+    const url = link.url;
     try {
-      await navigator.clipboard.writeText(link.url);
-      setLinkNote("Copied.");
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      setLinkNote("");
     } catch {
+      setCopiedUrl("");
       setLinkNote("Could not copy the link. Select it and copy instead.");
+    }
+  }
+
+  async function withdrawPublication(id: string) {
+    if (withdrawing) return;
+    setWithdrawing(true);
+    setVisibilityNote("");
+    try {
+      const response = await fetch(`/api/projections/${id}/revoke`, { method: "POST" });
+      if (!response.ok) {
+        setVisibilityNote("The snapshot is still on the Relay.");
+        return;
+      }
+      setVisibilityNote("The snapshot was taken off the Relay.");
+      announceRelayChange();
+    } catch {
+      setVisibilityNote("The snapshot is still on the Relay.");
+    } finally {
+      setWithdrawing(false);
     }
   }
 
@@ -285,7 +336,7 @@ export function HomeBar({
           type="button"
           role="menuitem"
           aria-describedby={publishPlan ? planId : undefined}
-          disabled={publishing}
+          disabled={publishing || visibilityBusy}
           onClick={() => void confirmPublish()}
         >
           Confirm publish
@@ -334,7 +385,7 @@ export function HomeBar({
         >
           <Icon name="search" />
         </button>
-        <div className={`home-sync is-${relayState ?? "private"}`}>
+        <div className={`home-sync is-${relayState ?? "unknown"}`}>
           <button
             type="button"
             className="home-sync-track"
@@ -389,7 +440,20 @@ export function HomeBar({
           {menu === "relay" ? (
             <div className="home-pub-menu home-sync-menu home-sync-settings">
               <div className="home-pub-plan">
-                <p>{relayState === "private" || !publishPlan ? "A private career stays off the Relay." : publishPlan.lead}</p>
+                <p>{relayLead(relay, publishPlan)}</p>
+                {relay?.state === "private" && relay.projectionId ? (
+                  <button
+                    type="button"
+                    disabled={withdrawing}
+                    onClick={() => {
+                      if (relay.state === "private" && relay.projectionId) {
+                        void withdrawPublication(relay.projectionId);
+                      }
+                    }}
+                  >
+                    Take it off the Relay
+                  </button>
+                ) : null}
                 {publishPlan && publishPlan.lines.length > 0 ? (
                   <ul>
                     {publishPlan.lines.map((line) => (
@@ -435,7 +499,11 @@ export function HomeBar({
                   ) : (
                     <p className="home-sync-address-gap">{linkGap(link.reason)}</p>
                   )}
-                  {linkNote ? (
+                  {link?.ok && copiedUrl === link.url ? (
+                    <p className="home-sync-address-gap" role="status">
+                      Copied.
+                    </p>
+                  ) : linkNote ? (
                     <p className="home-sync-address-gap" role="status">
                       {linkNote}
                     </p>
@@ -455,7 +523,7 @@ export function HomeBar({
                   size="sm"
                   width="100%"
                   value={slugDraft}
-                  isDisabled={!publication || visibilityBusy}
+                  isDisabled={!settingsReady || visibilityBusy}
                   onChange={(value) => {
                     slugDraftRef.current = value;
                     setSlugDraft(value);
@@ -470,7 +538,7 @@ export function HomeBar({
                 className="home-sync-visibility"
                 aria-expanded={visibilityOpen}
                 aria-controls={visibilityId}
-                disabled={!publication}
+                disabled={!settingsReady}
                 onClick={() => setVisibilityOpen((open) => !open)}
               >
                 <span>Visibility</span>
@@ -487,20 +555,56 @@ export function HomeBar({
                 </svg>
               </button>
               {visibilityOpen ? (
-                <div role="radiogroup" aria-label="Visibility" id={visibilityId}>
+                <div
+                  role="radiogroup"
+                  aria-label="Visibility"
+                  id={visibilityId}
+                  onKeyDown={(event) => {
+                    if (!settingsReady || visibilityBusy) return;
+                    if (
+                      event.key !== "ArrowDown" &&
+                      event.key !== "ArrowUp" &&
+                      event.key !== "ArrowLeft" &&
+                      event.key !== "ArrowRight"
+                    ) {
+                      return;
+                    }
+                    event.preventDefault();
+                    const index = VISIBILITY_OPTIONS.findIndex(
+                      (option) => option.value === publicationRef.current?.settings.visibility,
+                    );
+                    const delta = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+                    const next =
+                      VISIBILITY_OPTIONS[
+                        (Math.max(0, index) + delta + VISIBILITY_OPTIONS.length) % VISIBILITY_OPTIONS.length
+                      ];
+                    if (!next) return;
+                    void chooseVisibility(next.value);
+                    const group = event.currentTarget;
+                    queueMicrotask(() => {
+                      group.querySelector<HTMLButtonElement>(`[data-visibility="${next.value}"]`)?.focus();
+                    });
+                  }}
+                >
                   {VISIBILITY_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       type="button"
                       role="radio"
+                      data-visibility={option.value}
                       aria-checked={publication?.settings.visibility === option.value}
-                      disabled={!publication || visibilityBusy}
+                      disabled={!settingsReady || visibilityBusy}
                       onClick={() => void chooseVisibility(option.value)}
                     >
                       {option.label}
                     </button>
                   ))}
                 </div>
+              ) : null}
+              {settingsFailed ? (
+                <button type="button" onClick={() => setSettingsLoad((load) => load + 1)}>
+                  Try again
+                </button>
               ) : null}
               {visibilityNote ? <p className="home-sync-setting-note">{visibilityNote}</p> : null}
             </div>
@@ -529,7 +633,7 @@ export function HomeBar({
               </button>
             </div>
           ) : null}
-          {menu === "publish" ? publishMenu() : null}
+          {menu === "publish" && showPublish ? publishMenu() : null}
         </div>
       </div>
       <div className="home-bar-end" ref={root}>
@@ -679,11 +783,27 @@ type PublicationDraft = {
 };
 
 function relayName(relay: RelayStatus | null): string {
-  if (!relay || relay.state === "private") return "Relay, private";
+  if (!relay) return "Relay, status unknown";
+  if (relay.state === "private") {
+    return relay.publishedAt ? "Relay, private, snapshot still published" : "Relay, private";
+  }
   if (relay.state === "unpublished") return "Relay, not published";
   if (relay.state === "current") return "Relay, up to date";
   const count = relay.changes.length;
   return count > 0 ? `Relay, ${count} ${count === 1 ? "change" : "changes"}` : "Relay, changes to publish";
+}
+
+function relayLead(
+  relay: RelayStatus | null,
+  plan: { lead: string; lines: string[] } | null,
+): string {
+  if (!relay) return "The Relay status has not come back yet.";
+  if (relay.state === "private") {
+    return relay.publishedAt
+      ? "A published snapshot is still on the Relay."
+      : "A private career stays off the Relay.";
+  }
+  return plan?.lead ?? "The Relay status has not come back yet.";
 }
 
 function describePublish(relay: RelayStatus | null): { lead: string; lines: string[] } | null {

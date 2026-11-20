@@ -111,10 +111,16 @@ describe("presentRelayStatus", () => {
   const publishedAt = "2026-11-12T15:00:00.000Z";
   const live = { publishedAt, snapshot };
 
-  it("keeps a private career off the relay", () => {
+  it("keeps a private career off the relay when nothing is published", () => {
+    expect(
+      presentRelayStatus({ current: { ...snapshot, visibility: "private" }, live: null }),
+    ).toEqual({ state: "private" });
+  });
+
+  it("keeps the published time when a private career still has a live snapshot", () => {
     expect(
       presentRelayStatus({ current: { ...snapshot, visibility: "private" }, live }),
-    ).toEqual({ state: "private" });
+    ).toEqual({ state: "private", publishedAt });
   });
 
   it("reports a career that has no live publication", () => {
