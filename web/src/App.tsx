@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { needsOnboarding } from "@core/onboarding";
 import type { CareerFile } from "@core/career-file";
-import { DevPrototypeScreen, readDevPrototype, readReviewOnboarding } from "./dev-routes";
+import { readReviewOnboarding } from "./dev-routes";
 import { Home } from "./Home";
 import { readEvidenceRole, writeEvidenceRole } from "./onboarding-evidence";
 import { Onboarding } from "./Onboarding";
@@ -21,14 +21,12 @@ export function App() {
   const [career, setCareer] = useState<CareerFile>(EMPTY_CAREER);
   const [error, setError] = useState<string | null>(null);
   const [careerError, setCareerError] = useState<string | null>(null);
-  const [prototype, setPrototype] = useState(readDevPrototype);
   const [reviewOnboarding, setReviewOnboarding] = useState(readReviewOnboarding);
   const [previewWindow, setPreviewWindow] = useState(isPreviewWindow);
   const [focusJobId, setFocusJobId] = useState<string | null>(readEvidenceRole);
 
   useEffect(() => {
     function onHash() {
-      setPrototype(readDevPrototype());
       setReviewOnboarding(readReviewOnboarding());
       setPreviewWindow(isPreviewWindow());
     }
@@ -37,9 +35,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (prototype) return;
     void load();
-  }, [prototype]);
+  }, []);
 
   async function load() {
     try {
@@ -63,10 +60,6 @@ export function App() {
       setCareer(EMPTY_CAREER);
       setCareerError("Could not load work history.");
     }
-  }
-
-  if (prototype) {
-    return <DevPrototypeScreen kind={prototype} />;
   }
 
   if (previewWindow) {

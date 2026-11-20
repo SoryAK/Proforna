@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
 import { openDatabase } from "./db";
+import { readPublicPage } from "./public-page";
+
+vi.mock("./public-page", async (original) => ({
+  ...(await original<typeof import("./public-page")>()),
+  readPublicPage: vi.fn(),
+}));
 
 describe("job search HTTP seam", () => {
   afterEach(() => {
@@ -132,12 +138,14 @@ describe("job search HTTP seam", () => {
           },
         ]);
       }
-      return new Response(
-        `<h1>Careers</h1><h2>Lead Electrician</h2><p>Location: Clifton Heights, PA</p><p>Read blueprints daily.</p>`,
-        { headers: { "content-type": "text/html" } },
-      );
+      throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchImpl);
+    const readPage = vi.mocked(readPublicPage).mockResolvedValue({
+      status: 200,
+      contentType: "text/html",
+      text: `<h1>Careers</h1><h2>Lead Electrician</h2><p>Location: Clifton Heights, PA</p><p>Read blueprints daily.</p>`,
+    });
     const app = createApp(openDatabase(":memory:"));
     await app.request("/api/job-sources", {
       method: "PUT",
@@ -182,9 +190,7 @@ describe("job search HTTP seam", () => {
       latitude: 39.92,
     });
     expect(body.listings[0]?.description).toContain("Read blueprints daily");
-    const called = (fetchImpl.mock.calls as unknown as Array<[string]>).map((call) =>
-      String(call[0]),
-    );
+    const called = readPage.mock.calls.map((call) => String(call[0]));
     expect(called.some((url) => url.includes("northstar.example"))).toBe(true);
     expect(called.some((url) => url.includes("closed.example"))).toBe(false);
   });

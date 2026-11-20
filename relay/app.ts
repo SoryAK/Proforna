@@ -2,6 +2,9 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { bodyLimit } from "hono/body-limit";
+import { getCookie, setCookie } from "hono/cookie";
+import { checkRequestBody, isMissingJsonBody } from "../server/request-body";
 import { groupLinkedEvidence, type PublishedLinkedEvidence } from "../core/index";
 import { handleMcp, type PublicationRead, type PublicationSnapshot } from "./mcp";
 
@@ -11,6 +14,21 @@ type JsonObject = Record<string, unknown>;
 
 export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
   const app = new Hono();
+
+  // Visitors only send small forms and events; the owner sends whole publications.
+  const tooLarge = (c: Context) => c.json({ error: "too-large" }, 413);
+  app.use("/r/*", bodyLimit({ maxSize: 64 * 1024, onError: tooLarge }));
+  app.use("/mcp", bodyLimit({ maxSize: 64 * 1024, onError: tooLarge }));
+  app.use("/relay/*", bodyLimit({ maxSize: 10 * 1024 * 1024, onError: tooLarge }));
+  // /mcp answers bad JSON in its own JSON-RPC shape, so it is not checked here.
+  app.use("/r/*", checkRequestBody());
+  app.use("/relay/*", checkRequestBody());
+  app.onError((err, c) => {
+    if (isMissingJsonBody(err, c)) {
+      return c.json({ error: "invalid-body" }, 400);
+    }
+    return c.text("Internal Server Error", 500);
+  });
 
   app.get("/health", (c) => c.json({ ok: true, service: "proforna-relay" }));
 
@@ -128,11 +146,37 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
   });
 
   app.get("/r/:slug", (c) => {
-    const projection = resolveProjection(
-      db,
-      c.req.param("slug"),
-      c.req.query("token") ?? null,
-    );
+    const slug = c.req.param("slug");
+    // Never pass this page's address on to the map tiles, scripts or links it loads.
+    c.header("Referrer-Policy", "no-referrer");
+    const linkToken = c.req.query("token");
+    if (linkToken !== undefined) {
+      // A share link carries its token once. Trade it for a cookie scoped to
+      // this page, then send the viewer to the same address without it, so the
+      // token leaves the address bar, history and any later request lines.
+      const expiresAt = grantExpiry(db, slug, linkToken);
+      const clean = new URL(c.req.url);
+      clean.searchParams.delete("token");
+      if (expiresAt) {
+        const forwarded = c.req.header("x-forwarded-proto");
+        setCookie(c, ACCESS_COOKIE, linkToken, {
+          path: `/r/${encodeURIComponent(slug)}`,
+          httpOnly: true,
+          secure: (forwarded ?? clean.protocol.replace(":", "")) === "https",
+          sameSite: "Lax",
+          // The grant is checked on every visit; the cookie only decides when
+          // the viewer has to open the link again.
+          expires: new Date(
+            Math.min(Date.parse(expiresAt), Date.now() + 30 * 86_400_000),
+          ),
+        });
+      }
+      c.header("Cache-Control", "no-store");
+      return c.redirect(`${clean.pathname}${clean.search}`, 303);
+    }
+    const accessToken = getCookie(c, ACCESS_COOKIE) ?? null;
+    if (accessToken) c.header("Cache-Control", "private, no-store");
+    const projection = resolveProjection(db, slug, accessToken);
     if (!projection) {
       if (requiresAccess(db, c.req.param("slug"))) {
         return framedHtml(
@@ -275,6 +319,23 @@ function resolveProjection(
     if (!grant) return null;
   }
   return JSON.parse(String(row.projection_json)) as RelayProjection;
+}
+
+const ACCESS_COOKIE = "proforna_access";
+
+/** When a token opens an access-controlled page, the time its grant runs out. */
+function grantExpiry(db: DatabaseSync, slug: string, token: string): string | null {
+  if (!token) return null;
+  const grant = db
+    .prepare(
+      `SELECT expires_at FROM relay_grants
+       WHERE slug = ? AND token_hash = ? AND revoked_at IS NULL
+         AND expires_at > ?`,
+    )
+    .get(slug, hashToken(token), new Date().toISOString()) as
+    | { expires_at: string }
+    | undefined;
+  return grant?.expires_at ?? null;
 }
 
 function requiresAccess(db: DatabaseSync, slug: string): boolean {

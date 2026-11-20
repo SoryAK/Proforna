@@ -15,5 +15,6 @@
       "@core/*": ["./core/*"]
     }
   },
-  "include": ["core", "server", "web", "relay"]
+  "include": ["core", "server", "web", "relay"],
+  "exclude": ["web/prototypes", "web/src/prototype", "web/dist"]
 }

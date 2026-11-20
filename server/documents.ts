@@ -5,14 +5,19 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { extname, isAbsolute, join } from "node:path";
+import { extname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  DOCUMENT_MAX_BYTES,
   prepareDocumentChange,
   prepareDocumentRemoval,
   prepareStoredDocument,
 } from "../core/document-vault";
 import { saveEvidence } from "./career-memory";
+import { uploadPath } from "./upload-path";
+
+/** Largest document or resume an occupant can upload. */
+export const UPLOAD_MAX_BYTES = DOCUMENT_MAX_BYTES;
 
 export type DocumentRow = {
   id: string;
@@ -56,7 +61,7 @@ export function storeDocument(
   const id = randomUUID();
   const extension = extname(file.name).slice(0, 12);
   const storedName = `documents/${id}${extension}`;
-  const fullPath = join(uploadsDir, storedName);
+  const fullPath = uploadPath(uploadsDir, storedName);
   mkdirSync(join(uploadsDir, "documents"), { recursive: true });
   writeFileSync(fullPath, file.bytes);
   const now = new Date().toISOString();
@@ -217,8 +222,11 @@ function isActiveMarkup(mediaType: string): boolean {
 }
 
 function vaultFilePath(uploadsDir: string, storedName: string): string | null {
-  if (!storedName || isAbsolute(storedName) || storedName.split(/[\\/]/).includes("..")) return null;
-  return join(uploadsDir, storedName);
+  try {
+    return uploadPath(uploadsDir, storedName);
+  } catch {
+    return null;
+  }
 }
 
 function isMissingFile(error: unknown): boolean {
