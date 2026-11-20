@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { DatabaseSync } from "node:sqlite";
 import { isFrameTarget, pageAllowsFrame, PRODUCT, type ApplicationStage } from "../core/index";
 import {
@@ -19,6 +19,7 @@ import {
 } from "./openai-compat";
 import { pingDatabase } from "./db";
 import { RelayTransportError } from "./relay-client";
+import { DistinctPairError, listDistinctPairs, markDistinctPair, unmarkDistinctPair } from "./distinct-roles";
 import {
   applyComparedResume,
   loadCareerFile,
@@ -76,6 +77,9 @@ import {
   proposeCareerFact,
   readCareerMemory,
   saveEvidence,
+  removeEvidence,
+  updateEvidence,
+  withdrawCareerFactChange,
 } from "./career-memory";
 import {
   WorklogStoreError,
@@ -124,6 +128,11 @@ import {
   createOffer,
   createOpportunity,
   createPlan,
+  cancelExternalAction,
+  removeInterview,
+  removeOffer,
+  updateInterview,
+  updateOffer,
   updateOpportunity,
   removePlan,
   updatePlan,
@@ -1174,6 +1183,38 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
       }
+      throw error;
+    }
+  });
+
+  app.get("/api/work-map/distinct-pairs", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ pairs: listDistinctPairs(db, occupant.id) });
+  });
+
+  app.post("/api/work-map/distinct-pairs", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const pair = markDistinctPair(db, occupant.id, await c.req.json());
+      return c.json({ pair }, 201);
+    } catch (error) {
+      if (error instanceof DistinctPairError) {
+        return c.json({ error: error.code }, error.code === "role-missing" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/distinct-pairs/:firstId/:secondId", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      unmarkDistinctPair(db, occupant.id, {
+        firstId: c.req.param("firstId"),
+        secondId: c.req.param("secondId"),
+      });
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof DistinctPairError) return c.json({ error: error.code }, 400);
       throw error;
     }
   });
@@ -2270,6 +2311,110 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         return c.json({ error: error.code }, 400);
       }
       throw error;
+    }
+  });
+
+  const notFound = new Set(["not-found", "evidence-missing", "change-set-missing", "action-missing"]);
+  const careerError = (c: Context, error: unknown) => {
+    if (error instanceof CareerManagementStoreError || error instanceof CareerMemoryStoreError) {
+      const status = notFound.has(error.code) ? 404 : error.code === "evidence-cited" ? 409 : 400;
+      return c.json({ error: error.code }, status);
+    }
+    throw error;
+  };
+
+  app.put("/api/interviews/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const interview = updateInterview(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ interview });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.delete("/api/interviews/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeInterview(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.put("/api/offers/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const offer = updateOffer(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ offer });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.delete("/api/offers/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeOffer(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.post("/api/external-actions/:id/cancel", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      cancelExternalAction(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.put("/api/memory/evidence/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const evidence = updateEvidence(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ evidence });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.delete("/api/memory/evidence/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeEvidence(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.post("/api/memory/proposals/:id/withdraw", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      withdrawCareerFactChange(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
     }
   });
 

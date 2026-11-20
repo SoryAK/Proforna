@@ -32,7 +32,13 @@ import {
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
 import { CareerMap } from "./CareerMap";
-import { DuplicateReview, duplicateReviewCount, type MergeRequest, type ReviewDraft } from "./DuplicateReview";
+import {
+  DuplicateReview,
+  LEGACY_DISTINCT_STORAGE,
+  duplicateReviewCount,
+  type MergeRequest,
+  type ReviewDraft,
+} from "./DuplicateReview";
 import { readMapCamera, writeMapCamera, type MapCamera, type MapFitMode } from "./map-camera";
 import { notifyPreviewRefresh } from "./preview-placement";
 import type { WorkMapHome } from "./WorkMapCanvas";
@@ -104,6 +110,11 @@ export function WorkMap({
   onCareerChanged?: () => void;
 }) {
   const [data, setData] = useState<WorkMapResponse | null>(null);
+  // "Not a duplicate" marks. Pairs of saved roles live with the career; a pair
+  // with an unsaved import draft lasts only as long as the draft.
+  const [savedDistinct, setSavedDistinct] = useState<string[]>([]);
+  const [draftDistinct, setDraftDistinct] = useState<string[]>([]);
+  const distinctPairs = useMemo(() => [...savedDistinct, ...draftDistinct], [savedDistinct, draftDistinct]);
   const [selectedId, setSelectedId] = useState<string | null>(
     focusRoleId ?? null,
   );
@@ -242,6 +253,84 @@ export function WorkMap({
     });
   }, [data, selectedId]);
 
+  async function loadDistinct(roles: WorkMapRole[]) {
+    const response = await fetch("/api/work-map/distinct-pairs").catch(() => null);
+    if (!response?.ok) return;
+    const saved = ((await response.json()) as { pairs: Array<{ key: string }> }).pairs.map((pair) => pair.key);
+    // Marks made before they were saved with the career move over once.
+    const ids = new Set(roles.map((role) => role.id));
+    let legacy: string[] = [];
+    try {
+      const raw = localStorage.getItem(LEGACY_DISTINCT_STORAGE);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      legacy = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    } catch {
+      legacy = [];
+    }
+    const moving = legacy.filter((key) => {
+      const [first, second] = key.split("|");
+      return ids.has(first) && ids.has(second) && !saved.includes(key);
+    });
+    const moved = await Promise.all(moving.map((key) => saveDistinct(key)));
+    setSavedDistinct([...saved, ...moving.filter((_, index) => moved[index])]);
+    if (legacy.length > 0 && moved.every(Boolean)) {
+      try {
+        localStorage.removeItem(LEGACY_DISTINCT_STORAGE);
+      } catch {
+        /* storage is optional */
+      }
+    }
+  }
+
+  async function saveDistinct(key: string): Promise<boolean> {
+    const [firstId, secondId] = key.split("|");
+    const response = await fetch("/api/work-map/distinct-pairs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ firstId, secondId }),
+    }).catch(() => null);
+    return Boolean(response?.ok);
+  }
+
+  function isSavedPair(key: string): boolean {
+    const [first, second] = key.split("|");
+    const roles = data?.roles ?? [];
+    return roles.some((role) => role.id === first) && roles.some((role) => role.id === second);
+  }
+
+  function markDistinct(key: string) {
+    if (!isSavedPair(key)) {
+      setDraftDistinct((current) => (current.includes(key) ? current : [...current, key]));
+      return;
+    }
+    setSavedDistinct((current) => (current.includes(key) ? current : [...current, key]));
+    void saveDistinct(key).then((ok) => {
+      if (ok) return;
+      setSavedDistinct((current) => current.filter((item) => item !== key));
+      setReviewNotice("That choice could not be saved. Try again.");
+    });
+  }
+
+  function unmarkDistinct(key: string) {
+    setDraftDistinct((current) => current.filter((item) => item !== key));
+    if (!savedDistinct.includes(key)) return;
+    setSavedDistinct((current) => current.filter((item) => item !== key));
+    const [firstId, secondId] = key.split("|");
+    void fetch(`/api/work-map/distinct-pairs/${encodeURIComponent(firstId)}/${encodeURIComponent(secondId)}`, {
+      method: "DELETE",
+    }).then(
+      (response) => {
+        if (response.ok) return;
+        setSavedDistinct((current) => (current.includes(key) ? current : [...current, key]));
+        setReviewNotice("That undo could not be saved. Try again.");
+      },
+      () => {
+        setSavedDistinct((current) => (current.includes(key) ? current : [...current, key]));
+        setReviewNotice("That undo could not be saved. Try again.");
+      },
+    );
+  }
+
   async function load() {
     const [mapResponse, publicationResponse] = await Promise.all([
       fetch("/api/work-map"),
@@ -253,6 +342,7 @@ export function WorkMap({
     }
     const next = (await mapResponse.json()) as WorkMapResponse;
     setData(next);
+    void loadDistinct(next.roles);
     setSettings(next.settings);
     setSelectedId((current) =>
       current && next.roles.some((role) => role.id === current)
@@ -320,8 +410,8 @@ export function WorkMap({
     [data],
   );
   const duplicateCount = useMemo(
-    () => duplicateReviewCount(data?.roles ?? [], reviewDrafts, listedReviews),
-    [data, reviewDrafts, listedReviews],
+    () => duplicateReviewCount(data?.roles ?? [], reviewDrafts, listedReviews, distinctPairs),
+    [data, reviewDrafts, listedReviews, distinctPairs],
   );
   const identicalExtraIds = useMemo(
     () =>
@@ -1183,6 +1273,9 @@ export function WorkMap({
             focusId={reviewFocus}
             listedPairs={listedReviews}
             notice={reviewNotice}
+            distinct={distinctPairs}
+            onMarkDistinct={markDistinct}
+            onUnmarkDistinct={unmarkDistinct}
             roles={data.roles}
             onClose={() => setReviewOpen(false)}
             onChangeDraft={(localId, patch) =>

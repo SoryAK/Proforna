@@ -269,6 +269,8 @@ export {
   resolveInboundAccessRequest,
   prepareExternalAction,
   planContactSubmission,
+  prepareInterview,
+  prepareOffer,
   prepareOpportunity,
   preparePlan,
   transitionApplication,
@@ -517,3 +519,4 @@ export {
   type CareerTimelineResidence,
   type CareerTimelineRole,
 } from "./career-timeline";
+export { distinctPairKey, prepareDistinctPair, type DistinctPair } from "./distinct-roles";

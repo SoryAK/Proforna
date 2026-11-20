@@ -348,6 +348,15 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS role_distinct_pairs (
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      first_role_id TEXT NOT NULL,
+      second_role_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (occupant_id, first_role_id, second_role_id)
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS interactive_projections (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),

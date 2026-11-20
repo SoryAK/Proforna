@@ -6,6 +6,8 @@ import {
   hashChangeSet,
   planOpportunityNetworkPromotion,
   prepareExternalAction,
+  prepareInterview,
+  prepareOffer,
   prepareOpportunity,
   preparePlan,
   transitionApplication,
@@ -624,17 +626,14 @@ export function createInterview(
   input: JsonObject,
 ) {
   requireOwned(db, "applications", occupantId, applicationId);
+  const prepared = prepareInterview(input);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
   const interview = {
     id: randomUUID(),
     applicationId,
-    kind: text(input.kind) || "interview",
-    scheduledAt: text(input.scheduledAt),
-    notes: text(input.notes),
+    ...prepared.value,
     createdAt: new Date().toISOString(),
   };
-  if (!interview.scheduledAt) {
-    throw new CareerManagementStoreError("schedule-required");
-  }
   db.prepare(
     `INSERT INTO interviews
       (id, occupant_id, application_id, kind, scheduled_at, notes, created_at)
@@ -651,6 +650,38 @@ export function createInterview(
   return interview;
 }
 
+/** Changes an interview with the same fields that add it. */
+export function updateInterview(
+  db: DatabaseSync,
+  occupantId: string,
+  interviewId: string,
+  input: JsonObject,
+) {
+  const current = db
+    .prepare("SELECT application_id, created_at FROM interviews WHERE id = ? AND occupant_id = ?")
+    .get(interviewId, occupantId) as { application_id: string; created_at: string } | undefined;
+  if (!current) throw new CareerManagementStoreError("not-found");
+  const prepared = prepareInterview(input);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
+  db.prepare(
+    `UPDATE interviews SET kind = ?, scheduled_at = ?, notes = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(prepared.value.kind, prepared.value.scheduledAt, prepared.value.notes, interviewId, occupantId);
+  return {
+    id: interviewId,
+    applicationId: current.application_id,
+    ...prepared.value,
+    createdAt: current.created_at,
+  };
+}
+
+export function removeInterview(db: DatabaseSync, occupantId: string, interviewId: string) {
+  const removed = db
+    .prepare("DELETE FROM interviews WHERE id = ? AND occupant_id = ?")
+    .run(interviewId, occupantId);
+  if (removed.changes !== 1) throw new CareerManagementStoreError("not-found");
+}
+
 export function createOffer(
   db: DatabaseSync,
   occupantId: string,
@@ -658,13 +689,12 @@ export function createOffer(
   input: JsonObject,
 ) {
   requireOwned(db, "applications", occupantId, applicationId);
-  const summary = text(input.summary);
-  if (!summary) throw new CareerManagementStoreError("summary-required");
+  const prepared = prepareOffer(input);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
   const offer = {
     id: randomUUID(),
     applicationId,
-    summary,
-    decisionDueAt: text(input.decisionDueAt) || null,
+    ...prepared.value,
     status: "considering",
     createdAt: new Date().toISOString(),
   };
@@ -683,6 +713,40 @@ export function createOffer(
     offer.createdAt,
   );
   return offer;
+}
+
+/** Changes an offer with the same fields that add it. Its status is kept. */
+export function updateOffer(
+  db: DatabaseSync,
+  occupantId: string,
+  offerId: string,
+  input: JsonObject,
+) {
+  const current = db
+    .prepare("SELECT application_id, status, created_at FROM offers WHERE id = ? AND occupant_id = ?")
+    .get(offerId, occupantId) as
+    | { application_id: string; status: string; created_at: string }
+    | undefined;
+  if (!current) throw new CareerManagementStoreError("not-found");
+  const prepared = prepareOffer(input);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
+  db.prepare(
+    `UPDATE offers SET summary = ?, decision_due_at = ? WHERE id = ? AND occupant_id = ?`,
+  ).run(prepared.value.summary, prepared.value.decisionDueAt, offerId, occupantId);
+  return {
+    id: offerId,
+    applicationId: current.application_id,
+    ...prepared.value,
+    status: current.status,
+    createdAt: current.created_at,
+  };
+}
+
+export function removeOffer(db: DatabaseSync, occupantId: string, offerId: string) {
+  const removed = db
+    .prepare("DELETE FROM offers WHERE id = ? AND occupant_id = ?")
+    .run(offerId, occupantId);
+  if (removed.changes !== 1) throw new CareerManagementStoreError("not-found");
 }
 
 export async function proposeExternalAction(
@@ -761,6 +825,9 @@ export async function approveExternalAction(
     .get(actionId, occupantId) as JsonObject | undefined;
   if (!row) throw new CareerManagementStoreError("action-missing");
   const action = mapExternalAction(row);
+  if (String(row.status) === "cancelled") {
+    throw new CareerManagementStoreError("action-cancelled");
+  }
   if (action.status === "completed") {
     return {
       action,
@@ -806,6 +873,47 @@ export async function approveExternalAction(
     throw error;
   }
   return { action: { ...action, status: "completed" as const }, result };
+}
+
+/**
+ * Cancels an action still waiting for approval. Its change set is withdrawn,
+ * so it can never be approved; a completed action stays as it is.
+ */
+export function cancelExternalAction(db: DatabaseSync, occupantId: string, actionId: string) {
+  const row = db
+    .prepare("SELECT status, change_set_id, kind, destination FROM external_actions WHERE id = ? AND occupant_id = ?")
+    .get(actionId, occupantId) as
+    | { status: string; change_set_id: string; kind: string; destination: string }
+    | undefined;
+  if (!row) throw new CareerManagementStoreError("action-missing");
+  if (row.status === "cancelled") return;
+  if (row.status !== "proposed") throw new CareerManagementStoreError("action-not-pending");
+  const now = new Date().toISOString();
+  db.exec("BEGIN");
+  try {
+    db.prepare("UPDATE external_actions SET status = 'cancelled', completed_at = ? WHERE id = ?").run(
+      now,
+      actionId,
+    );
+    db.prepare("UPDATE change_sets SET status = 'withdrawn' WHERE id = ? AND status = 'proposed'").run(
+      row.change_set_id,
+    );
+    insertAudit(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "external-action-cancelled",
+      entityType: `external-${row.kind}`,
+      entityId: actionId,
+      changeSetId: row.change_set_id,
+      approvalId: null,
+      detail: { destination: row.destination },
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 function rows(db: DatabaseSync, table: string, occupantId: string): JsonObject[] {
@@ -906,7 +1014,7 @@ function insertAudit(
     entityType: string;
     entityId: string;
     changeSetId: string;
-    approvalId: string;
+    approvalId: string | null;
     detail: JsonObject;
     occurredAt: string;
   },

@@ -400,6 +400,10 @@ export function removeWorkMapRole(
       `UPDATE worklog_entries SET role_id = NULL
        WHERE occupant_id = ? AND role_id = ?`,
     ).run(occupantId, id);
+    db.prepare(
+      `DELETE FROM role_distinct_pairs
+       WHERE occupant_id = ? AND (first_role_id = ? OR second_role_id = ?)`,
+    ).run(occupantId, id, id);
     const removed = db
       .prepare(`DELETE FROM work_history WHERE id = ? AND occupant_id = ?`)
       .run(id, occupantId);

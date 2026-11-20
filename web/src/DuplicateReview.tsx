@@ -75,16 +75,19 @@ const CONFIDENCE_LABEL: Record<MatchConfidence, string> = {
 };
 
 const SNOOZE_STORAGE = "proforna-duplicate-snoozes";
-const DISTINCT_STORAGE = "proforna-duplicate-distinct";
+/** Where "not a duplicate" marks lived before they were saved with the career. */
+export const LEGACY_DISTINCT_STORAGE = "proforna-duplicate-distinct";
+const MARKED_DIFFERENT = "Marked as a different role. It left this group.";
 
 export function duplicateReviewCount(
   roles: WorkMapRole[],
   drafts: ReviewDraft[],
   listedPairs: Array<{ id: string; matchesId: string }>,
+  distinct: readonly string[],
 ): { active: number; total: number } {
   const groups = omitDistinct(
     buildMatchGroups(buildRows(roles, drafts, listedPairs), roles),
-    new Set(readDistinct()),
+    new Set(distinct),
   );
   const snoozed = new Set(readSnoozes());
   const count = (items: MatchGroup[]) => items.reduce((sum, group) => sum + group.members.length, 0);
@@ -96,6 +99,9 @@ export function DuplicateReview({
   drafts,
   listedPairs,
   notice,
+  distinct,
+  onMarkDistinct,
+  onUnmarkDistinct,
   onClose,
   onChangeDraft,
   onDiscardDraft,
@@ -107,6 +113,10 @@ export function DuplicateReview({
   drafts: ReviewDraft[];
   listedPairs: Array<{ id: string; matchesId: string }>;
   notice: string | null;
+  /** Pairs marked "not a duplicate", as `idA|idB` keys. */
+  distinct: readonly string[];
+  onMarkDistinct: (key: string) => void;
+  onUnmarkDistinct: (key: string) => void;
   focusId?: string | null;
   onClose: () => void;
   onChangeDraft: (localId: string, patch: Partial<ReviewFields>) => void;
@@ -120,7 +130,7 @@ export function DuplicateReview({
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const [sortBy, setSortBy] = useState<"sure" | "unsure">("sure");
   const [snoozed, setSnoozed] = useState<string[]>(readSnoozes);
-  const [distinct, setDistinct] = useState<string[]>(readDistinct);
+  const [lastDistinct, setLastDistinct] = useState<string | null>(null);
   const [reviewingGroupId, setReviewingGroupId] = useState<string | null>(null);
   const [openedGroupId, setOpenedGroupId] = useState<string | null>(null);
   const [bulk, setBulk] = useState<BulkMode | null>(null);
@@ -140,9 +150,6 @@ export function DuplicateReview({
     localStorage.setItem(SNOOZE_STORAGE, JSON.stringify(snoozed));
   }, [snoozed]);
 
-  useEffect(() => {
-    localStorage.setItem(DISTINCT_STORAGE, JSON.stringify(distinct));
-  }, [distinct]);
 
   const rows = useMemo(
     () => buildRows(roles, drafts, listedPairs),
@@ -313,7 +320,8 @@ export function DuplicateReview({
     const group = grouped.find((item) => item.members.some((member) => member.key === row.key));
     const index = group?.members.findIndex((member) => member.key === row.key) ?? -1;
     const next = group && index >= 0 ? (group.members[index + 1] ?? group.members[index - 1] ?? null) : null;
-    setDistinct((current) => [...new Set([...current, row.key])]);
+    onMarkDistinct(row.key);
+    setLastDistinct(row.key);
     setSnoozed((current) => current.filter((item) => item !== row.key));
     setChecked((current) => {
       const following = new Set(current);
@@ -327,9 +335,16 @@ export function DuplicateReview({
     setMergeRows(null);
     setKeeperValue(null);
     setStayPicks({});
-    setHint("Marked as a different role. It left this group.");
+    setHint(MARKED_DIFFERENT);
     if (next) setPickedKey(next.key);
     else leaveReview();
+  }
+
+  function undoDistinct() {
+    if (!lastDistinct) return;
+    onUnmarkDistinct(lastDistinct);
+    setLastDistinct(null);
+    setHint("Undone. The role is back in its group.");
   }
 
   function toggleGroup(keys: string[]) {
@@ -573,6 +588,14 @@ export function DuplicateReview({
       {picked && comparison && !stayMerge ? null : hint ? (
         <p className="role-save-message is-alert" role="status">
           {hint}
+          {lastDistinct && hint === MARKED_DIFFERENT ? (
+            <>
+              {" "}
+              <button type="button" className="history-review-undo" onClick={undoDistinct}>
+                Undo
+              </button>
+            </>
+          ) : null}
         </p>
       ) : null}
       {stayMerge && picked && comparison ? (
@@ -595,6 +618,14 @@ export function DuplicateReview({
                   : `Compared with ${roleName(roles.find((role) => role.id === reviewGroup.representativeId))}.`}
                 {notice ? ` ${notice}` : ""}
                 {hint ? ` ${hint}` : ""}
+                {lastDistinct && hint === MARKED_DIFFERENT ? (
+                  <>
+                    {" "}
+                    <button type="button" className="history-review-undo" onClick={undoDistinct}>
+                      Undo
+                    </button>
+                  </>
+                ) : null}
               </p>
             ) : null}
             <div className="role-form-actions history-review-action-row">
@@ -1581,10 +1612,6 @@ function pairKey(left: string, right: string): string {
 
 function readSnoozes(): string[] {
   return readStored(SNOOZE_STORAGE);
-}
-
-function readDistinct(): string[] {
-  return readStored(DISTINCT_STORAGE);
 }
 
 function readStored(key: string): string[] {

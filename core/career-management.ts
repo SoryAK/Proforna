@@ -75,7 +75,7 @@ export type ExternalAction = {
   destination: string;
   payload: Record<string, unknown>;
   idempotencyKey: string;
-  status: "proposed" | "approved" | "completed" | "failed";
+  status: "proposed" | "approved" | "completed" | "failed" | "cancelled";
   createdAt: string;
 };
 
@@ -86,7 +86,9 @@ export type CareerManagementError =
   | "destination-required"
   | "idempotency-required"
   | "decision-invalid"
-  | "kind-invalid";
+  | "kind-invalid"
+  | "schedule-required"
+  | "summary-required";
 
 export type InboundAccessDecision = "grant" | "decline";
 
@@ -328,4 +330,45 @@ export function preparePlan(
       tasks,
     },
   };
+}
+
+function recordOf(input: unknown): Record<string, unknown> {
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : {};
+}
+
+function trimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export type PreparedInterview = { kind: string; scheduledAt: string; notes: string };
+
+/** The one reading of an interview, shared by adding and changing it. */
+export function prepareInterview(
+  input: unknown,
+): { ok: true; value: PreparedInterview } | { ok: false; error: CareerManagementError } {
+  const record = recordOf(input);
+  const scheduledAt = trimmed(record.scheduledAt);
+  if (!scheduledAt) return { ok: false, error: "schedule-required" };
+  return {
+    ok: true,
+    value: {
+      kind: trimmed(record.kind) || "interview",
+      scheduledAt,
+      notes: trimmed(record.notes),
+    },
+  };
+}
+
+export type PreparedOffer = { summary: string; decisionDueAt: string | null };
+
+/** The one reading of an offer, shared by adding and changing it. */
+export function prepareOffer(
+  input: unknown,
+): { ok: true; value: PreparedOffer } | { ok: false; error: CareerManagementError } {
+  const record = recordOf(input);
+  const summary = trimmed(record.summary);
+  if (!summary) return { ok: false, error: "summary-required" };
+  return { ok: true, value: { summary, decisionDueAt: trimmed(record.decisionDueAt) || null } };
 }
