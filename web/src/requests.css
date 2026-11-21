@@ -1,190 +1,37 @@
-/* Requests: the dropdown under Request and the full dialog (#169, #171). */
+/* Requests: the dropdown under Request and the full dialog (#169, #171).
+   The parts are Astryx; this only spaces them. */
 
-.req-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.req-badge::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.req-badge.is-sent { background: #ededf0; color: #44444a; }
-.req-badge.is-opened { background: #fdf3dc; color: #8a5a00; }
-.req-badge.is-approved { background: #e7f5ee; color: #18794e; }
-.req-badge.is-declined { background: #fdecea; color: #b42318; }
-.req-badge.is-expired,
-.req-badge.is-withdrawn { background: #ededf0; color: #6b6b72; }
-
-.req-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: #005fb8;
-  vertical-align: middle;
-}
-
-.req-faint { margin: 0; color: #6b6b72; font-size: 12px; }
-
-/* Dropdown */
-.home-pub-menu.req-menu {
-  width: 380px;
-  max-width: calc(100vw - 1rem);
-  padding: 0;
-  overflow: hidden;
-  border-radius: 12px;
-}
 .req-menu-top {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   padding: 12px 14px 8px;
 }
-.req-menu-top h3 { margin: 0; font-size: 15px; color: #171717; }
-/* The bar's menu styles every button inside it; these win over that. */
-.home-pub-menu.req-menu .req-new {
-  display: inline-flex;
-  width: auto;
-  min-height: 30px;
-  margin: 0;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: #171717;
-  color: #fff;
-  font-weight: 600;
-}
-.home-pub-menu.req-menu .req-new:hover,
-.home-pub-menu.req-menu .req-new:focus-visible { background: #005fb8; color: #fff; }
-.req-menu h4 {
-  margin: 0;
-  padding: 10px 14px 4px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+.req-menu-heading {
+  padding: 8px 14px 2px;
   text-transform: uppercase;
-  color: #8a8a91;
+  letter-spacing: 0.06em;
+  font-size: 11px;
 }
-.home-pub-menu.req-menu .req-menu-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 2px 10px;
-  width: 100%;
-  margin: 0;
-  padding: 9px 14px;
-  border-radius: 0;
-  background: transparent;
-  text-align: left;
-  color: inherit;
-}
-.home-pub-menu.req-menu .req-menu-row:hover,
-.home-pub-menu.req-menu .req-menu-row:focus-visible { background: #f2f6fb; color: inherit; outline: none; }
-.req-menu-name { font-weight: 600; color: #171717; }
-.req-when { text-align: right; }
-.home-pub-menu.req-menu .req-menu-foot {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 11px 14px;
-  border-top: 1px solid #ececee;
-  border-radius: 0;
-  background: #fafafa;
-  text-align: center;
-  font-weight: 600;
-  color: #171717;
-}
-.home-pub-menu.req-menu .req-menu-foot:hover,
-.home-pub-menu.req-menu .req-menu-foot:focus-visible { background: #f2f6fb; color: #171717; outline: none; }
-.req-menu-empty {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 18px 16px 20px;
-  text-align: center;
-  color: #6b6b72;
-}
-.req-menu-empty strong { color: #171717; }
-
-/* Dialog */
-.req-tabs {
+.req-menu-pad { padding: 8px 14px 14px; }
+.req-menu-foot {
   display: flex;
-  gap: 18px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #e4e4e7;
+  justify-content: center;
+  padding: 6px;
+  border-top: 1px solid var(--color-border, #ececee);
 }
-.req-tabs button {
-  padding: 8px 0;
-  border: 0;
-  background: none;
-  color: #5b5b61;
-  font: inherit;
-}
-.req-tabs button[aria-selected="true"] {
-  color: #171717;
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 #171717;
-}
+
+.req-tabs { margin-bottom: 12px; }
 .req-form,
 .req-sent { display: grid; gap: 12px; }
-.req-field { display: grid; gap: 6px; }
-.req-label { font-size: 13px; font-weight: 500; }
 .req-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.req-seg {
-  display: inline-flex;
-  justify-self: start;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 9px;
-  background: #ededf0;
-}
-.req-seg button {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #5b5b61;
-  font: inherit;
-  font-size: 13px;
-}
-.req-seg button[aria-checked="true"] {
-  background: #fff;
-  color: #171717;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-.req-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.req-chips button {
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid #e4e4e7;
-  border-radius: 999px;
-  background: #fff;
-  color: #5b5b61;
-  font: inherit;
-  font-size: 13px;
-}
-.req-chips button[aria-checked="true"] {
-  border-color: #171717;
-  color: #171717;
-  font-weight: 600;
-}
 .req-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .req-actions.is-start { justify-content: flex-start; }
 .req-note {
+  display: block;
   margin: 0;
   padding: 8px 10px;
   border-radius: 8px;
-  background: #f3f3f4;
+  background: var(--color-background-secondary, #f3f3f4);
   font-size: 13px;
 }
 .req-linkbox {
@@ -202,34 +49,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  color: #5b5b61;
-}
-.req-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #005fb8;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.req-list { display: grid; margin: 0; padding: 0; list-style: none; }
-.req-list li {
-  display: grid;
-  gap: 6px;
-  padding: 12px 0;
-  border-bottom: 1px solid #e4e4e7;
-}
-.req-list li:last-child { border-bottom: 0; }
-.req-list li.is-focus { margin: 0 -8px; padding: 12px 8px; border-radius: 8px; background: #f2f6fb; }
-.req-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.req-kind {
-  display: inline-block;
-  padding: 1px 7px;
-  border: 1px solid #e4e4e7;
-  border-radius: 6px;
-  font-size: 11px;
-  color: #5b5b61;
 }
 
 @media (max-width: 640px) {

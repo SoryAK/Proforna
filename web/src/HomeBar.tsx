@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Divider } from "@astryxdesign/core/Divider";
+import { Popover } from "@astryxdesign/core/Popover";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import type { OccupantNoticeHref } from "@core/notices";
 import type { RelayStatus } from "@core/projection";
@@ -75,6 +76,8 @@ export function HomeBar({
   const [withdrawing, setWithdrawing] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
+  // Popover needs a ref it can treat as set; the wrapper renders whenever Request does.
+  const requestAnchor = useRef<HTMLDivElement>(null!);
   const menuTrigger = useRef<HTMLElement | null>(null);
   const shownMenu = useRef<typeof menu>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -744,7 +747,7 @@ export function HomeBar({
           </p>
         ) : null}
         {onRequests ? (
-          <div className="home-request">
+          <div className="home-request" ref={requestAnchor}>
             <button
               type="button"
               className="home-request-btn"
@@ -772,18 +775,30 @@ export function HomeBar({
             >
               <Icon name="request" />
             </button>
-            {menu === "requests" ? (
-              <RequestsMenu
-                onNew={() => {
-                  setMenu(null);
-                  onRequests("new");
-                }}
-                onOpen={(tab, id) => {
-                  setMenu(null);
-                  onRequests(tab, id);
-                }}
-              />
-            ) : null}
+            <Popover
+              anchorRef={requestAnchor}
+              isOpen={menu === "requests"}
+              onOpenChange={(open) => {
+                if (!open) setMenu((current) => (current === "requests" ? null : current));
+              }}
+              placement="below"
+              alignment="end"
+              width={380}
+              padding={0}
+              label="Requests"
+              content={
+                <RequestsMenu
+                  onNew={() => {
+                    setMenu(null);
+                    onRequests("new");
+                  }}
+                  onOpen={(tab, id) => {
+                    setMenu(null);
+                    onRequests(tab, id);
+                  }}
+                />
+              }
+            />
           </div>
         ) : null}
         {onRequests && onProforna ? (
