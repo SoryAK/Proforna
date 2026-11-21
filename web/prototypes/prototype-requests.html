@@ -1,0 +1,358 @@
+<!--
+  Throwaway. Three variants of Requests (issue #169): sending to anyone, following
+  Sent and Received with their status, and the page a recipient answers on.
+  Names, dates, and notes are placeholders. Open with ?v=1|2|3 and #state.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prototype · Requests</title>
+    <style>
+      :root {
+        --sans: "Geist Variable", system-ui, sans-serif;
+        --line: #e4e4e7;
+        --soft: #f3f3f4;
+        --muted: #5b5b61;
+        --faint: #8a8a91;
+        --ink: #171717;
+        --blue: #005fb8;
+        --green: #18794e;
+        --green-bg: #e7f5ee;
+        --red: #b42318;
+        --red-bg: #fdecea;
+        --amber: #8a5a00;
+        --amber-bg: #fdf3dc;
+        --grey-bg: #ededf0;
+        --gold: #c99b56;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--soft); color: var(--ink); font: 14px/1.4 var(--sans); }
+      button, input, select, textarea { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+
+      /* Variant switcher (not part of the design) */
+      .switch { position: fixed; z-index: 50; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #171717; }
+      .switch a { padding: 6px 10px; border-radius: 7px; color: #ddd; text-decoration: none; font-size: 12px; }
+      .switch a.on { background: #fff; color: #171717; }
+
+      /* App shell */
+      .bar { display: flex; align-items: center; height: 48px; padding: 0 12px; gap: 10px; }
+      .brand { display: flex; align-items: center; gap: 6px; font-size: 19px; font-weight: 600; letter-spacing: -0.03em; }
+      .brand svg { width: 22px; height: 24px; }
+      .search { margin: 0 auto; width: 420px; height: 36px; padding: 0 10px; border: 1px solid #cecece; border-radius: 8px; background: #fff; color: var(--muted); display: flex; align-items: center; font-size: 13px; }
+      .end { display: flex; align-items: center; gap: 8px; }
+      .req-btn { position: relative; height: 32px; padding: 0 12px; border: 1px solid #d4d4d8; border-radius: 999px; background: #fff; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+      .req-btn.on { border-color: var(--ink); }
+      .dot { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--blue); color: #fff; font-size: 10px; font-weight: 600; display: grid; place-items: center; }
+      .avatar { width: 26px; height: 26px; border-radius: 50%; background: #b98b6a; }
+      .page { display: grid; grid-template-columns: 256px 1fr 410px; gap: 8px; padding: 0 12px 12px; height: calc(100vh - 48px); }
+      .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+      .nav { padding: 10px; }
+      .nav div { padding: 8px 10px; border-radius: 8px; font-size: 15px; }
+      .nav .cur { background: var(--soft); font-weight: 600; }
+      .ghost-lines { padding: 16px; }
+      .ghost-lines i { display: block; height: 10px; margin: 10px 0; border-radius: 4px; background: #f0f0f2; }
+
+      /* Shared pieces */
+      h2, h3, h4 { margin: 0; }
+      .muted { color: var(--muted); }
+      .faint { color: var(--faint); font-size: 12px; }
+      .badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+      .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .s-sent { background: var(--grey-bg); color: #44444a; }
+      .s-opened { background: var(--amber-bg); color: var(--amber); }
+      .s-approved { background: var(--green-bg); color: var(--green); }
+      .s-declined { background: var(--red-bg); color: var(--red); }
+      .s-expired, .s-withdrawn { background: var(--grey-bg); color: var(--faint); }
+      .s-new { background: #e6f0fb; color: var(--blue); }
+      .kind { display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; color: var(--muted); }
+      .btn { height: 32px; padding: 0 12px; border: 1px solid #d4d4d8; border-radius: 8px; background: #fff; font-weight: 500; }
+      .btn.primary { border-color: var(--ink); background: var(--ink); color: #fff; }
+      .btn.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+      .btn.danger { color: var(--red); }
+      .seg { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--grey-bg); gap: 2px; }
+      .seg span { padding: 4px 10px; border-radius: 7px; font-size: 13px; color: var(--muted); }
+      .seg span.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+      .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+      .chip { height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; }
+      .chip.on { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+      label.field { display: grid; gap: 4px; font-size: 13px; font-weight: 500; }
+      .input { height: 34px; padding: 0 10px; border: 1px solid #d4d4d8; border-radius: 8px; background: #fff; display: flex; align-items: center; color: var(--ink); font-weight: 400; }
+      .input.ph { color: var(--faint); }
+      .area { min-height: 84px; padding: 8px 10px; border: 1px solid #d4d4d8; border-radius: 8px; background: #fff; font-weight: 400; }
+      .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .note { padding: 8px 10px; border-radius: 8px; background: var(--soft); font-size: 13px; }
+      .link-box { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed #c9c9cf; border-radius: 8px; font-size: 12px; color: var(--muted); }
+      .link-box code { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+      .hint { font-size: 12px; color: var(--muted); }
+      .scrim { position: fixed; inset: 0; background: rgba(20,20,22,.32); }
+
+      /* ── Variant 1: dialog with tabs ─────────────────────── */
+      .v1 .dialog { position: fixed; z-index: 10; left: 50%; top: 64px; transform: translateX(-50%); width: 560px; max-height: calc(100vh - 96px); overflow: auto; background: #fff; border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.18); }
+      .v1 .dhead { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 10px; }
+      .v1 .tabs { display: flex; gap: 18px; padding: 0 18px; border-bottom: 1px solid var(--line); }
+      .v1 .tabs span { padding: 8px 0; color: var(--muted); }
+      .v1 .tabs span.on { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--ink); }
+      .v1 .tabs em { font-style: normal; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--blue); color: #fff; font-size: 11px; }
+      .v1 .dbody { padding: 14px 18px 18px; display: grid; gap: 12px; }
+      .v1 .list { display: grid; }
+      .v1 .item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+      .v1 .item:last-child { border-bottom: 0; }
+      .v1 .item .who { font-weight: 600; }
+      .v1 .item .acts { grid-column: 1 / -1; display: flex; gap: 6px; }
+
+      /* ── Variant 2: side drawer with expanding rows ───────── */
+      .v2 .drawer { position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: 440px; background: #fff; border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(0,0,0,.12); display: flex; flex-direction: column; }
+      .v2 .dhead { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+      .v2 .tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
+      .v2 .groups { flex: 1; overflow: auto; padding: 0 16px 16px; }
+      .v2 .group { margin-top: 10px; }
+      .v2 .group h4 { margin: 8px 0 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+      .v2 .row { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; }
+      .v2 .row .top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+      .v2 .row .top .who { flex: 1; min-width: 0; }
+      .v2 .row .top .who b { display: block; }
+      .v2 .row.open { border-color: #c9c9cf; }
+      .v2 .row .more { padding: 0 12px 12px; display: grid; gap: 8px; }
+      .v2 .initial { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--grey-bg); font-weight: 600; font-size: 12px; }
+      .v2 .step { padding: 14px 16px; display: grid; gap: 12px; overflow: auto; }
+      .v2 .stepbar { display: flex; gap: 6px; }
+      .v2 .stepbar i { flex: 1; height: 3px; border-radius: 2px; background: var(--line); }
+      .v2 .stepbar i.on { background: var(--ink); }
+      .v2 .foot { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
+
+      /* ── Variant 3: a Requests page with list and detail ──── */
+      .v3 .page { grid-template-columns: 256px 1fr; }
+      .v3 .req-page { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+      .v3 .col { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+      .v3 .col-head { padding: 16px; display: grid; gap: 10px; border-bottom: 1px solid var(--line); }
+      .v3 .col-head .title { display: flex; justify-content: space-between; align-items: center; }
+      .v3 .rows { overflow: auto; }
+      .v3 .r { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+      .v3 .r.cur { background: #f6f8fb; box-shadow: inset 3px 0 0 var(--blue); }
+      .v3 .r b { font-weight: 600; }
+      .v3 .detail { padding: 22px 26px; display: grid; align-content: start; gap: 14px; overflow: auto; }
+      .v3 .timeline { display: grid; gap: 8px; padding-left: 14px; border-left: 2px solid var(--line); }
+      .v3 .timeline div { position: relative; font-size: 13px; }
+      .v3 .timeline div::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2px solid var(--line); }
+      .v3 .timeline div.done::before { border-color: var(--green); background: var(--green); }
+      .v3 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+      /* ── Recipient's answer page on the Relay ─────────────── */
+      .relay { min-height: 100vh; display: grid; place-items: start center; padding: 56px 16px 80px; background: #0d0b09; color: #f3efe6; }
+      .relay .card { width: min(520px, 100%); padding: 26px; border-radius: 18px; background: #16130f; border: 1px solid #2a241c; display: grid; gap: 16px; }
+      .relay .from { display: flex; align-items: center; gap: 12px; }
+      .relay .from .ph { width: 44px; height: 44px; border-radius: 50%; background: #8f6b4e; }
+      .relay .kicker { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+      .relay h1 { margin: 2px 0 0; font-size: 24px; letter-spacing: -0.02em; }
+      .relay .msg { padding: 14px; border-radius: 12px; background: #1d1913; color: #e8e1d3; }
+      .relay .btn { border-color: #3a3128; background: transparent; color: #f3efe6; height: 38px; }
+      .relay .btn.yes { background: #f3efe6; color: #16130f; border-color: #f3efe6; }
+      .relay .area, .relay .input { background: #1d1913; border-color: #3a3128; color: #f3efe6; }
+      .relay .input.ph { color: #8f877a; }
+      .relay .join { padding: 14px; border-radius: 12px; border: 1px solid #3a3128; display: grid; gap: 10px; }
+      .relay .done { padding: 14px; border-radius: 12px; background: #13251b; color: #b8e6c9; }
+      .relay .small { font-size: 12px; color: #a49b8c; }
+      .relay .toggle { display: flex; align-items: center; gap: 10px; }
+      .relay .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #6b6153; display: grid; place-items: center; font-size: 12px; }
+      .relay .box.on { background: #f3efe6; color: #16130f; border-color: #f3efe6; }
+      .relay .brandline { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #a49b8c; justify-self: center; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <nav class="switch" id="switch"></nav>
+    <script>
+      const mark = `<svg viewBox="305 281 423 458"><path fill="#c99b56" stroke="#c99b56" stroke-width="8" d="M313 289L313 441L362 389L362 337L445 337C478 337 512.4 336 544.8 341.9C632 363.2 678.8 448.6 668.5 534.4C663.4 577.7 645.2 620.6 611.6 649.5C590.1 667.9 562.3 681 533.4 678.6C590 690 630 640 625.5 576.3C641.2 547.9 645.6 515 638 483.4C628.4 442.9 601.3 409.4 563.8 391.4C464.8 343.9 346 402.8 320.9 505.4C312 543.1 313 583.2 313 622.1L313 731L362 731L362 606.3C362 574.3 361.9 535.6 370.9 510.9C397 440.3 491.4 394.6 556 444.6C573.6 458.2 586 477.8 590.4 499.5C594.6 520.3 591.5 542.2 580.8 560.5C574 572.1 564.1 582.9 552.2 588.9C480 640 540 750 671.5 655.9C705.3 612.8 720.1 558.3 719.9 504.3C719.4 391.8 647.4 311.6 537.8 292.8C499.9 288 460.3 289 422 289Z"/></svg>`;
+
+      const sent = [
+        { who: "Dana Reed", org: "Northstar Systems", kind: "Reference", status: "approved", when: "Nov 18", note: "Happy to. Give them my cell, 610-555-0142." },
+        { who: "Marcus Hale", org: "Not in your network", kind: "Introduction", status: "opened", when: "Nov 19", note: "" },
+        { who: "Priya Shah", org: "Waters Corp.", kind: "Recommendation", status: "sent", when: "Nov 20", note: "" },
+        { who: "Lee Okafor", org: "Not in your network", kind: "General", status: "declined", when: "Nov 12", note: "Sorry, I'm away until January." },
+        { who: "Tom Brandt", org: "Sharp Packaging", kind: "Reference", status: "expired", when: "Oct 30", note: "" },
+      ];
+      const received = [
+        { who: "Ava Chen", org: "Recruiter, Giants Direct", kind: "Access", status: "new", when: "Today", note: "Could I see your full career page? I have a controls role that fits." },
+        { who: "Sam Ortiz", org: "Temple University", kind: "Introduction", status: "new", when: "Yesterday", note: "Would you introduce me to your contact at Waters?" },
+        { who: "Jordan Fry", org: "Not in your network", kind: "Reference", status: "approved", when: "Nov 15", note: "" },
+      ];
+      const label = { sent: "Sent", opened: "Opened", approved: "Approved", declined: "Declined", expired: "Expired", withdrawn: "Withdrawn", new: "Needs answer" };
+      const badge = (s) => `<span class="badge s-${s}">${label[s]}</span>`;
+      const kind = (k) => `<span class="kind">${k}</span>`;
+
+      const shell = (inner, { reqOn = true, main = "" } = {}) => `
+        <header class="bar">
+          <div class="brand">${mark} Docier</div>
+          <div class="search">Search…</div>
+          <div class="end">
+            <button class="req-btn ${reqOn ? "on" : ""}">Request <span class="dot">2</span></button>
+            <span class="avatar"></span>
+          </div>
+        </header>
+        <div class="page">
+          <div class="panel nav"><div class="cur">Home</div><div>Career History</div><div>Opportunities</div></div>
+          ${main || `<div class="panel ghost-lines">${"<i></i>".repeat(14)}</div><div class="panel ghost-lines">${"<i></i>".repeat(10)}</div>`}
+        </div>${inner}`;
+
+      // Recipient's answer page. Each variant differs in how joining is offered.
+      function answerPage(v, stage) {
+        const head = `
+          <div class="from"><span class="ph"></span><div><div class="kicker">Reference request</div><h1>Sory Kaba asks you to be a reference</h1></div></div>
+          <div class="msg">Hi Dana, I'm applying for a Controls Lead role at Giants Direct. Would you be willing to speak to my work on the conveyor retrofit at Northstar? A short call is all they need.</div>`;
+        const foot = `<div class="brandline">${mark.replace("<svg", '<svg width="14" height="16"')} Sent with Docier · This link is only for you</div>`;
+        if (v === 1) {
+          return `<div class="relay"><div class="card">${head}
+            <label class="field">A note back (optional)<div class="area">Happy to. Give them my cell, 610-555-0142.</div></label>
+            <div class="toggle"><span class="box on">✓</span><span>Also join Sory's network and share my contact details</span></div>
+            <div class="row2"><label class="field">Name<div class="input">Dana Reed</div></label><label class="field">Email<div class="input">dana@northstar.example</div></label></div>
+            <div class="row2"><label class="field">Organization<div class="input">Northstar Systems</div></label><label class="field">Phone<div class="input ph">Optional</div></label></div>
+            <div style="display:flex; gap:8px; justify-content:flex-end"><button class="btn">Decline</button><button class="btn yes">Approve</button></div>
+            <p class="small">Leave the box unchecked to answer without joining. Sory only sees your answer and note.</p>
+          </div>${foot}</div>`;
+        }
+        if (v === 2) {
+          if (stage === "join") {
+            return `<div class="relay"><div class="card">
+              <div class="done">✓ Your answer was sent: <b>Approved</b>. You can close this page.</div>
+              <div class="join"><div class="kicker">One more thing</div><h1 style="font-size:20px">Join Sory's network?</h1>
+                <p class="small" style="margin:0">Sory would like to keep in touch. If you join, the details below go to Sory's network. Nothing else is shared.</p>
+                <div class="row2"><label class="field">Name<div class="input">Dana Reed</div></label><label class="field">Email<div class="input">dana@northstar.example</div></label></div>
+                <div class="row2"><label class="field">Organization<div class="input">Northstar Systems</div></label><label class="field">Role<div class="input">Plant Engineering Manager</div></label></div>
+                <div style="display:flex; gap:8px; justify-content:flex-end"><button class="btn">No thanks</button><button class="btn yes">Join network</button></div>
+              </div></div>${foot}</div>`;
+          }
+          return `<div class="relay"><div class="card">${head}
+            <label class="field">A note back (optional)<div class="area ph" style="color:#8f877a">Add a note for Sory…</div></label>
+            <div class="row2"><button class="btn">Decline</button><button class="btn yes">Approve</button></div>
+            <p class="small">Step 1 of 2. After you answer, Sory may ask to stay in touch. You can say no.</p>
+          </div>${foot}</div>`;
+        }
+        return `<div class="relay"><div class="card">${head}
+          <div class="row2"><button class="btn yes">Approve</button><button class="btn">Decline</button></div>
+          <label class="field">A note back (optional)<div class="area">Happy to. Give them my cell, 610-555-0142.</div></label>
+          <div class="join" style="grid-template-columns:1fr auto; align-items:center">
+            <div><b>Stay in touch with Sory?</b><div class="small">Share your contact details to join Sory's network. Optional.</div></div>
+            <div style="display:flex; gap:6px"><button class="btn">Not now</button><button class="btn">Share details ▾</button></div>
+          </div>
+        </div>${foot}</div>`;
+      }
+
+      // ── Variant 1: a dialog with New / Sent / Received tabs ──
+      function v1(state) {
+        const tab = (name, on, count) => `<span class="${on ? "on" : ""}">${name}${count ? `<em>${count}</em>` : ""}</span>`;
+        let body;
+        if (state === "new") {
+          body = `
+            <div><div class="faint" style="margin-bottom:6px">To</div><span class="seg"><span>My Network</span><span class="on">Someone new</span></span></div>
+            <div class="row2"><label class="field">Name<div class="input">Marcus Hale</div></label><label class="field">Email<div class="input">marcus@hale.example</div></label></div>
+            <div><div class="faint" style="margin-bottom:6px">Kind</div><div class="chips"><span class="chip">Reference</span><span class="chip on">Introduction</span><span class="chip">Recommendation</span><span class="chip">General</span></div></div>
+            <label class="field">Request<div class="area">Hi Marcus, would you introduce me to the hiring lead for automation at Waters? I'd value 20 minutes of their time.</div></label>
+            <div class="hint">Marcus isn't in your network. They can choose to join when they answer.</div>
+            <div style="display:flex; gap:8px; justify-content:flex-end"><button class="btn quiet">Cancel</button><button class="btn primary">Create request</button></div>`;
+        } else if (state === "created") {
+          body = `
+            <div class="note"><b>Request created.</b> Send Marcus the link. It works once, for 30 days.</div>
+            <div class="link-box"><code>relay.docier.app/q/7Kp2-mN4x</code><button class="btn">Copy link</button></div>
+            <div style="display:flex; gap:8px"><button class="btn">Draft in Gmail</button><span class="hint" style="align-self:center">Opens a draft to marcus@hale.example. You send it.</span></div>
+            <div style="display:flex; justify-content:flex-end"><button class="btn primary">Done</button></div>`;
+        } else if (state === "received") {
+          body = `<div class="chips"><span class="chip on">All</span><span class="chip">Needs answer · 2</span><span class="chip">Approved</span><span class="chip">Declined</span></div>
+            <div class="list">${received.map((r, i) => `<div class="item"><div><span class="who">${r.who}</span> ${kind(r.kind)}<div class="faint">${r.org} · ${r.when}</div>${r.note ? `<div class="note" style="margin-top:6px">${r.note}</div>` : ""}</div><div>${badge(r.status)}</div>${r.status === "new" ? `<div class="acts"><button class="btn primary">Approve</button><button class="btn">Decline</button><button class="btn quiet">Add a note</button></div>` : ""}</div>`).join("")}</div>`;
+        } else {
+          body = `<div class="chips"><span class="chip on">All</span><span class="chip">Pending · 2</span><span class="chip">Approved</span><span class="chip">Declined</span><span class="chip">Expired</span></div>
+            <div class="list">${sent.map((r) => `<div class="item"><div><span class="who">${r.who}</span> ${kind(r.kind)}<div class="faint">${r.org} · ${r.when}</div>${r.note ? `<div class="note" style="margin-top:6px">“${r.note}”</div>` : ""}</div><div>${badge(r.status)}</div>${["sent", "opened"].includes(r.status) ? `<div class="acts"><button class="btn">Copy link</button><button class="btn quiet">Edit</button><button class="btn quiet danger">Withdraw</button></div>` : `<div class="acts"><button class="btn quiet">Remove from list</button></div>`}</div>`).join("")}</div>`;
+        }
+        const on = state === "new" || state === "created" ? "new" : state;
+        return shell(`<div class="scrim"></div><div class="dialog">
+          <div class="dhead"><h3>Requests</h3><button class="btn quiet">✕</button></div>
+          <div class="tabs">${tab("New request", on === "new")}${tab("Sent", on === "sent")}${tab("Received", on === "received", 2)}</div>
+          <div class="dbody">${body}</div></div>`);
+      }
+
+      // ── Variant 2: a side drawer; rows expand in place; New is a two-step flow ──
+      function v2(state) {
+        const initial = (n) => n.split(" ").map((p) => p[0]).join("");
+        const row = (r, open, received) => `<div class="row ${open ? "open" : ""}"><div class="top"><span class="initial">${initial(r.who)}</span><div class="who"><b>${r.who}</b><span class="faint">${r.kind} · ${r.org}</span></div>${badge(r.status)}</div>${open ? `<div class="more">${r.note ? `<div class="note">“${r.note}”</div>` : ""}<div class="faint">${received ? "Received" : "Sent"} ${r.when}${received ? "" : " · Opened Nov 19, 4:12 PM"}</div><div style="display:flex; gap:6px">${received ? `<button class="btn primary">Approve</button><button class="btn">Decline</button><button class="btn quiet">Note</button>` : ["sent", "opened"].includes(r.status) ? `<button class="btn">Copy link</button><button class="btn">Draft in Gmail</button><button class="btn quiet danger">Withdraw</button>` : `<button class="btn">Open in My Network</button><button class="btn quiet">Remove from list</button>`}</div></div>` : ""}</div>`;
+        let inner;
+        if (state === "new") {
+          inner = `<div class="step"><div class="stepbar"><i class="on"></i><i class="on"></i><i></i></div>
+            <h3>What are you asking?</h3>
+            <div class="chips"><span class="chip">Reference</span><span class="chip on">Introduction</span><span class="chip">Recommendation</span><span class="chip">General</span></div>
+            <label class="field">To<div class="input">Marcus Hale · marcus@hale.example <span class="kind" style="margin-left:auto">New person</span></div></label>
+            <label class="field">Request<div class="area">Hi Marcus, would you introduce me to the hiring lead for automation at Waters?</div></label>
+            <label class="field">Link expires<div class="input">In 30 days ▾</div></label></div>
+            <div class="foot"><button class="btn quiet">Back</button><button class="btn primary">Next: share it</button></div>`;
+        } else if (state === "created") {
+          inner = `<div class="step"><div class="stepbar"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+            <h3>Share the request</h3><p class="muted" style="margin:0">Marcus answers on this link. Docier shows the answer here.</p>
+            <div class="link-box"><code>relay.docier.app/q/7Kp2-mN4x</code><button class="btn">Copy</button></div>
+            <button class="btn" style="justify-self:start">Draft an email in Gmail</button>
+            <div class="hint">Nothing is sent until you send it yourself.</div></div>
+            <div class="foot"><span></span><button class="btn primary">Done</button></div>`;
+        } else {
+          const isRec = state === "received";
+          const list = isRec ? received : sent;
+          const groups = isRec
+            ? [["Needs your answer", list.filter((r) => r.status === "new")], ["Answered", list.filter((r) => r.status !== "new")]]
+            : [["Waiting", list.filter((r) => ["sent", "opened"].includes(r.status))], ["Answered", list.filter((r) => ["approved", "declined"].includes(r.status))], ["Closed", list.filter((r) => ["expired", "withdrawn"].includes(r.status))]];
+          inner = `<div class="tools"><span class="seg"><span class="${isRec ? "" : "on"}">Sent</span><span class="${isRec ? "on" : ""}">Received · 2</span></span><button class="btn primary">+ New</button></div>
+            <div class="groups">${groups.map(([h, rs], gi) => rs.length ? `<div class="group"><h4>${h}</h4>${rs.map((r, i) => row(r, gi === 0 && i === 0 && !isRec ? false : isRec ? gi === 0 && i === 0 : gi === 1 && i === 0, isRec)).join("")}</div>` : "").join("")}</div>`;
+        }
+        return shell(`<div class="drawer"><div class="dhead"><h3>${state === "new" || state === "created" ? "New request" : "Requests"}</h3><button class="btn quiet">✕</button></div>${inner}</div>`);
+      }
+
+      // ── Variant 3: a full Requests page with list and detail ──
+      function v3(state) {
+        const isRec = state === "received";
+        const list = isRec ? received : sent;
+        const rows = list.map((r, i) => `<div class="r ${i === 0 && state !== "new" && state !== "created" ? "cur" : ""}"><b>${r.who}</b>${badge(r.status)}<span class="faint">${r.kind} · ${r.org}</span><span class="faint">${r.when}</span></div>`).join("");
+        let detail;
+        if (state === "new" || state === "created") {
+          detail = `<h2>New request</h2>
+            <div class="split"><label class="field">To<div class="input">Marcus Hale</div></label><label class="field">Email<div class="input">marcus@hale.example</div></label></div>
+            <div class="hint">Not in your network. Pick from My Network instead ▾</div>
+            <div><div class="faint" style="margin-bottom:6px">Kind</div><div class="chips"><span class="chip">Reference</span><span class="chip on">Introduction</span><span class="chip">Recommendation</span><span class="chip">General</span></div></div>
+            <label class="field">Request<div class="area">Hi Marcus, would you introduce me to the hiring lead for automation at Waters?</div></label>
+            ${state === "created" ? `<div class="note"><b>Created.</b> Share it so Marcus can answer.</div><div class="link-box"><code>relay.docier.app/q/7Kp2-mN4x</code><button class="btn">Copy link</button><button class="btn">Draft in Gmail</button></div>` : `<div style="display:flex; gap:8px"><button class="btn primary">Create request</button><button class="btn quiet">Cancel</button></div>`}`;
+        } else if (isRec) {
+          const r = received[0];
+          detail = `<div style="display:flex; justify-content:space-between; align-items:start"><div><div class="faint">Access request · ${r.when}</div><h2>${r.who}</h2><div class="muted">${r.org}</div></div>${badge(r.status)}</div>
+            <div class="note">“${r.note}”</div>
+            <label class="field">Your note (optional)<div class="area ph" style="color:var(--faint)">Add a note they'll see…</div></label>
+            <div style="display:flex; gap:8px"><button class="btn primary">Approve</button><button class="btn">Decline</button><button class="btn quiet">Add to My Network</button></div>`;
+        } else {
+          const r = sent[0];
+          detail = `<div style="display:flex; justify-content:space-between; align-items:start"><div><div class="faint">${r.kind} request · sent ${r.when}</div><h2>${r.who}</h2><div class="muted">${r.org}</div></div>${badge(r.status)}</div>
+            <div class="note">“${r.note}”</div>
+            <div class="timeline"><div class="done">Sent Nov 18, 9:02 AM</div><div class="done">Opened Nov 18, 1:40 PM</div><div class="done">Approved Nov 18, 1:44 PM</div><div class="done">Joined your network</div></div>
+            <div style="display:flex; gap:8px"><button class="btn">Open in My Network</button><button class="btn quiet">Remove from list</button></div>`;
+        }
+        const main = `<div class="panel req-page"><div class="col"><div class="col-head"><div class="title"><h3>Requests</h3><button class="btn primary">+ New request</button></div>
+          <span class="seg"><span class="${isRec ? "" : "on"}">Sent</span><span class="${isRec ? "on" : ""}">Received · 2</span></span>
+          <div class="chips">${(isRec ? ["All", "Needs answer", "Approved", "Declined"] : ["All", "Pending", "Approved", "Declined", "Expired"]).map((c, i) => `<span class="chip ${i === 0 ? "on" : ""}">${c}</span>`).join("")}</div></div>
+          <div class="rows">${rows}</div></div><div class="detail">${detail}</div></div>`;
+        return shell("", { main });
+      }
+
+      const params = new URLSearchParams(location.search);
+      const v = Number(params.get("v") || 1);
+      const state = location.hash.slice(1) || "sent";
+      const render = () => {
+        const s = location.hash.slice(1) || "sent";
+        document.getElementById("app").className = `v${v}`;
+        document.getElementById("app").innerHTML =
+          s === "answer" || s === "join" ? answerPage(v, s) : v === 1 ? v1(s) : v === 2 ? v2(s) : v3(s);
+        document.getElementById("switch").innerHTML = [1, 2, 3]
+          .map((n) => `<a class="${n === v ? "on" : ""}" href="?v=${n}#${s}">Variant ${n}</a>`)
+          .concat(["sent", "received", "new", "created", "answer"].map((st) => `<a class="${st === s ? "on" : ""}" href="?v=${v}#${st}">${st}</a>`))
+          .join("");
+      };
+      window.addEventListener("hashchange", render);
+      render();
+      if (params.has("shot")) document.getElementById("switch").style.display = "none";
+    </script>
+  </body>
+</html>
