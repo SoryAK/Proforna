@@ -73,3 +73,20 @@
 
 /* An open card's details, under its short line. */
 .access-open { display: grid; gap: 8px; padding-top: 4px; cursor: default; }
+
+/* Who a link is for, with Edit or Name this link beside it. */
+.access-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+/* Pointing at someone's existing record instead of a second link. */
+.access-existing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdf3dc;
+  color: #5c3d00;
+  font-size: 13px;
+}
+.access-menu-share { display: inline-flex; align-items: center; gap: 6px; }
