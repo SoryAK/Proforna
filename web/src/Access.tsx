@@ -509,7 +509,7 @@ export function AccessDialog({
                     <Tab value="ended" label={`Revoked & expired · ${ended.length}`} />
                   </TabList>
                   {page?.published ? (
-                    <Button label="+ Share with someone" variant="secondary" size="sm" onClick={() => setSharing(true)} />
+                    <Button label="Share" variant="secondary" size="sm" onClick={() => setSharing(true)} />
                   ) : null}
                 </HStack>
               )}
