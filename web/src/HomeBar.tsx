@@ -6,6 +6,7 @@ import type { RelayStatus } from "@core/projection";
 import { normalizeSlug, publicationLink, type WorkMapPublicationSettings } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
+import { RequestsMenu, type RequestsTab } from "./Requests";
 import mark from "./branding/docier-mark.svg";
 import { readPreviewPlacement } from "./preview-placement";
 import { announceRelayChange, useRelayStatus } from "./relay-status";
@@ -23,7 +24,7 @@ export function HomeBar({
   onEditProfile,
   onSearch,
   onProforna,
-  onRequest,
+  onRequests,
   profornaOpen,
   bioMode,
   onBioMode,
@@ -44,7 +45,8 @@ export function HomeBar({
   onEditProfile?: () => void;
   onSearch: () => void;
   onProforna?: () => void;
-  onRequest?: () => void;
+  /** Opens the full Requests dialog on a tab, optionally on one request. */
+  onRequests?: (tab: RequestsTab, id?: string) => void;
   profornaOpen?: boolean;
   bioMode: HomeBioMode;
   onBioMode: (mode: HomeBioMode) => void;
@@ -55,7 +57,7 @@ export function HomeBar({
   onNotice: (href: OccupantNoticeHref) => void;
   revision?: number;
 }) {
-  const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | "relay" | null>(null);
+  const [menu, setMenu] = useState<"user" | "notices" | "publish" | "preview" | "relay" | "requests" | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publication, setPublication] = useState<PublicationDraft | null>(null);
   const [slugDraft, setSlugDraft] = useState("");
@@ -126,6 +128,17 @@ export function HomeBar({
       menuTrigger.current = null;
     }
   }, [menu]);
+
+  // A phone has no room for the dropdown, so Request opens the full dialog there.
+  function openRequests() {
+    if (!onRequests) return;
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setMenu(null);
+      onRequests("sent");
+      return;
+    }
+    setMenu((current) => (current === "requests" ? null : "requests"));
+  }
 
   function moveInMenu(event: ReactKeyboardEvent<HTMLElement>) {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -730,9 +743,15 @@ export function HomeBar({
             {publishNote || notice}
           </p>
         ) : null}
-        {onRequest ? (
-          <>
-            <button type="button" className="home-request-btn" onClick={onRequest}>
+        {onRequests ? (
+          <div className="home-request">
+            <button
+              type="button"
+              className="home-request-btn"
+              aria-expanded={menu === "requests"}
+              aria-haspopup="menu"
+              onClick={openRequests}
+            >
               <span className="home-request-node" aria-hidden="true" />
               <svg className="home-request-link" viewBox="0 0 40 8" preserveAspectRatio="none" aria-hidden="true">
                 <path d="M1 4H39" />
@@ -747,13 +766,27 @@ export function HomeBar({
               className="home-notice-btn home-request-icon"
               aria-label="Request"
               title="Request"
-              onClick={onRequest}
+              aria-expanded={menu === "requests"}
+              aria-haspopup="menu"
+              onClick={openRequests}
             >
               <Icon name="request" />
             </button>
-          </>
+            {menu === "requests" ? (
+              <RequestsMenu
+                onNew={() => {
+                  setMenu(null);
+                  onRequests("new");
+                }}
+                onOpen={(tab, id) => {
+                  setMenu(null);
+                  onRequests(tab, id);
+                }}
+              />
+            ) : null}
+          </div>
         ) : null}
-        {onRequest && onProforna ? (
+        {onRequests && onProforna ? (
           <span className="home-bar-request-divider">
             <Divider orientation="vertical" variant="strong" />
           </span>

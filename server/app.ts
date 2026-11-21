@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { DatabaseSync } from "node:sqlite";
 import { isFrameTarget, pageAllowsFrame, PRODUCT, type ApplicationStage } from "../core/index";
 import {
@@ -18,6 +18,18 @@ import {
   type CompleteFn,
 } from "./openai-compat";
 import { pingDatabase } from "./db";
+import { RelayTransportError } from "./relay-client";
+import {
+  RequestStoreError,
+  createRequest,
+  listRequests,
+  markRequestsSeen,
+  removeRequest,
+  requestEmail,
+  updateRequest,
+  withdrawRequest,
+  type RequestRelay,
+} from "./requests";
 import {
   applyComparedResume,
   loadCareerFile,
@@ -258,6 +270,8 @@ export type AppOptions = {
   localScanPorts?: number[];
   localScanConnect?: (port: number, signal?: AbortSignal) => Promise<boolean>;
   relayPublicOrigin?: string | null;
+  /** Where requests to anyone are shared and answered. */
+  requestRelay?: RequestRelay;
   pages?: { fetch?: PageFetch };
   frameHeaders?: FrameHeaderFetch;
 };
@@ -2359,6 +2373,90 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
       throw error;
+    }
+  });
+
+  // Requests to anyone, answered on the Relay (#169).
+  const requestRelay = options.requestRelay;
+  const requestOrigin = options.relayPublicOrigin ?? null;
+  const requestError = (c: Context, error: unknown) => {
+    if (error instanceof RequestStoreError) {
+      const status =
+        error.code === "not-found" || error.code === "contact-missing"
+          ? 404
+          : error.code === "relay-not-configured" || error.code === "request-closed"
+            ? 409
+            : 400;
+      return c.json({ error: error.code }, status);
+    }
+    if (error instanceof RelayTransportError) return c.json({ error: "relay-unavailable" }, 502);
+    throw error;
+  };
+
+  app.get("/api/requests", async (c) => {
+    const occupant = ensureOccupant(db);
+    const listed = await listRequests(db, occupant.id, requestRelay, requestOrigin);
+    return c.json({ ...listed, relayConfigured: Boolean(requestRelay && requestOrigin) });
+  });
+
+  app.post("/api/requests", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const request = await createRequest(db, occupant.id, await c.req.json(), requestRelay, requestOrigin);
+      return c.json({ request }, 201);
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  app.post("/api/requests/seen", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as { ids?: unknown };
+    const ids = Array.isArray(body.ids) ? body.ids.filter((id): id is string => typeof id === "string") : [];
+    markRequestsSeen(db, occupant.id, ids.slice(0, 500));
+    return c.json({ ok: true });
+  });
+
+  app.put("/api/requests/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const request = await updateRequest(db, occupant.id, c.req.param("id"), await c.req.json(), requestRelay, requestOrigin);
+      return c.json({ request });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  app.post("/api/requests/:id/withdraw", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await withdrawRequest(db, occupant.id, c.req.param("id"), requestRelay);
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  app.delete("/api/requests/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await removeRequest(db, occupant.id, c.req.param("id"), requestRelay);
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  // Puts the request's link in a Gmail draft to the recipient. Docier never sends it.
+  app.post("/api/requests/:id/gmail-draft", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const email = requestEmail(db, occupant.id, c.req.param("id"), requestOrigin);
+      const draft = await draftGmail(db, occupant.id, email);
+      return c.json({ draft }, 201);
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      return requestError(c, error);
     }
   });
 

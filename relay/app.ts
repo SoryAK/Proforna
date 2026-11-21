@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { groupLinkedEvidence, type PublishedLinkedEvidence } from "../core/index";
+import { registerAsks } from "./asks";
 import { handleMcp, type PublicationRead, type PublicationSnapshot } from "./mcp";
 
 type RelayProjection = PublicationSnapshot;
@@ -11,6 +12,8 @@ type JsonObject = Record<string, unknown>;
 
 export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
   const app = new Hono();
+
+  registerAsks(app, db, (c) => isOwner(c.req.header("authorization"), ownerToken));
 
   app.get("/health", (c) => c.json({ ok: true, service: "proforna-relay" }));
 

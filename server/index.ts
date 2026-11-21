@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createApp } from "./app";
 import { openDatabase } from "./db";
-import { createHttpProjectionRelay } from "./relay-client";
+import { createHttpProjectionRelay, createHttpRequestRelay } from "./relay-client";
 
 loadSignInEnv();
 
@@ -16,9 +16,14 @@ const relay =
         process.env.RELAY_OWNER_TOKEN,
       )
     : undefined;
+const requestRelay =
+  process.env.RELAY_URL && process.env.RELAY_OWNER_TOKEN
+    ? createHttpRequestRelay(process.env.RELAY_URL, process.env.RELAY_OWNER_TOKEN)
+    : undefined;
 const app = createApp(db, {
   uploadsDir: process.env.UPLOADS_DIR ?? "data/uploads",
   relay,
+  requestRelay,
   relayPublicOrigin: process.env.RELAY_URL ?? null,
 });
 

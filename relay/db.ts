@@ -29,6 +29,21 @@ export function openRelayDatabase(path: string): DatabaseSync {
       message TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS relay_asks (
+      token_hash TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      body TEXT NOT NULL,
+      from_name TEXT NOT NULL,
+      from_headline TEXT NOT NULL DEFAULT '',
+      recipient_name TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      opened_at TEXT,
+      answered_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS relay_events (
       id TEXT PRIMARY KEY,
       slug TEXT NOT NULL,
