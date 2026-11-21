@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@astryxdesign/core/AlertDialog";
+import { Avatar } from "@astryxdesign/core/Avatar";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
@@ -37,7 +38,7 @@ import {
   openAccess,
   type AccessChoiceValue,
 } from "./Access";
-import { Quote, growRows, matches, nearLimit, shortDate } from "./list-parts";
+import { Quote, growRows, matches, nearLimit, relativeTime, shortDate } from "./list-parts";
 import "./requests.css";
 
 export type RequestsTab = "new" | "sent" | "received";
@@ -63,6 +64,8 @@ type SentRequest = {
   note: string;
   link: string | null;
   createdAt: string;
+  openedAt: string | null;
+  answeredAt: string | null;
   expiresAt: string;
   joinStatus: "joined" | "declined" | "ignored" | null;
 };
@@ -178,15 +181,16 @@ export function RequestsMenu({
     };
   }, []);
 
-  const recent = listed?.requests.slice(0, 4) ?? [];
   const waiting = listed?.received.filter((request) => request.status === "waiting").slice(0, 3) ?? [];
+  const yours = listed?.requests.slice(0, 3) ?? [];
+  const nothing = listed != null && listed.requests.length === 0 && listed.received.length === 0;
   return (
     <VStack gap={0} className="req-menu">
       <HStack gap={2} className="req-menu-top">
         <Text type="label" weight="semibold">
           Requests
         </Text>
-        <Button label="New request" variant="primary" size="sm" onClick={onNew} />
+        <Button label="+ New" variant="secondary" size="sm" onClick={onNew} />
       </HStack>
       {failed ? (
         <EmptyState isCompact title="Requests could not be loaded." />
@@ -194,7 +198,7 @@ export function RequestsMenu({
         <Text type="supporting" color="secondary" className="req-menu-pad">
           Loading…
         </Text>
-      ) : recent.length === 0 && waiting.length === 0 ? (
+      ) : nothing ? (
         <EmptyState
           isCompact
           title="No requests yet"
@@ -205,51 +209,70 @@ export function RequestsMenu({
           {waiting.length > 0 ? (
             <>
               <Text type="supporting" color="secondary" className="req-menu-heading">
-                Needs your answer · {listed.waiting}
+                Waiting on you · {listed.waiting}
               </Text>
-              <List>
+              <ul className="req-menu-rows">
                 {waiting.map((request) => (
-                  <ListItem
-                    key={request.id}
-                    itemKey={request.id}
-                    label={request.requesterName}
-                    description={`Access to your page · ${shortDate(request.createdAt)}`}
-                    endContent={<Badge label={RECEIVED_STATUS_LABEL.waiting} variant="info" />}
-                    onClick={() => onOpen("received", request.id)}
-                  />
+                  <li key={request.id} className="req-menu-row">
+                    <Avatar name={request.requesterName} size={32} />
+                    <span className="req-menu-who">
+                      <span className="req-menu-name">{request.requesterName}</span>
+                      <span className="req-menu-meta">wants to see your page · {relativeTime(request.createdAt)}</span>
+                    </span>
+                    <Button
+                      label="Respond"
+                      variant="ghost"
+                      size="sm"
+                      className="req-menu-respond"
+                      onClick={() => onOpen("received", request.id)}
+                    />
+                  </li>
                 ))}
-              </List>
+              </ul>
+            </>
+          ) : (
+            <div className="req-menu-caught" role="status">
+              ✓ You're all caught up
+            </div>
+          )}
+          {yours.length > 0 ? (
+            <>
+              <Text type="supporting" color="secondary" className="req-menu-heading">
+                Your requests
+              </Text>
+              <ul className="req-menu-rows">
+                {yours.map((request) => (
+                  <li key={request.id}>
+                    {/* A new answer is tinted until it's seen. */}
+                    <button
+                      type="button"
+                      className={request.changed ? "req-menu-row is-fresh" : "req-menu-row"}
+                      onClick={() => onOpen("sent", request.id)}
+                    >
+                      <Avatar name={request.recipientName} size={32} />
+                      <span className="req-menu-who">
+                        <span className="req-menu-name">{request.recipientName}</span>
+                        <span className="req-menu-meta">
+                          {REQUEST_KIND_LABEL[request.kind]} ·{" "}
+                          {relativeTime(request.answeredAt ?? request.openedAt ?? request.createdAt)}
+                        </span>
+                      </span>
+                      <span className={`req-menu-status is-${request.status}${request.changed ? " is-fresh" : ""}`}>
+                        {SENT_STATUS_LABEL[request.status]}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </>
           ) : null}
-          {recent.length > 0 ? (
-            <Text type="supporting" color="secondary" className="req-menu-heading">
-              Recent
-            </Text>
-          ) : null}
-          <List>
-            {recent.map((request) => (
-              <ListItem
-                key={request.id}
-                itemKey={request.id}
-                label={
-                  <HStack gap={1}>
-                    <span>{request.recipientName}</span>
-                    {request.changed ? <NewDot /> : null}
-                  </HStack>
-                }
-                description={`${REQUEST_KIND_LABEL[request.kind]} · ${request.contactId ? "My Network" : "Not in your network"} · ${shortDate(request.createdAt)}`}
-                endContent={<StatusBadge status={request.status} />}
-                onClick={() => onOpen("sent", request.id)}
-              />
-            ))}
-          </List>
           <div className="req-menu-foot">
-            <Button
-              label="View all requests"
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpen(listed.waiting > 0 ? "received" : "sent")}
-            />
+            <button type="button" className="req-menu-all" onClick={() => onOpen(listed.waiting > 0 ? "received" : "sent")}>
+              View all →
+            </button>
+            <span className="req-menu-counts">
+              Sent {listed.requests.length} · Received {listed.received.length}
+            </span>
           </div>
         </>
       )}
