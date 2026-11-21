@@ -19,7 +19,9 @@
 /* What a person can see, as one plain line. */
 .access-sees { color: var(--color-text-primary, #171717); }
 .access-sees strong { font-weight: 500; }
-.access-actions { flex-wrap: wrap; }
+/* One row of actions: a little less padding so they fit without wrapping. */
+.access-actions { flex-wrap: wrap; column-gap: 2px; }
+.access-actions > button { padding-inline: 10px; }
 .access-danger { color: var(--color-text-error, #b42318); }
 
 /* Activity: newest first, a dot per entry. */
