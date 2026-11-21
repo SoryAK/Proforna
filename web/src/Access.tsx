@@ -152,7 +152,7 @@ export function useAccess(active: boolean) {
 }
 
 /** "People with access" in the Relay menu: a short preview with the way in. */
-export function AccessMenuSection({ onManage, onShare }: { onManage: () => void; onShare: () => void }) {
+export function AccessMenuSection({ onManage }: { onManage: () => void }) {
   const listed = useAccess(true);
   if (!listed?.page?.published) return null;
   const active = listed.people.filter(isActive);
@@ -179,10 +179,6 @@ export function AccessMenuSection({ onManage, onShare }: { onManage: () => void;
       <div className="access-menu-actions">
         <button type="button" onClick={onManage}>
           Manage access
-        </button>
-        <button type="button" className="access-menu-share" onClick={onShare}>
-          <Share2 size={13} aria-hidden="true" />
-          Share
         </button>
       </div>
     </div>

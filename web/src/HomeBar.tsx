@@ -8,6 +8,7 @@ import { normalizeSlug, publicationLink, type WorkMapPublicationSettings } from 
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
 import { RequestsMenu, useRequestsWaiting, type RequestsTab } from "./Requests";
+import { Share2 } from "lucide-react";
 import { AccessMenuSection, openAccess } from "./Access";
 import mark from "./branding/docier-mark.svg";
 import { readPreviewPlacement } from "./preview-placement";
@@ -624,20 +625,36 @@ export function HomeBar({
                   void commitSlug();
                 }}
               >
-                <TextInput
-                  label="Public slug"
-                  size="sm"
-                  width="100%"
-                  value={slugDraft}
-                  isDisabled={!settingsReady || visibilityBusy}
-                  onChange={(value) => {
-                    slugDraftRef.current = value;
-                    setSlugDraft(value);
-                  }}
-                  onEnter={() => {
-                    void commitSlug();
-                  }}
-                />
+                <div className="home-sync-slug-row">
+                  <TextInput
+                    label="Public slug"
+                    size="sm"
+                    width="100%"
+                    value={slugDraft}
+                    isDisabled={!settingsReady || visibilityBusy}
+                    onChange={(value) => {
+                      slugDraftRef.current = value;
+                      setSlugDraft(value);
+                    }}
+                    onEnter={() => {
+                      void commitSlug();
+                    }}
+                  />
+                  {relayState === "current" || relayState === "changed" ? (
+                    // Sharing sits with the page's address; it needs a published page.
+                    <button
+                      type="button"
+                      className="home-sync-share"
+                      onClick={() => {
+                        setMenu(null);
+                        openAccess(undefined, true);
+                      }}
+                    >
+                      <Share2 size={13} aria-hidden="true" />
+                      Share
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <button
                 type="button"
@@ -717,10 +734,6 @@ export function HomeBar({
                 onManage={() => {
                   setMenu(null);
                   openAccess();
-                }}
-                onShare={() => {
-                  setMenu(null);
-                  openAccess(undefined, true);
                 }}
               />
             </div>
