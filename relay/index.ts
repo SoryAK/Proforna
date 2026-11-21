@@ -11,7 +11,9 @@ const db = openRelayDatabase(
   process.env.RELAY_DATABASE_PATH ?? "data/relay.sqlite",
 );
 const port = Number(process.env.RELAY_PORT ?? 3100);
-const app = createRelayApp(db, ownerToken);
+const app = createRelayApp(db, ownerToken, {
+  insecureCookies: process.env.RELAY_INSECURE_COOKIES === "1",
+});
 
 serve({ fetch: app.fetch, port });
 console.log(`Proforna relay http://localhost:${port}`);

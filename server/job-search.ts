@@ -11,6 +11,7 @@ import {
   type JobSearchQuery,
 } from "../core/job-search";
 import { postingFromPage } from "../core/posting";
+import { isReadableWebUrl, readPublicPage } from "./public-page";
 
 const ADZUNA_SEARCH = "https://api.adzuna.com/v1/api/jobs/us/search/1";
 
@@ -19,6 +20,7 @@ export async function searchJobListings(
   options: {
     settings?: JobSourceSettings;
     fetchImpl?: typeof fetch;
+    readPage?: typeof readPublicPage;
   } = {},
 ): Promise<
   | { ok: true; configured: boolean; listings: JobListing[]; total: number }
@@ -32,7 +34,7 @@ export async function searchJobListings(
     applicationId: process.env.ADZUNA_APP_ID,
     apiKey: process.env.ADZUNA_APP_KEY,
   });
-  const pages = settings.sites.filter((site) => site.enabled && readablePageUrl(site.url));
+  const pages = settings.sites.filter((site) => site.enabled && isReadableWebUrl(site.url));
   if (!credentials && pages.length === 0) {
     return { ok: true, configured: false, listings: [], total: 0 };
   }
@@ -57,7 +59,7 @@ export async function searchJobListings(
     }
   }
   for (const site of pages) {
-    const posting = await postingFromSavedPage(site, prepared.value, fetchImpl);
+    const posting = await postingFromSavedPage(site, prepared.value, options.readPage ?? readPublicPage);
     if (!posting) continue;
     listings.push(posting);
     total += 1;
@@ -83,44 +85,27 @@ function adzunaUrl(query: JobSearchQuery, appId: string, appKey: string): string
 async function postingFromSavedPage(
   site: CompanySiteSource,
   query: JobSearchQuery,
-  fetchImpl: typeof fetch,
+  readPage: typeof readPublicPage,
 ): Promise<JobListing | null> {
   try {
-    const response = await fetchImpl(site.url, {
+    const page = await readPage(site.url, {
       headers: {
         accept: "text/html,text/plain",
         "user-agent": "Proforna",
       },
-      signal: AbortSignal.timeout(8000),
+      timeoutMs: 8000,
     });
-    if (!response.ok) return null;
-    const type = response.headers.get("content-type") ?? "";
+    if (page.status < 200 || page.status >= 300) return null;
+    const type = page.contentType;
     if (type && !/text\/html|text\/plain|application\/xhtml/i.test(type)) return null;
-    const html = (await response.text()).slice(0, 400_000);
     return postingFromPage({
       organization: site.label,
       url: site.url,
-      html,
+      html: page.text.slice(0, 400_000),
       query: query.q,
       place: query.where,
     });
   } catch {
     return null;
-  }
-}
-
-function readablePageUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    if (host === "localhost" || host.endsWith(".localhost") || host === "0.0.0.0") return false;
-    if (host === "::1" || host.startsWith("127.") || host.startsWith("10.")) return false;
-    if (host.startsWith("192.168.") || host.startsWith("169.254.") || host.startsWith("0.")) {
-      return false;
-    }
-    return !/^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
-  } catch {
-    return false;
   }
 }

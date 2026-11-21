@@ -20,11 +20,10 @@ export default defineConfig({
   },
   server: {
     host: true,
-    allowedHosts: true,
     port: 5173,
     fs: { allow: [repoRoot] },
     proxy: {
-      "/api": process.env.API_ORIGIN ?? "http://localhost:3000",
+      "/api": process.env.API_ORIGIN ?? "http://127.0.0.1:3000",
     },
   },
 });

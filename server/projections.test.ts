@@ -302,7 +302,7 @@ describe("interactive projections HTTP seam", () => {
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ expiresAt: "2026-12-01T00:00:00.000Z" }),
+          body: JSON.stringify({ expiresAt: "2099-12-01T00:00:00.000Z" }),
         },
       );
       expect(granted.status).toBe(201);
@@ -312,8 +312,32 @@ describe("interactive projections HTTP seam", () => {
       expect(grantBody.grant.token).toEqual(expect.any(String));
       expect(grant).toHaveBeenCalledWith("sory-systems", {
         token: grantBody.grant.token,
-        expiresAt: "2026-12-01T00:00:00.000Z",
+        expiresAt: "2099-12-01T00:00:00.000Z",
       });
+
+      // The token is read from the Authorization header, never from the address.
+      expect(
+        (
+          await app.request(
+            `/api/public/sory-systems?token=${grantBody.grant.token}`,
+          )
+        ).status,
+      ).toBe(404);
+      expect(
+        (
+          await app.request("/api/public/sory-systems", {
+            headers: { authorization: `Bearer ${grantBody.grant.token}` },
+          })
+        ).status,
+      ).toBe(200);
+      // The scheme name is case-insensitive.
+      expect(
+        (
+          await app.request("/api/public/sory-systems", {
+            headers: { authorization: `bearer ${grantBody.grant.token}` },
+          })
+        ).status,
+      ).toBe(200);
 
       expect(
         (

@@ -39,6 +39,12 @@ jobs:
       - run: pnpm test
         if: hashFiles('package.json') != ''
 
+      - run: pnpm typecheck
+        if: hashFiles('package.json') != ''
+
+      - run: pnpm build
+        if: hashFiles('package.json') != ''
+
   # Deploy lands when the app exists. Keep the job so the pipeline shape is fixed.
   deploy:
     needs: test

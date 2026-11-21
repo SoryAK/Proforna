@@ -19,6 +19,10 @@ RELAY_OWNER_TOKEN=change-me \
 pnpm dev:server
 ```
 
+The access cookie a share link sets is always `Secure`. Browsers accept that on
+`http://localhost`; to try the Relay over plain HTTP from another device on your
+network, start it with `RELAY_INSECURE_COOKIES=1`. Never set that on a hosted Relay.
+
 Relay state defaults to `data/relay.sqlite`. Set `RELAY_DATABASE_PATH` and
 `RELAY_PORT` to override it. Use a randomly generated owner token in hosted
 environments and terminate TLS before the relay.

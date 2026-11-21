@@ -9,12 +9,13 @@ The check name GitHub should require is **`test`**.
 
 1. **Required files** — README, LICENSE, SECURITY, CONTRIBUTING, Code of Conduct
 2. **`pnpm install --frozen-lockfile`** then **`pnpm test`** (Vitest at `core/` and `server/` HTTP seams)
-3. **If Prisma exists** — `npx prisma generate` (legacy; this rebuild does not use it)
-4. **Deploy (main only)** — no-op until hosting exists
+3. **`pnpm typecheck`** (`tsc --noEmit`) — no type errors get in
+4. **`pnpm build`** — the production web build must succeed from a clean clone
+5. **If Prisma exists** — `npx prisma generate` (legacy; this rebuild does not use it)
+6. **Deploy (main only)** — no-op until hosting exists
 
 ## What is not in the gate yet
 
-- `tsc --noEmit` and a production `vite build` join the gate when they are routine
 - Hosting (Vercel or otherwise) is not wired
 - The standards-and-spec review. That review reads the issue and judges the
   diff. A test job cannot do it, so it stays on the pull request.
@@ -35,7 +36,13 @@ for that review.
 ```sh
 pnpm install
 pnpm test
+pnpm typecheck
+pnpm build
 ```
+
+Prototypes stay on each developer's machine. The app must not import them, and
+the type check skips their folders (`web/prototypes`, `web/src/prototype`), so a
+local prototype can't fail it.
 
 ## Ruleset (manual, once)
 
