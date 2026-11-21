@@ -27,7 +27,11 @@ import {
 
 /** Why an Access action could not be done; the route turns these into statuses. */
 export class AccessStoreError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    /** For "already-shared": the record that already covers this person. */
+    readonly personId?: string,
+  ) {
     super(code);
   }
 }
@@ -39,6 +43,8 @@ export type AccessPerson = {
   slug: string;
   name: string;
   email: string;
+  /** False for links made before Docier kept names; they can be named. */
+  named: boolean;
   source: "asked" | "shared";
   /** What the link opens now; `wholePage` when it follows the page's own sections. */
   sections: WorkMapPublishSection[];
@@ -177,6 +183,7 @@ function present(db: DatabaseSync, occupantId: string, row: GrantRow, origin: st
     slug: row.slug,
     name: row.person_name || row.requester_name || "Someone with a link",
     email: row.person_email || row.requester_email || "",
+    named: Boolean(row.person_name || row.requester_name),
     source: row.source === "asked" || row.request_id ? "asked" : "shared",
     sections: effectiveSections(chosen, page),
     wholePage: chosen === null,
@@ -310,6 +317,12 @@ export async function shareAccess(
   const email = typeof record.email === "string" ? record.email.trim() : "";
   if (!name) throw new AccessStoreError("name-required");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AccessStoreError("email-invalid");
+  // One record per person: someone who already has one gets it changed or
+  // given again, not a second link.
+  const existing = listAccess(db, occupantId, origin).find(
+    (person) => person.email.toLowerCase() === email.toLowerCase(),
+  );
+  if (existing) throw new AccessStoreError("already-shared", existing.id);
   const change = prepare(input, page.sections);
   const expiresAt = accessExpiry(change.days, new Date());
   const grant = await createProjectionGrant(db, occupantId, page.projectionId, expiresAt, relay, null, {
@@ -326,6 +339,27 @@ export async function shareAccess(
     message: change.message,
   });
   return readAccess(db, occupantId, grant.id, origin);
+}
+
+/**
+ * Names a link, or changes who it's for: the same name and email used to
+ * share it. What the link opens is unchanged.
+ */
+export function renameAccess(db: DatabaseSync, occupantId: string, id: string, input: unknown, origin: string | null) {
+  readGrant(db, occupantId, id);
+  const record = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  const name = typeof record.name === "string" ? record.name.trim().slice(0, 200) : "";
+  const email = typeof record.email === "string" ? record.email.trim().slice(0, 320) : "";
+  if (!name) throw new AccessStoreError("name-required");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AccessStoreError("email-invalid");
+  const other = email
+    ? listAccess(db, occupantId, origin).find(
+        (person) => person.id !== id && person.email.toLowerCase() === email.toLowerCase(),
+      )
+    : undefined;
+  if (other) throw new AccessStoreError("already-shared", other.id);
+  db.prepare("UPDATE projection_access_grants SET person_name = ?, person_email = ? WHERE id = ?").run(name, email, id);
+  return readAccess(db, occupantId, id, origin);
 }
 
 /** Changes what someone's link opens and for how long. The link stays the same. */

@@ -40,6 +40,7 @@ import {
   readAccessPage,
   recordActivity,
   removeAccess,
+  renameAccess,
   restoreAccess,
   revokeAccess,
   shareAccess,
@@ -2628,10 +2629,10 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       const status =
         error.code === "not-found"
           ? 404
-          : ["access-ended", "access-active", "page-not-published", "link-unavailable"].includes(error.code)
+          : ["access-ended", "access-active", "page-not-published", "link-unavailable", "already-shared"].includes(error.code)
             ? 409
             : 400;
-      return c.json({ error: error.code }, status);
+      return c.json({ error: error.code, ...(error.personId ? { personId: error.personId } : {}) }, status);
     }
     if (error instanceof ProjectionStoreError) return c.json({ error: error.code }, 400);
     if (error instanceof RelayTransportError) return c.json({ error: "relay-unavailable" }, 502);
@@ -2663,6 +2664,17 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     try {
       const person = await changeAccess(db, occupant.id, c.req.param("id"), await c.req.json(), options.relay, requestOrigin);
+      return c.json({ person });
+    } catch (error) {
+      return accessError(c, error);
+    }
+  });
+
+  // Names a link or changes who it's for.
+  app.put("/api/access/:id/person", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const person = renameAccess(db, occupant.id, c.req.param("id"), await c.req.json(), requestOrigin);
       return c.json({ person });
     } catch (error) {
       return accessError(c, error);
