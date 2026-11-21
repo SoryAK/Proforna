@@ -104,6 +104,12 @@ function scope(person: AccessPerson): string {
   return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : (names[0] ?? "Nothing");
 }
 
+/** The short form for a folded card: "Whole page" or "3 of 8 sections". */
+function summary(person: AccessPerson): string {
+  if (person.wholePage || person.sections.length === person.pageSections.length) return "Whole page";
+  return `${person.sections.length} of ${person.pageSections.length} sections`;
+}
+
 function opens(person: AccessPerson): string {
   if (person.openCount === 0) return "Not opened yet";
   const last = person.lastOpenedAt ? ` · last ${shortDate(person.lastOpenedAt)}` : "";
@@ -351,6 +357,8 @@ export function AccessDialog({
   const [canSee, setCanSee] = useState("any");
   const [sharing, setSharing] = useState(false);
   const [editing, setEditing] = useState<Editing>(null);
+  // One person open at a time; their Activity shows only when asked for.
+  const [openId, setOpenId] = useState<string | null>(null);
   const [openActivity, setOpenActivity] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "revoke" | "remove"; person: AccessPerson } | null>(null);
   const [message, setMessage] = useState("");
@@ -373,7 +381,8 @@ export function AccessDialog({
     setMessage("");
     setSharing(startSharing);
     setEditing(null);
-    setOpenActivity(focusId);
+    setOpenId(focusId);
+    setOpenActivity(null);
     setTab("active");
     setFilter("all");
     void refresh();
@@ -480,7 +489,7 @@ export function AccessDialog({
                     if (person) {
                       setSharing(false);
                       setTab("active");
-                      setOpenActivity(person.id);
+                      setOpenId(person.id);
                     }
                   }}
                 />
@@ -564,22 +573,31 @@ export function AccessDialog({
                         {shown.map((person) => {
                           const edit = editing?.person.id === person.id ? editing : null;
                           const live = isActive(person);
+                          const open = openId === person.id || Boolean(edit);
                           return (
                             <ListItem
                               key={person.id}
                               itemKey={person.id}
                               ref={person.id === focusId ? focusRef : undefined}
-                              isSelected={person.id === focusId || Boolean(edit) || openActivity === person.id}
+                              isSelected={open}
                               align="start"
-                              label={
-                                <HStack gap={2}>
-                                  <span>{person.name}</span>
-                                  <span className="access-faint">{person.email}</span>
-                                </HStack>
-                              }
+                              onClick={() => {
+                                setOpenId(open ? null : person.id);
+                                setOpenActivity(null);
+                                if (open) setEditing(null);
+                              }}
+                              label={person.name}
                               endContent={stateBadge(person)}
                               description={
                                 <VStack gap={2}>
+                                  <span>
+                                    {summary(person)} ·{" "}
+                                    {live ? until(person) : `ended ${shortDate(person.revokedAt ?? person.expiresAt)}`}
+                                  </span>
+                                  {open ? (
+                                  // Clicks inside the open card don't fold it.
+                                  <div className="access-open" onClick={(event) => event.stopPropagation()}>
+                                  <span className="access-faint">{person.email}</span>
                                   <span className="access-sees">
                                     {scope(person) === "Whole page" ? (
                                       <>
@@ -592,9 +610,7 @@ export function AccessDialog({
                                     )}
                                   </span>
                                   <span>
-                                    {person.source === "asked" ? "Asked on your page" : "Shared by you"} ·{" "}
-                                    {live ? until(person) : `ended ${shortDate(person.revokedAt ?? person.expiresAt)}`} ·{" "}
-                                    {opens(person)}
+                                    {person.source === "asked" ? "Asked on your page" : "Shared by you"} · {opens(person)}
                                   </span>
                                   {edit ? (
                                     <EditAccess
@@ -673,6 +689,8 @@ export function AccessDialog({
                                     <Text type="supporting" color="secondary">
                                       This link was made before Docier kept links, so it can't be copied again.
                                     </Text>
+                                  ) : null}
+                                  </div>
                                   ) : null}
                                 </VStack>
                               }
