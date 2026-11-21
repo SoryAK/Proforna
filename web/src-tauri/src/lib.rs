@@ -18,12 +18,17 @@ fn bundled_server(app: &tauri::App) -> Result<(std::path::PathBuf, std::path::Pa
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
+            // Installed under the product name; older installs used Proforna.
+            roots.push(exe_dir.join("../lib/Docier"));
+            roots.push(exe_dir.join("../lib/docier"));
             roots.push(exe_dir.join("../lib/Proforna"));
             roots.push(exe_dir.join("../lib/proforna"));
         }
     }
     if let Ok(appdir) = std::env::var("APPDIR") {
         let appdir = std::path::PathBuf::from(appdir);
+        roots.push(appdir.join("usr/lib/Docier"));
+        roots.push(appdir.join("usr/lib/docier"));
         roots.push(appdir.join("usr/lib/Proforna"));
         roots.push(appdir.join("usr/lib/proforna"));
     }
@@ -122,7 +127,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while running Proforna")
+        .expect("error while running Docier")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 stop_server(app);

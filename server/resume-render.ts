@@ -110,7 +110,7 @@ export async function renderResumeDocx(
   const document = new Document({
     creator: revision.title,
     title: `${revision.title} — ${revision.targetRole}`,
-    description: `Proforna resume revision ${revision.revisionNumber}`,
+    description: `Docier resume revision ${revision.revisionNumber}`,
     sections: [{ children }],
   });
   return new Uint8Array(await Packer.toBuffer(document));

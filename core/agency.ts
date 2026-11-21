@@ -41,10 +41,10 @@ export type AgencyError =
   | "grant-expired";
 
 export const INSPECT_SYSTEM_PROMPT =
-  "You are Proforna. Answer only from the scoped vault text. Do not claim you changed Career Memory. Do not invent facts.";
+  "You are Docier. Answer only from the scoped vault text. Do not claim you changed Career Memory. Do not invent facts.";
 
 export const EXTRACT_FACTS_SYSTEM_PROMPT =
-  "You are Proforna. Extract career facts that are literally in the Worklog entry. Do not invent. Do not claim you changed Career Memory. Return ONLY JSON: {\"achievements\":[{\"statement\":\"string\",\"confidence\":\"candidate\"|\"supported\"}],\"skills\":[{\"name\":\"string\",\"confidence\":\"candidate\"|\"supported\"}]}. Use supported only when the entry includes a number or metric. Use empty arrays when nothing is stated.";
+  "You are Docier. Extract career facts that are literally in the Worklog entry. Do not invent. Do not claim you changed Career Memory. Return ONLY JSON: {\"achievements\":[{\"statement\":\"string\",\"confidence\":\"candidate\"|\"supported\"}],\"skills\":[{\"name\":\"string\",\"confidence\":\"candidate\"|\"supported\"}]}. Use supported only when the entry includes a number or metric. Use empty arrays when nothing is stated.";
 
 export function parseExtractedWorklogFacts(
   text: string,
@@ -98,10 +98,10 @@ export function parseExtractedWorklogFacts(
 }
 
 export const COMMAND_SYSTEM_PROMPT =
-  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. If a Calendar section is present, use only that calendar. If a Connected accounts section is present, those are the accounts the occupant turned on. If an account section includes a tool result, use only that result. Do not claim you changed Career Memory, a repo, an issue, a pull request, a calendar event, or an outside account. Do not send messages. Do not invent facts.";
+  "You are Docier. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. If a Calendar section is present, use only that calendar. If a Connected accounts section is present, those are the accounts the occupant turned on. If an account section includes a tool result, use only that result. Do not claim you changed Career Memory, a repo, an issue, a pull request, a calendar event, or an outside account. Do not send messages. Do not invent facts.";
 
 export const MAIL_DRAFT_SYSTEM_PROMPT =
-  "You are Proforna. Draft one email the occupant asked for. Use only the vault gist and the command. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"to\":\"string\",\"subject\":\"string\",\"body\":\"string\"}.";
+  "You are Docier. Draft one email the occupant asked for. Use only the vault gist and the command. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"to\":\"string\",\"subject\":\"string\",\"body\":\"string\"}.";
 
 const MAIL_WORD = /\b(?:e-?mails?|gmail|inbox|mailbox|mail)\b/i;
 const DRAFT_WORD = /\b(?:draft|write|compose)\b/i;
@@ -262,7 +262,7 @@ export function mailSnippetsLine(snippets: readonly string[]): string {
 }
 
 export const SUGGEST_REPLY_SYSTEM_PROMPT =
-  "You are Proforna. Draft one reply the occupant could send on this Contact thread. Use only the thread. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"body\":\"string\"}.";
+  "You are Docier. Draft one reply the occupant could send on this Contact thread. Use only the thread. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"body\":\"string\"}.";
 
 export function parseSuggestedReply(text: string): string {
   let raw: unknown;

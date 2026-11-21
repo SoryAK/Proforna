@@ -101,7 +101,7 @@ describe("contact conversation HTTP seam", () => {
     }
   });
 
-  it("proposes a Proforna reply that sends only after approval", async () => {
+  it("proposes a Docier reply that sends only after approval", async () => {
     const perform = vi.fn(async () => ({ externalId: "sent-2" }));
     const complete = vi.fn(async () => ({
       text: JSON.stringify({ body: "Thursday works." }),

@@ -1146,7 +1146,7 @@ export function Onboarding({
                 Connect an <em>account?</em>
               </Heading>
               <Text type="body" display="block">
-                Optional. Turn one on if you want Proforna to use it when you ask. It does not file mail into
+                Optional. Turn one on if you want Docier to use it when you ask. It does not file mail into
                 Opportunities on its own.
               </Text>
               {import.meta.env.DEV ? (
@@ -1845,7 +1845,7 @@ function ProfileStep({
       <Heading level={1}>
         Let's start with <em>your profile.</em>
       </Heading>
-      <Text type="body" display="block">Proforna runs on this computer. Nothing here leaves it unless you publish.</Text>
+      <Text type="body" display="block">Docier runs on this computer. Nothing here leaves it unless you publish.</Text>
       <div className="onboarding-badge">
         <div className="onboarding-badge-portrait">
           <Avatar

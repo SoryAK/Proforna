@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Proforna",
+  "productName": "Docier",
   "version": "0.0.1",
   "identifier": "dev.proforna.desktop",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "app",
-        "title": "Proforna",
+        "title": "Docier",
         "url": "http://127.0.0.1:5173/",
         "width": 1240,
         "height": 820,

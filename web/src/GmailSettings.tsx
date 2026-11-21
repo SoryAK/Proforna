@@ -54,7 +54,7 @@ export function GmailSettingsForm({
     if (signIn) {
       const popup = openSignInWindow();
       if (!popup) {
-        setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+        setError("The sign-in window was blocked. Allow popups for Docier, then try Connect again.");
         return;
       }
       setBusy(true);
@@ -94,7 +94,7 @@ export function GmailSettingsForm({
     }
     const popup = openSignInWindow();
     if (!popup) {
-      setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+      setError("The sign-in window was blocked. Allow popups for Docier, then try Connect again.");
       return;
     }
     setBusy(true);
@@ -224,7 +224,7 @@ export function GmailSettingsForm({
         <>
           <h1>Gmail</h1>
           <p className="onboarding-lead">
-            Sign in to the Gmail account you want Proforna to read. Search finds mail, and a draft is saved in Gmail. Proforna does not send it.
+            Sign in to the Gmail account you want Docier to read. Search finds mail, and a draft is saved in Gmail. Docier does not send it.
           </p>
         </>
       )}

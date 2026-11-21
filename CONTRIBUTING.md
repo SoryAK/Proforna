@@ -1,6 +1,6 @@
 # Contributing
 
-Proforna is being rebuilt from a small base. Issues, PRs, and design discussion
+Docier is being rebuilt from a small base. Issues, PRs, and design discussion
 are welcome.
 
 1. Open an issue before a large change, using the body in

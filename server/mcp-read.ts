@@ -42,7 +42,7 @@ async function openMcp(
     {
       protocolVersion: PROTOCOL,
       capabilities: {},
-      clientInfo: { name: "proforna", version: "0.0.1" },
+      clientInfo: { name: "docier", version: "0.0.1" },
     },
     fetchImpl,
   );

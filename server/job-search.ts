@@ -89,7 +89,7 @@ async function postingFromSavedPage(
     const response = await fetchImpl(site.url, {
       headers: {
         accept: "text/html,text/plain",
-        "user-agent": "Proforna",
+        "user-agent": "Docier",
       },
       signal: AbortSignal.timeout(8000),
     });

@@ -116,7 +116,7 @@
 
 .home-search-pill {
   display: none;
-  flex: 0 1 600px;
+  flex: 0 1 460px;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
@@ -1892,6 +1892,17 @@ button.home-nav-item:focus-visible {
 .home-user-item:focus-visible {
   background: #005fb8;
   color: #fff;
+}
+
+a.home-user-item {
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.home-user-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: #ececee;
 }
 
 @media (min-width: 1024px) {

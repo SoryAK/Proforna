@@ -42,7 +42,7 @@ export function OnboardingProfileForm({
         What should we <em>call you?</em>
       </h1>
       <p className="onboarding-lead">
-        Proforna keeps your career file on this machine. Name is required.
+        Docier keeps your career file on this machine. Name is required.
         Headline, city, bio, and links wait until the resume is reviewed.
       </p>
 

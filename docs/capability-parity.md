@@ -1,12 +1,12 @@
 # Curated capability parity
 
 The local backup is a requirements source, not an implementation source.
-Proforna preserves valuable career outcomes while replacing duplicate models,
+Docier preserves valuable career outcomes while replacing duplicate models,
 route-owned policy, and experimental machinery.
 
 ## Product spine
 
-| Outcome | Proforna capability | Priority |
+| Outcome | Docier capability | Priority |
 | --- | --- | --- |
 | Own career history | Enriched Work Map, geography, media, provenance | Core |
 | Capture ongoing work | Worklog and fact proposals | Core |
@@ -28,7 +28,7 @@ route-owned policy, and experimental machinery.
   roles are the subject of those facts.
 - Recruiter contact forms and submissions use the opportunity inbox.
 - AI features use one governed agency layer instead of route-specific calls.
-  That cut shipped (GitHub #49): one Proforna, Agent Run purposes, Change Sets
+  That cut shipped (GitHub #49): one Docier, Agent Run purposes, Change Sets
   and Notices for review. See docs/agent-authority.md.
 
 ## Deferred until validated

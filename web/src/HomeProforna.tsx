@@ -284,12 +284,12 @@ export function HomeProforna({
       }
       if (response.status === 409) {
         setDraft(body);
-        setStatus("Proforna is already using the model.");
+        setStatus("Docier is already using the model.");
         return;
       }
       if (!response.ok) {
         setDraft(body);
-        setStatus("Connect a model in Settings before talking to Proforna.");
+        setStatus("Connect a model in Settings before talking to Docier.");
         return;
       }
       const thread = (await response.json()) as {
@@ -311,7 +311,7 @@ export function HomeProforna({
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (left()) return;
       setDraft(body);
-      setStatus("Could not reach Proforna.");
+      setStatus("Could not reach Docier.");
     } finally {
       if (abortRef.current === abort) abortRef.current = null;
       setBusy(false);
@@ -751,7 +751,7 @@ export function HomeProforna({
       ) : (
         <h2>
           <button type="button" onClick={onToggle}>
-            Proforna
+            Docier
           </button>
         </h2>
       )}

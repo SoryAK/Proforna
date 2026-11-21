@@ -14,7 +14,7 @@ viewers are secondary audiences for occupant-approved publications.
 
 ## Product Purpose
 
-Proforna helps an occupant capture, understand, plan, and selectively present
+Docier helps an occupant capture, understand, plan, and selectively present
 their career. Success means the occupant owns a detailed, evidence-backed
 career record and can turn its current approved state into useful resumes and
 interactive public views without surrendering the private source.
@@ -50,7 +50,7 @@ local-first and must remain useful when the publishing relay is unavailable.
 
 ## Brand Commitments
 
-The product name is Proforna. Product language is direct, private by default,
+The product name is Docier. Product language is direct, private by default,
 and specific about what leaves the vault.
 
 ## Evidence on Hand

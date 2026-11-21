@@ -343,7 +343,7 @@ export function JobSourceSettingsForm() {
           <legend>Job sources</legend>
           <p className="onboarding-lead">
             Name the source, then add an application id or an API key if it asks
-            for one. Both stay in this vault. Search reads a source once Proforna
+            for one. Both stay in this vault. Search reads a source once Docier
             knows how.
           </p>
           {settings.sources.map((source) =>

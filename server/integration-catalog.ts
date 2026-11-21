@@ -64,7 +64,7 @@ export function listIntegrationCatalog(
     {
       name: "gmail",
       displayName: "Gmail",
-      description: "Search mail and save a draft. Proforna does not send mail.",
+      description: "Search mail and save a draft. Docier does not send mail.",
       available: true,
       fields: [],
       configured: gmail.connected,

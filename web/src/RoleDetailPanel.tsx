@@ -1348,7 +1348,7 @@ function LinkedEvidenceForm({
           ? item.evidenceId
             ? "A copy of this page is saved in your vault."
             : "No copy saved yet. Save again to retry the capture."
-          : "Paste a link to something public about this work. Proforna saves a private copy in case the page changes or disappears."}
+          : "Paste a link to something public about this work. Docier saves a private copy in case the page changes or disappears."}
       </p>
       <label className="role-lookup">
         Link

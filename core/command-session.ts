@@ -149,6 +149,7 @@ export function presentCommandHistory(
 ): string {
   return messages
     .slice(-HISTORY_LIMIT)
-    .map((message) => `[${message.speaker}] ${message.body}`)
+    // The assistant is stored as "proforna"; transcripts name it Docier.
+    .map((message) => `[${message.speaker === "proforna" ? "docier" : message.speaker}] ${message.body}`)
     .join("\n");
 }

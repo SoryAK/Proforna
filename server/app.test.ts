@@ -40,7 +40,7 @@ describe("GET /api/health", () => {
       expect(res.status).toBe(200);
       await expect(res.json()).resolves.toEqual({
         ok: true,
-        product: "Proforna",
+        product: "Docier",
         db: "ok",
       });
     } finally {

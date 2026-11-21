@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default Proforna window",
+  "description": "Default Docier window",
   "windows": ["app"],
   "permissions": ["core:default"]
 }

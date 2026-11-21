@@ -1,6 +1,6 @@
 /** Product identity for shells. Management logic lives in this folder. */
 export const PRODUCT = {
-  name: "Proforna",
+  name: "Docier",
   kind: "personal-career-management",
 } as const;
 

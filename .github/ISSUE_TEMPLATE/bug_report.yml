@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem in Proforna
+description: Report a reproducible problem in Docier
 title: "[Bug]: "
 labels:
   - bug
@@ -40,7 +40,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Share how this Proforna is running.
+      description: Share how this Docier is running.
       placeholder: |
         - How you run it:
         - Web URL:

@@ -56,4 +56,4 @@ function loadSignInFile(path: string) {
 const port = Number(process.env.PORT ?? 3000);
 const hostname = process.env.HOST;
 serve(hostname ? { fetch: app.fetch, port, hostname } : { fetch: app.fetch, port });
-console.log(`Proforna http://${hostname ?? "localhost"}:${port}`);
+console.log(`Docier http://${hostname ?? "localhost"}:${port}`);

@@ -1005,7 +1005,7 @@ export function JobSettingsPanel() {
               key={source.id}
               title={source.name}
               icon={BriefcaseIcon}
-              description={source.enabled ? "On. Search reads this source once Proforna knows how." : "Off."}
+              description={source.enabled ? "On. Search reads this source once Docier knows how." : "Off."}
               control={
                 <HStack gap={1}>
                   <Button
@@ -1318,7 +1318,7 @@ export function IntegrationSettingsPanel() {
     if (row.signIn) {
       const popup = openSignInWindow(row.name);
       if (!popup) {
-        setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+        setError("The sign-in window was blocked. Allow popups for Docier, then try Connect again.");
         return;
       }
       setBusy(true);
@@ -1339,7 +1339,7 @@ export function IntegrationSettingsPanel() {
           return;
         }
         popup.close();
-        setMessage(`${row.displayName} is connected. Proforna can use it when you ask.`);
+        setMessage(`${row.displayName} is connected. Docier can use it when you ask.`);
         await load();
         if (row.name === "gmail") await loadGmail();
       } catch {
@@ -1375,7 +1375,7 @@ export function IntegrationSettingsPanel() {
         return;
       }
       setValues({});
-      setMessage("Saved. Proforna can use this connection when you ask.");
+      setMessage("Saved. Docier can use this connection when you ask.");
       await load();
     } catch {
       setError("Could not save that connection.");
@@ -1421,7 +1421,7 @@ export function IntegrationSettingsPanel() {
       }
       setMessage(
         enabled
-          ? `${row.displayName} is on. Proforna can use it when you ask.`
+          ? `${row.displayName} is on. Docier can use it when you ask.`
           : `${row.displayName} is off. The saved sign-in stays until you remove it.`,
       );
       await load();

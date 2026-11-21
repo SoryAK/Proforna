@@ -1,18 +1,18 @@
-# Proforna
+# Docier
 
-[![CI](https://img.shields.io/github/actions/workflow/status/SoryAK/Proforna/ci.yml?branch=main&label=CI)](https://github.com/SoryAK/Proforna/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/SoryAK/Docier/ci.yml?branch=main&label=CI)](https://github.com/SoryAK/Docier/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![stars](https://img.shields.io/github/stars/SoryAK/Proforna)](https://github.com/SoryAK/Proforna/stargazers)
+[![stars](https://img.shields.io/github/stars/SoryAK/Docier)](https://github.com/SoryAK/Docier/stargazers)
 
 > **A private career operating system.**
 
-Proforna turns evidence from a person's work into career facts, plans, artifacts, and approved actions. The Career Vault stays on this machine. The occupant owns it and acts on it.
+Docier turns evidence from a person's work into career facts, plans, artifacts, and approved actions. The Career Vault stays on this machine. The occupant owns it and acts on it.
 
 ---
 
 ### What is a Career Operating System?
 
-Proforna is a local system of record for one career, built around four principles:
+Docier is a local system of record for one career, built around four principles:
 
 - **Evidence-backed career memory.** Evidence is immutable source material, such as a stored resume. Career Facts point at that evidence. A Worklog Entry is a dated capture that may become proposed facts.
 - **Local vault, local models.** The Career Vault stays on this machine. An extract model is optional. Local servers such as Ollama and llama.cpp are preferred. A cloud model is an explicit grant that what you send may leave the machine.
@@ -31,7 +31,7 @@ We are looking for **contributors and collaborators**. See [CONTRIBUTING.md](CON
 
 ## Architecture
 
-One occupant on this machine. Proforna runs locally, or from the desktop package.
+One occupant on this machine. Docier runs locally, or from the desktop package.
 
 - **Domain (`core/`):** Career memory and the rules that govern it.
 - **API (`server/`):** HTTP server built with Hono.
