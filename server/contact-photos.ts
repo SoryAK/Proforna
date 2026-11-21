@@ -23,12 +23,22 @@ function storedName(db: DatabaseSync, occupantId: string, contactId: string): st
   return row.name;
 }
 
+/** Deletes a photo file; one already gone is fine, any other failure is reported. */
 function deleteFile(uploadsDir: string, name: string | null) {
   if (!name) return;
   try {
     unlinkSync(join(uploadsDir, name));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new ContactPhotoError("photo-delete-failed");
+  }
+}
+
+/** Like deleteFile, for an old file whose replacement is already saved: a leftover is harmless. */
+function deleteOldFile(uploadsDir: string, name: string | null) {
+  try {
+    deleteFile(uploadsDir, name);
   } catch {
-    /* a leftover file is harmless */
+    /* the new photo is in place; the old file just stays behind */
   }
 }
 
@@ -58,14 +68,15 @@ export function storeContactPhoto(
     contactId,
     occupantId,
   );
-  deleteFile(uploadsDir, previous);
+  deleteOldFile(uploadsDir, previous);
   return contactPhotoUrl(contactId, name)!;
 }
 
 export function removeContactPhoto(db: DatabaseSync, occupantId: string, uploadsDir: string, contactId: string) {
   const previous = storedName(db, occupantId, contactId);
-  db.prepare("UPDATE contacts SET photo_stored_name = NULL WHERE id = ? AND occupant_id = ?").run(contactId, occupantId);
+  // The file goes first, so a failed delete keeps the name and can be retried.
   deleteFile(uploadsDir, previous);
+  db.prepare("UPDATE contacts SET photo_stored_name = NULL WHERE id = ? AND occupant_id = ?").run(contactId, occupantId);
 }
 
 export function loadContactPhoto(
@@ -99,8 +110,9 @@ export function contactPhotoFile(db: DatabaseSync, occupantId: string, contactId
   }
 }
 
+/** After the contact itself is gone there's nothing to retry against, so a leftover file is left. */
 export function deleteContactPhotoFile(uploadsDir: string, name: string | null) {
-  deleteFile(uploadsDir, name);
+  deleteOldFile(uploadsDir, name);
 }
 
 /**

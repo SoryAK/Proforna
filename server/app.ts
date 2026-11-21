@@ -2237,7 +2237,9 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       removeContactPhoto(db, occupant.id, uploadsDir, c.req.param("id"));
       return c.json({ ok: true });
     } catch (error) {
-      if (error instanceof ContactPhotoError) return c.json({ error: error.code }, 404);
+      if (error instanceof ContactPhotoError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 500);
+      }
       throw error;
     }
   });

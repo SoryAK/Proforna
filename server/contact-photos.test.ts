@@ -80,6 +80,13 @@ describe("contact photos", () => {
     expect((await ctx.contacts())[0]!.photo_url).toBeNull();
     expect(readdirSync(ctx.uploadsDir).filter((name) => name.startsWith("contact-"))).toHaveLength(0);
     expect((await ctx.app.request(`/api/contacts/${id}/photo`)).status).toBe(404);
+
+    // A file that can't be deleted keeps its name, so removing can be tried again.
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(join(ctx.uploadsDir, "contact-stuck.png"));
+    ctx.db.prepare("UPDATE contacts SET photo_stored_name = 'contact-stuck.png' WHERE id = ?").run(id);
+    expect((await ctx.json("DELETE", `/api/contacts/${id}/photo`)).status).toBe(500);
+    expect((await ctx.contacts())[0]!.photo_url).not.toBeNull();
   });
 
   it("refuses what isn't a photo, and removes the file with the contact", async () => {
