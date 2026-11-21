@@ -201,6 +201,26 @@ describe("managing access", () => {
     expect((await ctx.open(answer.body.accessLink)).html).not.toContain(BIO);
   });
 
+  it("keeps one record per person, and names or renames a link", async () => {
+    const ctx = await setup();
+    const person = (await ctx.send("POST", "/api/access", { name: "Riley Park", email: "riley@park.example" })).body.person;
+    expect(person.named).toBe(true);
+    // Sharing again with the same email points at the record that's there.
+    const again = await ctx.send("POST", "/api/access", { name: "Riley", email: "RILEY@park.example" });
+    expect(again.status).toBe(409);
+    expect(again.body).toEqual({ error: "already-shared", personId: person.id });
+    // Even once revoked: that record is given access again instead.
+    await ctx.send("POST", `/api/access/${person.id}/revoke`, {});
+    expect((await ctx.send("POST", "/api/access", { name: "Riley", email: "riley@park.example" })).body.personId).toBe(person.id);
+
+    // A link from before names were kept can be named; names change with the same fields.
+    ctx.db.prepare("UPDATE projection_access_grants SET person_name = '', person_email = '' WHERE id = ?").run(person.id);
+    expect((await ctx.send("GET", "/api/access")).body.people[0]).toMatchObject({ name: "Someone with a link", named: false });
+    const named = await ctx.send("PUT", `/api/access/${person.id}/person`, { name: "Riley Park", email: "riley@park.example" });
+    expect(named.body.person).toMatchObject({ name: "Riley Park", email: "riley@park.example", named: true, link: person.link });
+    expect((await ctx.send("PUT", `/api/access/${person.id}/person`, { name: "", email: "" })).status).toBe(400);
+  });
+
   it("refuses a bad email, and a section the page doesn't publish", async () => {
     const ctx = await setup();
     expect((await ctx.send("POST", "/api/access", { name: "Riley", email: "nope" })).body.error).toBe("email-invalid");
