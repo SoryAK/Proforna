@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@astryxdesign/core/AlertDialog";
+import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { HStack } from "@astryxdesign/core/HStack";
 import { Layout, LayoutContent } from "@astryxdesign/core/Layout";
+import { List, ListItem } from "@astryxdesign/core/List";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 import { Selector } from "@astryxdesign/core/Selector";
+import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Tab, TabList } from "@astryxdesign/core/TabList";
+import { Text } from "@astryxdesign/core/Text";
 import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
+import { VStack } from "@astryxdesign/core/VStack";
 import {
   REQUEST_KINDS,
   REQUEST_KIND_LABEL,
@@ -48,8 +57,22 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+const STATUS_VARIANT: Record<SentRequestStatus, "neutral" | "warning" | "success" | "error"> = {
+  sent: "neutral",
+  opened: "warning",
+  approved: "success",
+  declined: "error",
+  expired: "neutral",
+  withdrawn: "neutral",
+};
+
 function StatusBadge({ status }: { status: SentRequestStatus }) {
-  return <span className={`req-badge is-${status}`}>{SENT_STATUS_LABEL[status]}</span>;
+  return <Badge label={SENT_STATUS_LABEL[status]} variant={STATUS_VARIANT[status]} />;
+}
+
+/** A dot for an answer or expiry the occupant hasn't seen. */
+function NewDot() {
+  return <StatusDot variant="accent" label="New answer" tooltip="New since you last looked" />;
 }
 
 const ERRORS: Record<string, string> = {
@@ -89,50 +112,53 @@ export function RequestsMenu({
 
   const recent = listed?.requests.slice(0, 4) ?? [];
   return (
-    <div className="home-pub-menu req-menu" role="menu" aria-label="Requests">
-      <div className="req-menu-top">
-        <h3>Requests</h3>
-        <button type="button" role="menuitem" className="req-new" onClick={onNew}>
-          + New request
-        </button>
-      </div>
+    <VStack gap={0} className="req-menu">
+      <HStack gap={2} className="req-menu-top">
+        <Text type="label" weight="semibold">
+          Requests
+        </Text>
+        <Button label="New request" variant="primary" size="sm" onClick={onNew} />
+      </HStack>
       {failed ? (
-        <p className="req-menu-empty">Requests could not be loaded.</p>
+        <EmptyState isCompact title="Requests could not be loaded." />
       ) : !listed ? (
-        <p className="req-menu-empty">Loading…</p>
+        <Text type="supporting" color="secondary" className="req-menu-pad">
+          Loading…
+        </Text>
       ) : recent.length === 0 ? (
-        <div className="req-menu-empty">
-          <strong>No requests yet</strong>
-          <span>Ask anyone for a reference, an introduction, or a recommendation. They answer on a private link.</span>
-        </div>
+        <EmptyState
+          isCompact
+          title="No requests yet"
+          description="Ask anyone for a reference, an introduction, or a recommendation. They answer on a private link."
+        />
       ) : (
         <>
-          <h4>Recent</h4>
-          {recent.map((request) => (
-            <button
-              key={request.id}
-              type="button"
-              role="menuitem"
-              className="req-menu-row"
-              onClick={() => onOpen("sent", request.id)}
-            >
-              <span className="req-menu-name">
-                {request.recipientName}
-                {request.changed ? <span className="req-dot" aria-label="New answer" /> : null}
-              </span>
-              <StatusBadge status={request.status} />
-              <span className="req-faint">
-                {REQUEST_KIND_LABEL[request.kind]} · {request.contactId ? "My Network" : "Not in your network"}
-              </span>
-              <span className="req-faint req-when">{shortDate(request.createdAt)}</span>
-            </button>
-          ))}
-          <button type="button" role="menuitem" className="req-menu-foot" onClick={() => onOpen("sent")}>
-            View all requests
-          </button>
+          <Text type="supporting" color="secondary" className="req-menu-heading">
+            Recent
+          </Text>
+          <List>
+            {recent.map((request) => (
+              <ListItem
+                key={request.id}
+                itemKey={request.id}
+                label={
+                  <HStack gap={1}>
+                    <span>{request.recipientName}</span>
+                    {request.changed ? <NewDot /> : null}
+                  </HStack>
+                }
+                description={`${REQUEST_KIND_LABEL[request.kind]} · ${request.contactId ? "My Network" : "Not in your network"} · ${shortDate(request.createdAt)}`}
+                endContent={<StatusBadge status={request.status} />}
+                onClick={() => onOpen("sent", request.id)}
+              />
+            ))}
+          </List>
+          <div className="req-menu-foot">
+            <Button label="View all requests" variant="ghost" size="sm" onClick={() => onOpen("sent")} />
+          </div>
         </>
       )}
-    </div>
+    </VStack>
   );
 }
 
@@ -200,13 +226,11 @@ export function RequestsDialog({
         header={<DialogHeader title="Requests" onOpenChange={onClose} hasDivider={false} />}
         content={
           <LayoutContent label="Requests">
-            <div className="req-tabs" role="tablist" aria-label="Requests">
-              <button type="button" role="tab" aria-selected={formOpen} onClick={() => onTab("new")}>
-                {editing ? "Edit request" : "New request"}
-              </button>
-              <button type="button" role="tab" aria-selected={tab === "sent"} onClick={() => onTab("sent")}>
-                Sent
-              </button>
+            <div className="req-tabs">
+              <TabList value={tab} onChange={(next) => onTab(next === "new" ? "new" : "sent")} hasDivider>
+                <Tab value="new" label={editing ? "Edit request" : "New request"} />
+                <Tab value="sent" label="Sent" />
+              </TabList>
             </div>
             {error ? <Banner status="error" title={error} container="section" collapsible={false} role="alert" /> : null}
             {listed && !listed.relayConfigured ? (
@@ -219,7 +243,9 @@ export function RequestsDialog({
               />
             ) : null}
             {listed?.stale ? (
-              <p className="req-faint">The Relay couldn't be reached, so these are the last known answers.</p>
+              <Text type="supporting" color="secondary">
+                The Relay couldn't be reached, so these are the last known answers.
+              </Text>
             ) : null}
             {formOpen ? (
               created ? (
@@ -325,17 +351,10 @@ function RequestForm({
   return (
     <div className="req-form">
       {error ? <Banner status="error" title={error} container="section" collapsible={false} role="alert" /> : null}
-      <div className="req-field">
-        <span className="req-label">To</span>
-        <div className="req-seg" role="radiogroup" aria-label="To">
-          <button type="button" role="radio" aria-checked={to === "network"} onClick={() => setTo("network")}>
-            My Network
-          </button>
-          <button type="button" role="radio" aria-checked={to === "new"} onClick={() => setTo("new")}>
-            Someone new
-          </button>
-        </div>
-      </div>
+      <SegmentedControl label="To" size="sm" value={to} onChange={(value) => setTo(value === "new" ? "new" : "network")}>
+        <SegmentedControlItem value="network" label="My Network" />
+        <SegmentedControlItem value="new" label="Someone new" />
+      </SegmentedControl>
       {to === "network" ? (
         people.length > 0 ? (
           <Selector
@@ -349,13 +368,12 @@ function RequestForm({
             }))}
           />
         ) : (
-          <p className="req-faint">
-            No one in My Network yet. Choose Someone new, or{" "}
-            <button type="button" className="req-link" onClick={onOpenNetwork}>
-              add a person
-            </button>
-            .
-          </p>
+          <EmptyState
+            isCompact
+            title="No one in My Network yet"
+            description="Choose Someone new, or add a person first."
+            actions={<Button label="My Network" variant="secondary" size="sm" onClick={onOpenNetwork} />}
+          />
         )
       ) : (
         <div className="req-row2">
@@ -363,19 +381,21 @@ function RequestForm({
           <TextInput label="Email" type="email" value={email} onChange={setEmail} />
         </div>
       )}
-      <div className="req-field">
-        <span className="req-label">Kind</span>
-        <div className="req-chips" role="radiogroup" aria-label="Kind">
-          {REQUEST_KINDS.map((option) => (
-            <button key={option} type="button" role="radio" aria-checked={kind === option} onClick={() => setKind(option)}>
-              {REQUEST_KIND_LABEL[option]}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SegmentedControl
+        label="Kind"
+        size="sm"
+        value={kind}
+        onChange={(value) => setKind((REQUEST_KINDS as readonly string[]).includes(value) ? (value as RequestKind) : "general")}
+      >
+        {REQUEST_KINDS.map((option) => (
+          <SegmentedControlItem key={option} value={option} label={REQUEST_KIND_LABEL[option]} />
+        ))}
+      </SegmentedControl>
       <TextArea label="Request" value={body} onChange={setBody} rows={4} />
       {to === "new" ? (
-        <p className="req-faint">They won't be added to My Network. They answer on a private link that works for 30 days.</p>
+        <Text type="supporting" color="secondary">
+          They won't be added to My Network. They answer on a private link that works for 30 days.
+        </Text>
       ) : null}
       <div className="req-actions">
         <Button label="Cancel" variant="ghost" onClick={onCancel} />
@@ -429,13 +449,15 @@ function CreatedRequest({ request, onDone }: { request: SentRequest; onDone: () 
       {gmail && request.recipientEmail ? (
         <div className="req-actions is-start">
           <Button label="Draft in Gmail" variant="secondary" onClick={() => void draft()} />
-          <span className="req-faint">Docier never sends it for you.</span>
+          <Text type="supporting" color="secondary">
+            Docier never sends it for you.
+          </Text>
         </div>
       ) : null}
       {note ? (
-        <p className="req-faint" role="status">
+        <Text type="supporting" color="secondary" role="status">
           {note}
-        </p>
+        </Text>
       ) : null}
       <div className="req-actions">
         <Button label="Done" variant="primary" onClick={onDone} />
@@ -474,8 +496,10 @@ function SentList({
     focusRef.current?.scrollIntoView({ block: "nearest" });
   }, [focusId, requests.length]);
 
-  if (!listed) return <p className="req-faint">Loading…</p>;
-  if (requests.length === 0) return <p className="req-faint">Nothing sent yet. Start one in New request.</p>;
+  if (!listed) return <Text type="supporting" color="secondary">Loading…</Text>;
+  if (requests.length === 0) {
+    return <EmptyState isCompact title="Nothing sent yet" description="Start one in New request." />;
+  }
 
   const shown = requests.filter((request) => FILTERS.find((item) => item.id === filter)!.match(request.status));
   const count = (id: string) => requests.filter((request) => FILTERS.find((item) => item.id === id)!.match(request.status)).length;
@@ -489,64 +513,79 @@ function SentList({
 
   return (
     <div className="req-sent">
-      <div className="req-chips" role="radiogroup" aria-label="Filter">
+      <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
         {FILTERS.map((item) => (
-          <button key={item.id} type="button" role="radio" aria-checked={filter === item.id} onClick={() => setFilter(item.id)}>
-            {item.label}
-            {item.id !== "all" && count(item.id) ? ` · ${count(item.id)}` : ""}
-          </button>
+          <SegmentedControlItem
+            key={item.id}
+            value={item.id}
+            label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
+          />
         ))}
-      </div>
+      </SegmentedControl>
       {message ? (
-        <p className="req-faint" role="status">
+        <Text type="supporting" color="secondary" role="status">
           {message}
-        </p>
+        </Text>
       ) : null}
-      <ul className="req-list">
-        {shown.map((request) => {
-          const pending = PENDING.includes(request.status);
-          return (
-            <li key={request.id} ref={request.id === focusId ? focusRef : undefined} className={request.id === focusId ? "is-focus" : undefined}>
-              <div className="req-item-head">
-                <div>
-                  <strong>{request.recipientName}</strong> <span className="req-kind">{REQUEST_KIND_LABEL[request.kind]}</span>
-                  {request.changed ? <span className="req-dot" aria-label="New answer" /> : null}
-                  <div className="req-faint">
-                    {request.contactId ? "My Network" : "Not in your network"} · {shortDate(request.createdAt)}
-                    {pending ? ` · expires ${shortDate(request.expiresAt)}` : ""}
-                  </div>
-                </div>
-                <StatusBadge status={request.status} />
-              </div>
-              {request.note ? <p className="req-note">“{request.note}”</p> : null}
-              <div className="req-actions is-start">
-                {pending ? (
-                  <>
-                    <Button
-                      label={copiedId === request.id ? "Copied" : "Copy link"}
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        if (!request.link) return;
-                        void navigator.clipboard.writeText(request.link).then(() => setCopiedId(request.id));
-                      }}
-                    />
-                    <Button label="Edit" variant="ghost" size="sm" onClick={() => onEdit(request)} />
-                    <Button label="Withdraw" variant="ghost" size="sm" onClick={() => setWithdrawing(request)} />
-                  </>
-                ) : (
-                  <Button
-                    label="Remove from list"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void act(`/api/requests/${request.id}`, "DELETE", "Removed from the list.")}
-                  />
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {shown.length === 0 ? (
+        <EmptyState isCompact title="Nothing here" description="No requests match this filter." />
+      ) : (
+        <List>
+          {shown.map((request) => {
+            const pending = PENDING.includes(request.status);
+            return (
+              <ListItem
+                key={request.id}
+                itemKey={request.id}
+                ref={request.id === focusId ? focusRef : undefined}
+                isSelected={request.id === focusId}
+                align="start"
+                label={
+                  <HStack gap={2}>
+                    <span>{request.recipientName}</span>
+                    <Badge label={REQUEST_KIND_LABEL[request.kind]} variant="neutral" />
+                    {request.changed ? <NewDot /> : null}
+                  </HStack>
+                }
+                description={
+                  <VStack gap={2}>
+                    <span>
+                      {request.contactId ? "My Network" : "Not in your network"} · {shortDate(request.createdAt)}
+                      {pending ? ` · expires ${shortDate(request.expiresAt)}` : ""}
+                    </span>
+                    {request.note ? <span className="req-note">“{request.note}”</span> : null}
+                    <HStack gap={1}>
+                      {pending ? (
+                        <>
+                          <Button
+                            label={copiedId === request.id ? "Copied" : "Copy link"}
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              if (!request.link) return;
+                              void navigator.clipboard.writeText(request.link).then(() => setCopiedId(request.id));
+                            }}
+                          />
+                          <Button label="Edit" variant="ghost" size="sm" onClick={() => onEdit(request)} />
+                          <Button label="Withdraw" variant="ghost" size="sm" onClick={() => setWithdrawing(request)} />
+                        </>
+                      ) : (
+                        <Button
+                          label="Remove from list"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void act(`/api/requests/${request.id}`, "DELETE", "Removed from the list.")}
+                        />
+                      )}
+                    </HStack>
+                  </VStack>
+                }
+                endContent={<StatusBadge status={request.status} />}
+              />
+            );
+          })}
+        </List>
+      )}
       <AlertDialog
         isOpen={withdrawing != null}
         onOpenChange={(next) => {
