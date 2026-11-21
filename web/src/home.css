@@ -1604,6 +1604,13 @@ button.home-nav-item:focus-visible {
   color: #3f3f46;
 }
 
+/* Holds Request and its dropdown, which lines up under it. */
+.home-request {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .home-request-btn {
   display: none;
   align-items: center;

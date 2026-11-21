@@ -466,6 +466,26 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS outgoing_requests (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      contact_id TEXT,
+      recipient_name TEXT NOT NULL,
+      recipient_email TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL,
+      body TEXT NOT NULL,
+      link_token TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL,
+      seen_status TEXT,
+      recipient_note TEXT NOT NULL DEFAULT '',
+      opened_at TEXT,
+      answered_at TEXT,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS contact_messages (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),
