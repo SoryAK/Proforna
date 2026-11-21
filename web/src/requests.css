@@ -164,3 +164,11 @@ button.req-menu-row:focus-visible { background: var(--color-background-secondary
   letter-spacing: 0.02em;
   user-select: none;
 }
+/* Respond is outlined: clear as a button, lighter than the rest of the menu. */
+.req-menu-respond {
+  flex: none;
+  border: 1px solid var(--color-border-strong, #c9c9cf);
+  border-radius: 999px;
+}
+.req-menu-respond:hover,
+.req-menu-respond:focus-visible { border-color: var(--color-text-primary, #171717); }

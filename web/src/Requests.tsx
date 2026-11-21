@@ -220,7 +220,13 @@ export function RequestsMenu({
                       <span className="req-menu-name">{request.requesterName}</span>
                       <span className="req-menu-meta">wants to see your page · {relativeTime(request.createdAt)}</span>
                     </span>
-                    <Button label="Answer" variant="primary" size="sm" onClick={() => onOpen("received", request.id)} />
+                    <Button
+                      label="Respond"
+                      variant="ghost"
+                      size="sm"
+                      className="req-menu-respond"
+                      onClick={() => onOpen("received", request.id)}
+                    />
                   </li>
                 ))}
               </ul>
