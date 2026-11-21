@@ -183,7 +183,8 @@ export function RequestsMenu({
   }, []);
 
   const waiting = listed?.received.filter((request) => request.status === "waiting").slice(0, 3) ?? [];
-  const yours = listed?.requests.slice(0, 3) ?? [];
+  // Only what still needs a look: waiting on the other person, or answered and not yet seen.
+  const yours = listed?.requests.filter((request) => PENDING.includes(request.status) || request.changed).slice(0, 3) ?? [];
   const nothing = listed != null && listed.requests.length === 0 && listed.received.length === 0;
   return (
     <VStack gap={0} className="req-menu">
@@ -642,6 +643,51 @@ function ListTools({
   );
 }
 
+/** A quiet "Clear finished · N" beside the filters, confirmed before anything goes. */
+function ClearFinished({
+  list,
+  count,
+  onCleared,
+}: {
+  list: "sent" | "received";
+  count: number;
+  onCleared: (cleared: number) => Promise<void>;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  if (count === 0) return null;
+  return (
+    <>
+      <button type="button" className="req-clear" onClick={() => setConfirming(true)}>
+        Clear finished · {count}
+      </button>
+      <AlertDialog
+        isOpen={confirming}
+        onOpenChange={(next) => (!next ? setConfirming(false) : undefined)}
+        title={`Clear ${count} finished request${count === 1 ? "" : "s"}?`}
+        description={
+          list === "sent"
+            ? "Answered, expired, and withdrawn requests leave this list. Requests still waiting on someone stay."
+            : "Answered requests leave this list. Anyone you approved keeps their access, and it stays in Access with its Activity."
+        }
+        actionLabel="Clear"
+        onAction={() => {
+          setConfirming(false);
+          void fetch("/api/requests/clear-finished", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ list }),
+          })
+            .then(async (response) => {
+              const body = (await response.json().catch(() => ({}))) as { cleared?: number };
+              await onCleared(response.ok ? body.cleared ?? 0 : -1);
+            })
+            .catch(() => onCleared(-1));
+        }}
+      />
+    </>
+  );
+}
+
 const FILTERS: Array<{ id: string; label: string; match: (status: SentRequestStatus) => boolean }> = [
   { id: "all", label: "All", match: () => true },
   { id: "pending", label: "Pending", match: (status) => PENDING.includes(status) },
@@ -701,15 +747,26 @@ function SentList({
       {requests.length >= SEARCH_FROM || query || kind !== "all" ? (
         <ListTools query={query} onQuery={setQuery} kinds={kinds} kind={kind} onKind={setKind} />
       ) : null}
-      <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
-        {FILTERS.map((item) => (
-          <SegmentedControlItem
-            key={item.id}
-            value={item.id}
-            label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
-          />
-        ))}
-      </SegmentedControl>
+      <div className="req-filter-row">
+        <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
+          {FILTERS.map((item) => (
+            <SegmentedControlItem
+              key={item.id}
+              value={item.id}
+              label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
+            />
+          ))}
+        </SegmentedControl>
+        <ClearFinished
+          list="sent"
+          count={requests.filter((request) => !PENDING.includes(request.status)).length}
+          onCleared={async (cleared) => {
+            setMessage(cleared < 0 ? "Nothing was cleared. Try again." : `Cleared ${cleared} finished request${cleared === 1 ? "" : "s"}.`);
+            setFilter("all");
+            await onChanged();
+          }}
+        />
+      </div>
       {message ? (
         <Text type="supporting" color="secondary" role="status">
           {message}
@@ -911,6 +968,19 @@ function ReceivedList({
     }
   }
 
+  async function removeAnswered(request: ReceivedRequest) {
+    setMessage("");
+    const response = await fetch(`/api/requests/received/${request.id}`, { method: "DELETE" }).catch(() => null);
+    setMessage(
+      response?.ok
+        ? request.grantId
+          ? `Removed. ${request.requesterName.split(/\s+/)[0]} keeps their access; it's in Access.`
+          : "Removed from the list."
+        : "That request couldn't be removed. Try again.",
+    );
+    await onChanged();
+  }
+
   async function draft(request: ReceivedRequest) {
     setMessage("");
     const response = await fetch(`/api/requests/received/${request.id}/gmail-draft`, {
@@ -929,15 +999,26 @@ function ReceivedList({
   return (
     <div className="req-sent">
       {received.length >= SEARCH_FROM || query ? <ListTools query={query} onQuery={setQuery} /> : null}
-      <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
-        {RECEIVED_FILTERS.map((item) => (
-          <SegmentedControlItem
-            key={item.id}
-            value={item.id}
-            label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
-          />
-        ))}
-      </SegmentedControl>
+      <div className="req-filter-row">
+        <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
+          {RECEIVED_FILTERS.map((item) => (
+            <SegmentedControlItem
+              key={item.id}
+              value={item.id}
+              label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
+            />
+          ))}
+        </SegmentedControl>
+        <ClearFinished
+          list="received"
+          count={received.filter((request) => request.status !== "waiting").length}
+          onCleared={async (cleared) => {
+            setMessage(cleared < 0 ? "Nothing was cleared. Try again." : `Cleared ${cleared} finished request${cleared === 1 ? "" : "s"}.`);
+            setFilter("all");
+            await onChanged();
+          }}
+        />
+      </div>
       {message ? (
         <Text type="supporting" color="secondary" role="status">
           {message}
@@ -1050,6 +1131,12 @@ function ReceivedList({
                           {gmail ? (
                             <Button label="Draft reply in Gmail" variant="ghost" size="sm" onClick={() => void draft(request)} />
                           ) : null}
+                          <Button
+                            label="Remove from list"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void removeAnswered(request)}
+                          />
                         </HStack>
                       </>
                     )}

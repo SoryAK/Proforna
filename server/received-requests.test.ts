@@ -169,6 +169,29 @@ describe("requests received from the public page", () => {
     expect(email.body).toContain("Welcome.");
   });
 
+  it("clears answered requests from the list, never pulls them back, and leaves waiting ones", async () => {
+    const ctx = await withAccessPage();
+    await ctx.ask("Ava Chen", "ava@giants.example");
+    await ctx.ask("Sam Ortiz", "sam@temple.example");
+    let received = (await ctx.send("GET", "/api/requests")).body.received as Array<{ id: string; requesterName: string }>;
+    const ava = received.find((request) => request.requesterName === "Ava Chen")!;
+    // A request still waiting can't be cleared.
+    expect((await ctx.send("DELETE", `/api/requests/received/${ava.id}`)).status).toBe(409);
+    await ctx.send("POST", `/api/requests/received/${ava.id}/answer`, { decision: "approved" });
+    expect((await ctx.send("DELETE", `/api/requests/received/${ava.id}`)).status).toBe(200);
+    received = (await ctx.send("GET", "/api/requests")).body.received;
+    expect(received.map((request) => request.requesterName)).toEqual(["Sam Ortiz"]);
+    // Reading again doesn't bring Ava back from the Relay, and her access stays.
+    expect((await ctx.send("GET", "/api/requests")).body.received).toHaveLength(1);
+    expect((await ctx.send("GET", "/api/access")).body.people.map((person: { name: string }) => person.name)).toEqual(["Ava Chen"]);
+
+    const sam = received[0]!;
+    await ctx.send("POST", `/api/requests/received/${sam.id}/answer`, { decision: "declined" });
+    expect((await ctx.send("POST", "/api/requests/clear-finished", { list: "received" })).body.cleared).toBe(1);
+    expect((await ctx.send("GET", "/api/requests")).body.received).toEqual([]);
+    expect((await ctx.send("POST", "/api/requests/clear-finished", { list: "nope" })).status).toBe(400);
+  });
+
   it("declines with a note", async () => {
     const ctx = await withAccessPage();
     await ctx.ask("Sam Ortiz", "sam@temple.example");

@@ -172,3 +172,17 @@ button.req-menu-row:focus-visible { background: var(--color-background-secondary
 }
 .req-menu-respond:hover,
 .req-menu-respond:focus-visible { border-color: var(--color-text-primary, #171717); }
+
+/* Filters, with a quiet Clear finished at the far end. */
+.req-filter-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.req-clear {
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-text-secondary, #6b6b73);
+  cursor: pointer;
+}
+.req-clear:hover,
+.req-clear:focus-visible { color: var(--color-text-primary, #171717); text-decoration: underline; }

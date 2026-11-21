@@ -435,6 +435,21 @@ export async function removeRequest(
   db.prepare("DELETE FROM outgoing_requests WHERE id = ? AND occupant_id = ?").run(id, occupantId);
 }
 
+/**
+ * Removes every finished request (answered, expired, or withdrawn) from the
+ * list. Ones still waiting on the other person stay. Returns how many went.
+ */
+export function clearFinishedSent(db: DatabaseSync, occupantId: string): number {
+  const now = new Date().toISOString();
+  const rows = db
+    .prepare("SELECT id, status, expires_at FROM outgoing_requests WHERE occupant_id = ?")
+    .all(occupantId) as Array<Pick<Row, "id" | "status" | "expires_at">>;
+  const finished = rows.filter((row) => !isPendingRequest(effectiveRequestStatus(row.status, row.expires_at, now)));
+  const remove = db.prepare("DELETE FROM outgoing_requests WHERE id = ? AND occupant_id = ?");
+  for (const row of finished) remove.run(row.id, occupantId);
+  return finished.length;
+}
+
 /** Records that the occupant has seen the current status, which clears the "changed" dot. */
 export function markRequestsSeen(db: DatabaseSync, occupantId: string, ids: string[]): void {
   const now = new Date().toISOString();

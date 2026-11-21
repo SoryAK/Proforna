@@ -142,6 +142,18 @@ describe("sending a request and following the answer", () => {
     expect((await send("GET", "/api/requests")).body.requests).toEqual([]);
   });
 
+  it("clears finished requests at once and keeps the ones still waiting", async () => {
+    const { send } = await setup();
+    const make = async (name: string) =>
+      (await send("POST", "/api/requests", { kind: "general", body: "Hi", recipientName: name, recipientEmail: `${name}@x.example` })).body.request;
+    const open = await make("open");
+    const done = await make("done");
+    await send("POST", `/api/requests/${done.id}/withdraw`);
+    expect((await send("POST", "/api/requests/clear-finished", { list: "sent" })).body.cleared).toBe(1);
+    expect((await send("GET", "/api/requests")).body.requests.map((request: { id: string }) => request.id)).toEqual([open.id]);
+    expect((await send("POST", "/api/requests/clear-finished", { list: "sent" })).body.cleared).toBe(0);
+  });
+
   it("shows an expired request as expired, and its link refuses an answer", async () => {
     const { db, relayDb, relayApp, send, tokenOf } = await setup();
     const created = (await send("POST", "/api/requests", { kind: "general", body: "Soon", recipientName: "Tom", recipientEmail: "tom@x.example" })).body.request;

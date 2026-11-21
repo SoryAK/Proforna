@@ -135,7 +135,9 @@ export async function pullReceived(
 
 export function listReceived(db: DatabaseSync, occupantId: string): ReceivedRequest[] {
   const photos = contactPhotos(db, occupantId);
-  return (db.prepare(`${SELECT} WHERE p.occupant_id = ? ORDER BY r.created_at DESC`).all(occupantId) as Row[]).map(
+  return (
+    db.prepare(`${SELECT} WHERE p.occupant_id = ? AND r.cleared_at IS NULL ORDER BY r.created_at DESC`).all(occupantId) as Row[]
+  ).map(
     (row) => ({ ...present(db, occupantId, row), photoUrl: photos.find(null, row.requester_email) }),
   );
 }
@@ -230,4 +232,24 @@ export function receivedEmail(
     accessLink,
   });
   return { to: row.requester_email, ...draft };
+}
+
+/** Clears an answered request from Requests. One still waiting must be answered first. */
+export function clearReceived(db: DatabaseSync, occupantId: string, id: string) {
+  const row = readRow(db, occupantId, id);
+  if (receivedStatus(row.status) === "waiting") throw new RequestStoreError("request-open");
+  db.prepare("UPDATE projection_access_requests SET cleared_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+}
+
+/** Clears every answered request; ones still waiting stay. Returns how many were cleared. */
+export function clearFinishedReceived(db: DatabaseSync, occupantId: string): number {
+  return Number(
+    db
+      .prepare(
+        `UPDATE projection_access_requests SET cleared_at = ?
+          WHERE cleared_at IS NULL AND status IN ('granted', 'declined')
+            AND projection_id IN (SELECT id FROM interactive_projections WHERE occupant_id = ?)`,
+      )
+      .run(new Date().toISOString(), occupantId).changes,
+  );
 }
