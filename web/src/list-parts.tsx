@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from "react";
 
 /** Small pieces shared by Requests and Access. */
 
+/** "Just now", "20m ago", "3h ago", "Yesterday", then a date. */
+export function relativeTime(iso: string, now = Date.now()): string {
+  const minutes = Math.round((now - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  if (hours < 48) return "Yesterday";
+  return shortDate(iso);
+}
+
 export function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

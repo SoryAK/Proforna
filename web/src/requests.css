@@ -4,10 +4,12 @@
 .req-menu-top {
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px 8px;
+  padding: 12px 14px 10px;
+  /* A line under the title, so the lists start clearly below it. */
+  border-bottom: 1px solid var(--color-border, #ececee);
 }
 .req-menu-heading {
-  padding: 8px 14px 2px;
+  padding: 12px 14px 4px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;
@@ -15,9 +17,70 @@
 .req-menu-pad { padding: 8px 14px 14px; }
 .req-menu-foot {
   display: flex;
-  justify-content: center;
-  padding: 6px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
   border-top: 1px solid var(--color-border, #ececee);
+}
+.req-menu-all {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+  cursor: pointer;
+}
+.req-menu-all:hover,
+.req-menu-all:focus-visible { text-decoration: underline; }
+.req-menu-counts { font-size: 12px; color: var(--color-text-secondary, #6b6b73); }
+
+/* Rows: initials, who and when, then an action or a quiet status. */
+.req-menu-rows { list-style: none; margin: 0; padding: 0 0 4px; }
+.req-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.req-menu-row { cursor: pointer; }
+button.req-menu-row:hover,
+button.req-menu-row:focus-visible { background: var(--color-background-secondary, #f7f7f8); outline: none; }
+.req-menu-row.is-fresh { background: #e8f1fb; }
+.req-menu-who { flex: 1; min-width: 0; display: grid; }
+.req-menu-name,
+.req-menu-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.req-menu-name { font-weight: 500; }
+.req-menu-meta { font-size: 12px; color: var(--color-text-secondary, #6b6b73); }
+.req-menu-status {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary, #5b5b61);
+}
+.req-menu-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #b4b4ba; }
+.req-menu-status.is-approved::before { background: #18794e; }
+.req-menu-status.is-declined::before { background: #b42318; }
+.req-menu-status.is-opened::before { background: #d89a00; }
+.req-menu-status.is-fresh { color: var(--color-text-primary, #171717); font-weight: 600; }
+.req-menu-caught {
+  margin: 10px 14px 4px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #e7f5ee;
+  color: #18794e;
+  font-size: 13px;
 }
 
 .req-tabs { margin-bottom: 12px; }
