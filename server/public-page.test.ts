@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   PublicPageError,
@@ -13,6 +14,7 @@ import {
 // tests pretend 127.0.0.1 is public and every other private address is not.
 let server: Server;
 let port: number;
+let redirectBodyClosed = false;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -34,6 +36,22 @@ beforeAll(async () => {
     } else if (req.url === "/huge") {
       res.writeHead(200, { "content-type": "text/plain" });
       res.end("x".repeat(50_000));
+    } else if (req.url === "/gzip") {
+      res.writeHead(200, { "content-type": "text/html", "content-encoding": "gzip" });
+      res.end(gzipSync("<h1>Compressed careers</h1>" + "y".repeat(50_000)));
+    } else if (req.url === "/trickle") {
+      // One byte at a time, never silent long enough to trip the socket timeout.
+      res.writeHead(200, { "content-type": "text/plain" });
+      const tick = setInterval(() => res.write("."), 50);
+      res.on("close", () => clearInterval(tick));
+    } else if (req.url === "/streaming-redirect") {
+      // A redirect whose body never ends.
+      res.writeHead(302, { location: "/page" });
+      const tick = setInterval(() => res.write("."), 20);
+      res.on("close", () => {
+        clearInterval(tick);
+        redirectBodyClosed = true;
+      });
     }
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -91,6 +109,25 @@ describe("reading a public page", () => {
   it("cuts a large page off at the cap", async () => {
     const page = await read("/huge", "careers.test", { maxBytes: 1000 });
     expect(page.text.length).toBe(1000);
+  });
+
+  it("decodes a compressed page, and caps the decoded text", async () => {
+    const page = await read("/gzip", "careers.test", { maxBytes: 1000 });
+    expect(page.text.startsWith("<h1>Compressed careers</h1>")).toBe(true);
+    expect(page.text.length).toBe(1000);
+  });
+
+  it("gives up at the deadline even when the page keeps trickling", async () => {
+    const started = Date.now();
+    expect(await failure(read("/trickle", "careers.test", { timeoutMs: 400 }))).toBe("failed");
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  it("stops a redirect's body instead of downloading it", async () => {
+    const page = await read("/streaming-redirect");
+    expect(page.text).toBe("<h1>Careers</h1>");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(redirectBodyClosed).toBe(true);
   });
 
   it("refuses other schemes and embedded passwords", async () => {

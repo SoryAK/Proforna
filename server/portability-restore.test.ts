@@ -126,6 +126,18 @@ describe("restoring a portable archive", () => {
     ).toBe("archive-too-large");
   });
 
+  it("refuses a stored entry whose two sizes disagree, before copying it", () => {
+    // Stored (uncompressed) entries are copied by their compressed size, so a
+    // small "unpacked" size must not let a large entry past the budget.
+    const bytes = Buffer.from(zipSync({ "files/big.bin": new Uint8Array(1_000_000) }, { level: 0 }));
+    const central = bytes.lastIndexOf(Buffer.from("files/big.bin")) - 46;
+    bytes.writeUInt32LE(10, central + 24);
+    expect(code(() => restore(new Uint8Array(bytes), { maxUnpackedBytes: 500_000, maxEntries: 10 }))).toBe(
+      "archive-invalid",
+    );
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
   it("refuses an entry whose declared size is a lie", () => {
     const bytes = Buffer.from(
       archive({ "files/big.bin": new Uint8Array(1_000_000) }),

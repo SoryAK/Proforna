@@ -2,6 +2,8 @@ import { lookup as dnsLookup, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import { BlockList, isIP } from "node:net";
+import type { Readable } from "node:stream";
+import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 
 /**
  * Reads a page from the public internet for the occupant, such as a saved
@@ -81,9 +83,12 @@ export async function readPublicPage(
   options: ReadPublicPageOptions = {},
 ): Promise<PublicPage> {
   const maxRedirects = options.maxRedirects ?? 5;
+  // One deadline for the whole read, redirects included. The socket timeout
+  // only catches silence, so a page trickling a byte at a time needs this.
+  const deadline = Date.now() + (options.timeoutMs ?? 8000);
   let url = parseWebUrl(value);
   for (let hop = 0; ; hop += 1) {
-    const response = await requestOnce(url, options);
+    const response = await requestOnce(url, options, deadline);
     if (response.status >= 300 && response.status < 400 && response.location) {
       if (hop >= maxRedirects) throw new PublicPageError("too-many-redirects");
       url = parseWebUrl(new URL(response.location, url).toString());
@@ -127,9 +132,19 @@ function bareHost(url: URL): string {
   return url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
 }
 
+/** Undoes gzip, deflate, or Brotli; `null` for a body sent as is. */
+function decoderFor(encoding: string): Readable & NodeJS.WritableStream | null {
+  const name = encoding.trim().toLowerCase();
+  if (name === "gzip" || name === "x-gzip") return createGunzip();
+  if (name === "deflate") return createInflate();
+  if (name === "br") return createBrotliDecompress();
+  return null;
+}
+
 function requestOnce(
   url: URL,
   options: ReadPublicPageOptions,
+  deadline: number,
 ): Promise<{ status: number; location: string | null; contentType: string; text: string }> {
   const allow = options.allowAddress ?? isPublicAddress;
   const maxBytes = options.maxBytes ?? 1_000_000;
@@ -180,7 +195,16 @@ function requestOnce(
   };
 
   const client = url.protocol === "https:" ? https : http;
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) return Promise.reject(new PublicPageError("failed"));
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
     const request = client.get(
       url,
       {
@@ -194,39 +218,54 @@ function requestOnce(
           typeof response.headers.location === "string" ? response.headers.location : null;
         const contentType = String(response.headers["content-type"] ?? "");
         if (status >= 300 && status < 400) {
-          response.resume();
-          resolve({ status, location, contentType, text: "" });
+          // Only the Location header matters; stop the body here.
+          response.destroy();
+          settle(() => resolve({ status, location, contentType, text: "" }));
           return;
         }
+        // A compressed page is decoded first, and the cap counts decoded bytes.
+        const decoder = decoderFor(String(response.headers["content-encoding"] ?? ""));
+        const body: Readable = decoder ? response.pipe(decoder) : response;
+        const stop = () => {
+          response.destroy();
+          decoder?.destroy();
+        };
         const chunks: Buffer[] = [];
         let size = 0;
         const finish = () =>
-          resolve({
-            status,
-            location,
-            contentType,
-            text: Buffer.concat(chunks).toString("utf8"),
-          });
+          settle(() =>
+            resolve({
+              status,
+              location,
+              contentType,
+              text: Buffer.concat(chunks).toString("utf8"),
+            }),
+          );
         // A page past the cap is cut off there, not downloaded in full.
-        response.on("data", (chunk: Buffer) => {
+        body.on("data", (chunk: Buffer) => {
           const room = maxBytes - size;
           if (chunk.length >= room) {
             chunks.push(chunk.subarray(0, room));
             size = maxBytes;
-            response.destroy();
+            stop();
             finish();
             return;
           }
           size += chunk.length;
           chunks.push(chunk);
         });
-        response.on("end", finish);
-        response.on("error", () => reject(new PublicPageError("failed")));
+        body.on("end", finish);
+        body.on("error", () => settle(() => reject(new PublicPageError("failed"))));
+        response.on("error", () => settle(() => reject(new PublicPageError("failed"))));
       },
     );
+    const timer = setTimeout(() => {
+      request.destroy(new Error("deadline"));
+      settle(() => reject(new PublicPageError("failed")));
+    }, remaining);
     request.on("timeout", () => request.destroy(new Error("timeout")));
     request.on("error", () =>
-      reject(new PublicPageError(blockedAddress ? "address-blocked" : "failed")),
+      settle(() => reject(new PublicPageError(blockedAddress ? "address-blocked" : "failed"))),
     );
   });
 }

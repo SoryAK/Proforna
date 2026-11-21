@@ -13,7 +13,7 @@ export const DEFAULT_BODY_MAX_BYTES = 2 * 1024 * 1024;
 const FORM_OVERHEAD = 1024 * 1024;
 
 const uploadRoutes: Array<{ path: RegExp; maxSize: number }> = [
-  { path: /^\/api\/portability\/restore$/, maxSize: MAX_RESTORE_ARCHIVE_BYTES },
+  { path: /^\/api\/portability\/restore$/, maxSize: MAX_RESTORE_ARCHIVE_BYTES + FORM_OVERHEAD },
   { path: /^\/api\/documents$/, maxSize: UPLOAD_MAX_BYTES + FORM_OVERHEAD },
   { path: /^\/api\/resumes(\/extract)?$/, maxSize: UPLOAD_MAX_BYTES + FORM_OVERHEAD },
   { path: /^\/api\/profile\/avatar$/, maxSize: PROFILE_AVATAR_MAX_BYTES + FORM_OVERHEAD },

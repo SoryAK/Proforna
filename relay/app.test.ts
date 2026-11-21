@@ -550,6 +550,21 @@ describe("share links with an access token", () => {
     }
   });
 
+  it("sets the cookie Secure whatever the request claims, unless told not to", async () => {
+    const { db, app } = await protectedRelay();
+    try {
+      const plain = await app.request("http://relay.test/r/systems?token=viewer-token", {
+        headers: { "x-forwarded-proto": "http" },
+      });
+      expect(plain.headers.get("set-cookie") ?? "").toContain("Secure");
+      const local = createRelayApp(db, "owner-secret", { insecureCookies: true });
+      const lan = await local.request("http://192.168.1.20/r/systems?token=viewer-token");
+      expect(lan.headers.get("set-cookie") ?? "").not.toContain("Secure");
+    } finally {
+      db.close();
+    }
+  });
+
   it("refuses the page without the cookie, and sets none for a wrong token", async () => {
     const { db, app } = await protectedRelay();
     try {

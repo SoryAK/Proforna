@@ -2282,7 +2282,13 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.get("/api/portability/export", (c) => {
     const occupant = ensureOccupant(db);
-    const archive = createPortableArchive(db, occupant.id, uploadsDir);
+    let archive: Uint8Array;
+    try {
+      archive = createPortableArchive(db, occupant.id, uploadsDir);
+    } catch (error) {
+      if (error instanceof PortabilityError) return c.json({ error: error.code }, 413);
+      throw error;
+    }
     return c.body(Buffer.from(archive), 200, {
       "content-type": "application/zip",
       "content-disposition": 'attachment; filename="proforna-export.zip"',
@@ -2715,6 +2721,7 @@ function profilePlace(profile: {
 
 /** Access tokens travel in the Authorization header, never in the address. */
 function bearerToken(header: string | undefined): string | null {
-  if (!header?.startsWith("Bearer ")) return null;
-  return header.slice("Bearer ".length).trim() || null;
+  // The scheme name is case-insensitive (RFC 9110); the token keeps its case.
+  const match = /^bearer\s+(.+)$/i.exec(header?.trim() ?? "");
+  return match?.[1]?.trim() || null;
 }

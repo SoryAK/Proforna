@@ -1,11 +1,12 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { strFromU8, unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "./db";
 import { loadDocument, storeDocument } from "./documents";
 import { ensureOccupant } from "./occupant";
-import { createPortableArchive } from "./portability";
+import { createPortableArchive, restorePortableArchive } from "./portability";
 import { loadAvatar, storeAvatar } from "./profile";
 import { isSafeStoredName, uploadPath } from "./upload-path";
 import { loadWorkMapMediaFile, removeWorkMapMedia } from "./work-map";
@@ -86,6 +87,16 @@ describe("a tampered stored name in the database", () => {
       occupantId,
     );
     const archive = createPortableArchive(db, occupantId, uploads);
-    expect(Buffer.from(archive).includes(Buffer.from("private key"))).toBe(false);
+    // Look inside the archive: compressed bytes could hide the secret's text.
+    const entries = unzipSync(archive);
+    expect(Object.keys(entries).filter((name) => name.startsWith("files/"))).toEqual([]);
+    for (const bytes of Object.values(entries)) {
+      expect(strFromU8(bytes).includes("private key")).toBe(false);
+    }
+    // The unsafe name is gone from the data too, so the backup can be restored.
+    const data = JSON.parse(strFromU8(entries["data.json"]!)) as { tables: { profiles: Array<{ avatar_stored_name: unknown }> } };
+    expect(data.tables.profiles[0]!.avatar_stored_name).toBeNull();
+    const fresh = openDatabase(":memory:");
+    expect(restorePortableArchive(fresh, ensureOccupant(fresh).id, mkdtempSync(join(tmpdir(), "restore-")), archive).rows).toBeGreaterThan(0);
   });
 });

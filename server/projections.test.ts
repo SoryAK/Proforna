@@ -330,6 +330,14 @@ describe("interactive projections HTTP seam", () => {
           })
         ).status,
       ).toBe(200);
+      // The scheme name is case-insensitive.
+      expect(
+        (
+          await app.request("/api/public/sory-systems", {
+            headers: { authorization: `bearer ${grantBody.grant.token}` },
+          })
+        ).status,
+      ).toBe(200);
 
       expect(
         (

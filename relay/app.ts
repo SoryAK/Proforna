@@ -12,7 +12,15 @@ type RelayProjection = PublicationSnapshot;
 
 type JsonObject = Record<string, unknown>;
 
-export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
+export type RelayOptions = {
+  /**
+   * Issue the access cookie without `Secure`, for trying the Relay over plain
+   * HTTP from another device on a local network. Never set it on a hosted Relay.
+   */
+  insecureCookies?: boolean;
+};
+
+export function createRelayApp(db: DatabaseSync, ownerToken: string, options: RelayOptions = {}): Hono {
   const app = new Hono();
 
   // Visitors only send small forms and events; the owner sends whole publications.
@@ -158,11 +166,12 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
       const clean = new URL(c.req.url);
       clean.searchParams.delete("token");
       if (expiresAt) {
-        const forwarded = c.req.header("x-forwarded-proto");
         setCookie(c, ACCESS_COOKIE, linkToken, {
           path: `/r/${encodeURIComponent(slug)}`,
           httpOnly: true,
-          secure: (forwarded ?? clean.protocol.replace(":", "")) === "https",
+          // Always Secure: a hosted Relay is reached over HTTPS, and browsers
+          // accept Secure cookies on http://localhost. No request header decides it.
+          secure: !options.insecureCookies,
           sameSite: "Lax",
           // The grant is checked on every visit; the cookie only decides when
           // the viewer has to open the link again.

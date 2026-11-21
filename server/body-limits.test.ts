@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { DEFAULT_BODY_MAX_BYTES, UPLOAD_MAX_BYTES, bodyLimitFor } from "./body-limits";
 import { openDatabase } from "./db";
+import { MAX_RESTORE_ARCHIVE_BYTES } from "./portability";
 
 const MB = 1024 * 1024;
 
@@ -33,7 +34,7 @@ describe("request size limits", () => {
     expect(bodyLimitFor("/api/documents")).toBeGreaterThan(UPLOAD_MAX_BYTES);
     expect(bodyLimitFor("/api/resumes/extract")).toBeGreaterThan(UPLOAD_MAX_BYTES);
     expect(bodyLimitFor("/api/work-map/roles/abc/photos")).toBeLessThan(UPLOAD_MAX_BYTES);
-    expect(bodyLimitFor("/api/portability/restore")).toBeGreaterThan(100 * MB);
+    expect(bodyLimitFor("/api/portability/restore")).toBeGreaterThan(MAX_RESTORE_ARCHIVE_BYTES);
     expect(bodyLimitFor("/api/history")).toBe(DEFAULT_BODY_MAX_BYTES);
   });
 

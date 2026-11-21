@@ -142,6 +142,22 @@ export function createPortableArchive(
     )
     .all(occupantId) as JsonRow[];
 
+  // A row naming a file outside the uploads folder would make the whole backup
+  // unrestorable, so it leaves the export: file rows are dropped, and a profile
+  // keeps its other fields without the photo.
+  for (const table of ["resumes", "documents", "work_history_media"]) {
+    if (tables[table]) {
+      tables[table] = tables[table]!.filter(
+        (row) => row.stored_name === null || row.stored_name === undefined || isSafeStoredName(row.stored_name),
+      );
+    }
+  }
+  for (const row of tables.profiles ?? []) {
+    if (row.avatar_stored_name !== null && row.avatar_stored_name !== undefined && !isSafeStoredName(row.avatar_stored_name)) {
+      row.avatar_stored_name = null;
+    }
+  }
+
   const archiveFiles: Record<string, Uint8Array> = {};
   const storedNames = new Set<string>();
   for (const row of tables.resumes ?? []) addStoredName(row, storedNames);
@@ -160,6 +176,15 @@ export function createPortableArchive(
     archiveFiles[`files/${storedName}`] = readFileSync(fullPath);
   }
   const dataBytes = strToU8(JSON.stringify({ tables }));
+  // A backup must be one that restore accepts; refuse rather than hand back an
+  // archive that can never be restored.
+  const unpacked = dataBytes.byteLength + Object.values(archiveFiles).reduce((total, bytes) => total + bytes.byteLength, 0);
+  if (
+    unpacked > DEFAULT_RESTORE_LIMITS.maxUnpackedBytes ||
+    Object.keys(archiveFiles).length + 2 > DEFAULT_RESTORE_LIMITS.maxEntries
+  ) {
+    throw new PortabilityError("export-too-large");
+  }
   const checksums: Record<string, string> = {
     "data.json": checksum(dataBytes),
   };
@@ -175,7 +200,7 @@ export function createPortableArchive(
     fileCount: Object.keys(archiveFiles).length,
     checksums,
   };
-  return zipSync(
+  const zipped = zipSync(
     {
       "manifest.json": strToU8(JSON.stringify(manifest, null, 2)),
       "data.json": dataBytes,
@@ -183,6 +208,8 @@ export function createPortableArchive(
     },
     { level: 6 },
   );
+  if (zipped.byteLength > MAX_RESTORE_ARCHIVE_BYTES) throw new PortabilityError("export-too-large");
+  return zipped;
 }
 
 /** Largest archive file accepted for restore, before unpacking. */
@@ -210,9 +237,10 @@ export function restorePortableArchive(
   if (bytes.byteLength > MAX_RESTORE_ARCHIVE_BYTES) {
     throw new PortabilityError("archive-too-large");
   }
-  // fflate never unpacks more than an entry's declared size, so adding up the
-  // declared sizes bounds memory. An entry that lies about its size comes out
-  // truncated and then fails its checksum below.
+  // fflate never inflates more than an entry's declared size, so adding up the
+  // declared sizes bounds memory. A stored (uncompressed) entry is copied by its
+  // compressed size instead, so its two sizes must agree and that size counts.
+  // An entry that lies about its size comes out truncated and fails its checksum.
   let archive: Record<string, Uint8Array>;
   let entries = 0;
   let unpackedBytes = 0;
@@ -220,7 +248,10 @@ export function restorePortableArchive(
     archive = unzipSync(bytes, {
       filter(file) {
         entries += 1;
-        unpackedBytes += file.originalSize;
+        if (file.compression === 0 && file.size !== file.originalSize) {
+          throw new PortabilityError("archive-invalid");
+        }
+        unpackedBytes += Math.max(file.originalSize, file.size);
         if (
           entries > limits.maxEntries ||
           unpackedBytes > limits.maxUnpackedBytes
