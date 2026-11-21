@@ -97,12 +97,11 @@ function until(person: Pick<AccessPerson, "untilRevoked" | "expiresAt">): string
   return person.untilRevoked ? "until you revoke it" : `until ${shortDate(person.expiresAt)}`;
 }
 
-/** What a link opens, said the short way: "Whole page", "All but Map", or the list. */
+/** What a link opens, listing only what this person has: "Whole page" or "Profile, Career history and Map". */
 function scope(person: AccessPerson): string {
   if (person.wholePage || person.sections.length === person.pageSections.length) return "Whole page";
-  const hidden = person.pageSections.filter((section) => !person.sections.includes(section));
-  const label = (list: WorkMapPublishSection[]) => list.map((section) => ACCESS_SECTION_LABEL[section]).join(", ");
-  return hidden.length < person.sections.length ? `All but ${label(hidden)}` : label(person.sections);
+  const names = person.sections.map((section) => ACCESS_SECTION_LABEL[section]);
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : (names[0] ?? "Nothing");
 }
 
 function opens(person: AccessPerson): string {
@@ -581,16 +580,17 @@ export function AccessDialog({
                               endContent={stateBadge(person)}
                               description={
                                 <VStack gap={2}>
-                                  <div className="access-chips">
-                                    {person.pageSections.map((section) => (
-                                      <span
-                                        key={section}
-                                        className={person.sections.includes(section) ? "access-chip" : "access-chip is-off"}
-                                      >
-                                        {ACCESS_SECTION_LABEL[section]}
-                                      </span>
-                                    ))}
-                                  </div>
+                                  <span className="access-sees">
+                                    {scope(person) === "Whole page" ? (
+                                      <>
+                                        Sees <strong>your whole page</strong>
+                                      </>
+                                    ) : (
+                                      <>
+                                        Sees <strong>{scope(person)}</strong>
+                                      </>
+                                    )}
+                                  </span>
                                   <span>
                                     {person.source === "asked" ? "Asked on your page" : "Shared by you"} ·{" "}
                                     {live ? until(person) : `ended ${shortDate(person.revokedAt ?? person.expiresAt)}`} ·{" "}

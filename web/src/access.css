@@ -16,22 +16,9 @@
   gap: 6px 14px;
   margin-top: 6px;
 }
-.access-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.access-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  background: var(--color-background-secondary, #f3f3f4);
-  font-size: 12px;
-}
-.access-chip.is-off {
-  background: none;
-  border: 1px dashed var(--color-border, #d4d4d8);
-  color: var(--color-text-secondary, #8a8a91);
-  text-decoration: line-through;
-}
+/* What a person can see, as one plain line. */
+.access-sees { color: var(--color-text-primary, #171717); }
+.access-sees strong { font-weight: 500; }
 .access-actions { flex-wrap: wrap; }
 .access-danger { color: var(--color-text-error, #b42318); }
 
