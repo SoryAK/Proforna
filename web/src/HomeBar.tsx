@@ -626,6 +626,7 @@ export function HomeBar({
                 }}
               >
                 <div className="home-sync-slug-row">
+                  <div className="home-sync-slug-field">
                   <TextInput
                     label="Public slug"
                     size="sm"
@@ -640,6 +641,7 @@ export function HomeBar({
                       void commitSlug();
                     }}
                   />
+                  </div>
                   {relayState === "current" || relayState === "changed" ? (
                     // Sharing sits with the page's address; it needs a published page.
                     <button

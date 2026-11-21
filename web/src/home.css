@@ -3105,8 +3105,9 @@ a.home-user-item {
 
 /* The slug box with Share beside it: sharing goes with the page's address. */
 .home-sync-slug-row { display: flex; align-items: flex-end; gap: 8px; }
-.home-sync-slug-row > :first-child { flex: 1; min-width: 0; }
-.home-sync-share {
+.home-sync-slug-field { flex: 1; min-width: 0; }
+/* Two classes, so the menu's general button style doesn't win. */
+.home-pub-menu .home-sync-share {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -3122,5 +3123,5 @@ a.home-user-item {
   color: inherit;
   cursor: pointer;
 }
-.home-sync-share:hover,
-.home-sync-share:focus-visible { border-color: var(--color-text-primary, #171717); }
+.home-pub-menu .home-sync-share:hover,
+.home-pub-menu .home-sync-share:focus-visible { border-color: var(--color-text-primary, #171717); }
