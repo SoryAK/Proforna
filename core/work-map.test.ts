@@ -20,6 +20,7 @@ import {
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationEmbed,
+  publicationLink,
   publicationNeedsAudienceConfirm,
   normalizeWorkMapDetails,
   previewRoleMark,
@@ -1086,6 +1087,30 @@ describe("Work Map publication settings", () => {
         origin: "https://user:secret@relay.example",
         slug: "systems",
         visibility: "public",
+      }),
+    ).toEqual({ ok: false, reason: "origin" });
+  });
+
+  it("gives the public page address when the career can be shared", () => {
+    expect(
+      publicationLink({
+        origin: "https://relay.example/extra",
+        slug: "Career Map",
+        visibility: "public",
+      }),
+    ).toEqual({ ok: true, url: "https://relay.example/r/career-map" });
+    expect(
+      publicationLink({
+        origin: "https://relay.example",
+        slug: "systems",
+        visibility: "private",
+      }),
+    ).toEqual({ ok: false, reason: "private" });
+    expect(
+      publicationLink({
+        origin: null,
+        slug: "systems",
+        visibility: "unlisted",
       }),
     ).toEqual({ ok: false, reason: "origin" });
   });

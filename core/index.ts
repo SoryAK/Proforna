@@ -254,10 +254,12 @@ export {
   planProjectionAccessDecision,
   planProjectionGrant,
   planProjectionRevoke,
+  presentRelayStatus,
   type InteractiveProjection,
   type ProjectionDisclosure,
   type ProjectionError,
   type ProjectionVisibility,
+  type RelayStatus,
 } from "./projection";
 export {
   presentInboundAccessRequest,
@@ -430,6 +432,7 @@ export {
   roleCoverPhoto,
   publicationAllowsSnapshot,
   publicationEmbed,
+  publicationLink,
   publicationNeedsAudienceConfirm,
   type LinkedEvidence,
   type LinkedEvidenceError,
@@ -437,6 +440,7 @@ export {
   type PublishedLinkedEvidence,
   type PreparedWorkMapLocation,
   type PublicationEmbed,
+  type PublicationLink,
   DEFAULT_WORK_MAP_OVERVIEW_FIELDS,
   WORK_MAP_OVERVIEW_FIELDS,
   workMapColleagues,

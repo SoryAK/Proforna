@@ -5,6 +5,7 @@ import {
   careerSpan,
   nextCareerMoment,
   rolesStartedBy,
+  rolesToConfirmCurrent,
   type CareerTimelineRole,
 } from "./career-timeline";
 
@@ -160,5 +161,25 @@ describe("career timeline", () => {
     expect(nextCareerMoment(withHomes, "2016-05")?.at).toBe("2018-08");
     expect(nextCareerMoment(withHomes, "2019-06")?.at).toBe("2019-07");
     expect(careerSpan(roles, withHomes, "2026-09")[0]).toBe("2016-04");
+  });
+});
+
+describe("rolesToConfirmCurrent", () => {
+  it("asks about a current role that a later, finished role followed", () => {
+    const career = [
+      role({ id: "early", startDate: "2016-03-01", isCurrent: true }),
+      role({ id: "middle", startDate: "2019-01-01", endDate: "2021-06-01" }),
+      role({ id: "now", startDate: "2023-01-01", isCurrent: true }),
+    ];
+    expect(rolesToConfirmCurrent(career).map((item) => item.id)).toEqual(["early"]);
+  });
+
+  it("leaves current roles alone when nothing later has ended", () => {
+    const career = [
+      role({ id: "weekday", startDate: "2022-01-01", isCurrent: true }),
+      role({ id: "weekend", startDate: "2023-05-01", isCurrent: true }),
+      role({ id: "before", startDate: "2019-01-01", endDate: "2021-12-01" }),
+    ];
+    expect(rolesToConfirmCurrent(career)).toEqual([]);
   });
 });

@@ -11,9 +11,12 @@ import {
   planProjectionGrant,
   planProjectionRevoke,
   presentInboundAccessRequest,
+  presentRelayStatus,
   resolveInboundAccessRequest,
   type ChangeSet,
   type InteractiveProjection,
+  type RelayStatus,
+  type WorkMapSnapshot,
 } from "../core/index";
 import { createContact, createOpportunity } from "./career-management";
 import {
@@ -62,6 +65,59 @@ export function listProjections(db: DatabaseSync, occupantId: string) {
         },
       };
     });
+}
+
+export function readRelayStatus(db: DatabaseSync, occupantId: string): RelayStatus {
+  const snapshot = composeWorkMapSnapshot(db, occupantId);
+  const publication = db
+    .prepare(
+      `SELECT projection_id, published_at, expires_at FROM publications
+       WHERE occupant_id = ? AND slug = ? AND revoked_at IS NULL
+       ORDER BY published_at DESC LIMIT 1`,
+    )
+    .get(occupantId, snapshot.slug) as
+    | { projection_id: string; published_at: string; expires_at: string | null }
+    | undefined;
+  const live = publication && !publicationExpired(publication.expires_at) ? publication : undefined;
+  const commits = db
+    .prepare(
+      `SELECT operations_json FROM change_sets
+       WHERE occupant_id = ? AND destination = ? AND status = 'committed'
+       ORDER BY created_at DESC`,
+    )
+    .all(occupantId, `relay:${snapshot.slug}`) as Array<{ operations_json: string }>;
+  let publishedFingerprint: string | null = null;
+  for (const row of commits) {
+    const operation = (JSON.parse(row.operations_json) as ChangeSet["operations"])[0];
+    if (operation?.action !== "publish") continue;
+    const value = operation.values?.sourceFingerprint;
+    publishedFingerprint = typeof value === "string" ? value : null;
+    break;
+  }
+  const published = publishedFingerprint
+    ? (db
+        .prepare(
+          `SELECT snapshot_json FROM work_map_snapshots
+           WHERE occupant_id = ? AND source_fingerprint = ?
+           ORDER BY created_at DESC LIMIT 1`,
+        )
+        .get(occupantId, publishedFingerprint) as { snapshot_json: string } | undefined)
+    : undefined;
+  const status = presentRelayStatus({
+    current: snapshot,
+    live: live
+      ? {
+          publishedAt: live.published_at,
+          snapshot: published
+            ? (JSON.parse(published.snapshot_json) as WorkMapSnapshot)
+            : null,
+        }
+      : null,
+  });
+  if (status.state === "private" && status.publishedAt && live) {
+    return { ...status, projectionId: live.projection_id };
+  }
+  return status;
 }
 
 export function previewWorkMapProjection(db: DatabaseSync, occupantId: string) {
@@ -567,6 +623,10 @@ export function recordProjectionEvent(
     section ?? null,
     new Date().toISOString(),
   );
+}
+
+function publicationExpired(expiresAt: string | null, now = new Date().toISOString()): boolean {
+  return Boolean(expiresAt && expiresAt <= now);
 }
 
 function readProjection(

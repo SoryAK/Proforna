@@ -446,7 +446,8 @@ type IconName =
   | "railOff"
   | "proforna"
   | "panel"
-  | "panelOff";
+  | "panelOff"
+  | "request";
 
 export function Icon({ name }: { name: IconName }) {
   return (
@@ -529,6 +530,12 @@ export function Icon({ name }: { name: IconName }) {
         <>
           <rect x="3" y="4" width="18" height="16" rx="1.5" />
           <path d="M14.5 4v16" />
+        </>
+      ) : null}
+      {name === "request" ? (
+        <>
+          <path d="M10 14l11 -11" />
+          <path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5" />
         </>
       ) : null}
     </svg>

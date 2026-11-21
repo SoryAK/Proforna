@@ -57,6 +57,10 @@ pnpm dev
 
 UI: [http://localhost:5173](http://localhost:5173). API: [http://localhost:3000/api/health](http://localhost:3000/api/health).
 
+## Resources
+
+Marks and icons: [docs/resources.md](docs/resources.md).
+
 ## License
 
 [Apache-2.0](LICENSE) © 2026 SoryAK
