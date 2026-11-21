@@ -3109,6 +3109,8 @@ a.home-user-item {
 /* Two classes, so the menu's general button style doesn't win. */
 .home-pub-menu .home-sync-share {
   flex: none;
+  width: auto;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
