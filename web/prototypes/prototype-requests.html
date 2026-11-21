@@ -103,6 +103,19 @@
       .v1 .item .who { font-weight: 600; }
       .v1 .item .acts { grid-column: 1 / -1; display: flex; gap: 6px; }
 
+      /* Variant 1: the quick dropdown under Request */
+      .v1 .menu { position: fixed; z-index: 10; top: 46px; right: 44px; width: 380px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.14); overflow: hidden; }
+      .v1 .menu-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
+      .v1 .menu h5 { margin: 0; padding: 10px 14px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+      .v1 .mrow { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 9px 14px; cursor: pointer; }
+      .v1 .mrow:hover, .v1 .mrow.focus { background: #f6f8fb; }
+      .v1 .mrow b { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+      .v1 .mrow .faint { grid-column: 1; }
+      .v1 .mrow .when { grid-column: 2; text-align: right; }
+      .v1 .changed { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+      .v1 .menu-foot { display: block; width: 100%; padding: 11px 14px; border: 0; border-top: 1px solid var(--line); background: #fafafa; text-align: center; font-weight: 600; }
+      .v1 .menu-empty { padding: 22px 16px 18px; text-align: center; display: grid; gap: 6px; justify-items: center; }
+
       /* ── Variant 2: side drawer with expanding rows ───────── */
       .v2 .drawer { position: fixed; z-index: 10; top: 0; right: 0; bottom: 0; width: 440px; background: #fff; border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(0,0,0,.12); display: flex; flex-direction: column; }
       .v2 .dhead { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
@@ -183,12 +196,12 @@
       const badge = (s) => `<span class="badge s-${s}">${label[s]}</span>`;
       const kind = (k) => `<span class="kind">${k}</span>`;
 
-      const shell = (inner, { reqOn = true, main = "" } = {}) => `
+      const shell = (inner, { reqOn = true, main = "", badgeCount = 2 } = {}) => `
         <header class="bar">
           <div class="brand">${mark} Docier</div>
           <div class="search">Search…</div>
           <div class="end">
-            <button class="req-btn ${reqOn ? "on" : ""}">Request <span class="dot">2</span></button>
+            <button class="req-btn ${reqOn ? "on" : ""}" data-go="toggle-menu">Request ${badgeCount ? `<span class="dot">${badgeCount}</span>` : ""}</button>
             <span class="avatar"></span>
           </div>
         </header>
@@ -242,7 +255,23 @@
 
       // ── Variant 1: a dialog with New / Sent / Received tabs ──
       function v1(state) {
-        const tab = (name, on, count) => `<span class="${on ? "on" : ""}">${name}${count ? `<em>${count}</em>` : ""}</span>`;
+        if (state === "closed") return shell("", { reqOn: false });
+        if (state === "menu" || state === "menu-empty") {
+          const empty = state === "menu-empty";
+          const waiting = received.filter((r) => r.status === "new").slice(0, 3);
+          const recent = sent.slice(0, 4);
+          const changed = new Set(["Dana Reed", "Lee Okafor"]);
+          const mrow = (r, i, received) => `<div data-go="${received ? "received" : "sent"}" class="mrow ${!received && i === 0 ? "focus" : ""}"><b>${r.who} ${!received && changed.has(r.who) ? '<span class="changed" title="Changed since you last looked"></span>' : ""}</b>${badge(r.status)}<span class="faint">${r.kind} · ${r.org}</span><span class="faint when">${r.when}</span></div>`;
+          const body = empty
+            ? `<div class="menu-empty"><b>No requests yet</b><span class="faint">Ask anyone for a reference, an introduction, or a recommendation. They answer on a private link.</span></div>`
+            : `<h5>Needs your answer · ${waiting.length}</h5>${waiting.map((r, i) => mrow(r, i, true)).join("")}<h5>Recent</h5>${recent.map((r, i) => mrow(r, i, false)).join("")}`;
+          return shell(`<div class="menu" role="menu" aria-label="Requests">
+            <div class="menu-top"><h3 style="font-size:15px">Requests</h3><button class="btn primary" data-go="new">+ New request</button></div>
+            ${body}
+            ${empty ? "" : `<button class="menu-foot" data-go="received">View all requests ↗</button>`}
+          </div>`, { badgeCount: empty ? 0 : waiting.length });
+        }
+        const tab = (name, on, count) => `<span data-go="${name === "New request" ? "new" : name.toLowerCase()}" style="cursor:pointer" class="${on ? "on" : ""}">${name}${count ? `<em>${count}</em>` : ""}</span>`;
         let body;
         if (state === "new") {
           body = `
@@ -251,13 +280,13 @@
             <div><div class="faint" style="margin-bottom:6px">Kind</div><div class="chips"><span class="chip">Reference</span><span class="chip on">Introduction</span><span class="chip">Recommendation</span><span class="chip">General</span></div></div>
             <label class="field">Request<div class="area">Hi Marcus, would you introduce me to the hiring lead for automation at Waters? I'd value 20 minutes of their time.</div></label>
             <div class="hint">Marcus isn't in your network. They can choose to join when they answer.</div>
-            <div style="display:flex; gap:8px; justify-content:flex-end"><button class="btn quiet">Cancel</button><button class="btn primary">Create request</button></div>`;
+            <div style="display:flex; gap:8px; justify-content:flex-end"><button class="btn quiet" data-go="closed">Cancel</button><button class="btn primary" data-go="created">Create request</button></div>`;
         } else if (state === "created") {
           body = `
             <div class="note"><b>Request created.</b> Send Marcus the link. It works once, for 30 days.</div>
             <div class="link-box"><code>relay.docier.app/q/7Kp2-mN4x</code><button class="btn">Copy link</button></div>
             <div style="display:flex; gap:8px"><button class="btn">Draft in Gmail</button><span class="hint" style="align-self:center">Opens a draft to marcus@hale.example. You send it.</span></div>
-            <div style="display:flex; justify-content:flex-end"><button class="btn primary">Done</button></div>`;
+            <div style="display:flex; justify-content:flex-end"><button class="btn primary" data-go="sent">Done</button></div>`;
         } else if (state === "received") {
           body = `<div class="chips"><span class="chip on">All</span><span class="chip">Needs answer · 2</span><span class="chip">Approved</span><span class="chip">Declined</span></div>
             <div class="list">${received.map((r, i) => `<div class="item"><div><span class="who">${r.who}</span> ${kind(r.kind)}<div class="faint">${r.org} · ${r.when}</div>${r.note ? `<div class="note" style="margin-top:6px">${r.note}</div>` : ""}</div><div>${badge(r.status)}</div>${r.status === "new" ? `<div class="acts"><button class="btn primary">Approve</button><button class="btn">Decline</button><button class="btn quiet">Add a note</button></div>` : ""}</div>`).join("")}</div>`;
@@ -267,7 +296,7 @@
         }
         const on = state === "new" || state === "created" ? "new" : state;
         return shell(`<div class="scrim"></div><div class="dialog">
-          <div class="dhead"><h3>Requests</h3><button class="btn quiet">✕</button></div>
+          <div class="dhead"><h3>Requests</h3><button class="btn quiet" data-go="closed">✕</button></div>
           <div class="tabs">${tab("New request", on === "new")}${tab("Sent", on === "sent")}${tab("Received", on === "received", 2)}</div>
           <div class="dbody">${body}</div></div>`);
       }
@@ -341,16 +370,23 @@
       const v = Number(params.get("v") || 1);
       const state = location.hash.slice(1) || "sent";
       const render = () => {
-        const s = location.hash.slice(1) || "sent";
+        const s = location.hash.slice(1) || (v === 1 ? "menu" : "sent");
         document.getElementById("app").className = `v${v}`;
         document.getElementById("app").innerHTML =
           s === "answer" || s === "join" ? answerPage(v, s) : v === 1 ? v1(s) : v === 2 ? v2(s) : v3(s);
         document.getElementById("switch").innerHTML = [1, 2, 3]
           .map((n) => `<a class="${n === v ? "on" : ""}" href="?v=${n}#${s}">Variant ${n}</a>`)
-          .concat(["sent", "received", "new", "created", "answer"].map((st) => `<a class="${st === s ? "on" : ""}" href="?v=${v}#${st}">${st}</a>`))
+          .concat((v === 1 ? ["closed", "menu", "menu-empty", "sent", "received", "new", "created", "answer"] : ["sent", "received", "new", "created", "answer"]).map((st) => `<a class="${st === s ? "on" : ""}" href="?v=${v}#${st}">${st}</a>`))
           .join("");
       };
       window.addEventListener("hashchange", render);
+      // Variant 1 is clickable: data-go names the state a control leads to.
+      document.addEventListener("click", (event) => {
+        const go = event.target.closest("[data-go]")?.dataset.go;
+        if (!go || v !== 1) return;
+        const now = location.hash.slice(1) || "menu";
+        location.hash = go === "toggle-menu" ? (now.startsWith("menu") ? "closed" : "menu") : go;
+      });
       render();
       if (params.has("shot")) document.getElementById("switch").style.display = "none";
     </script>
