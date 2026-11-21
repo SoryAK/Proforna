@@ -6,7 +6,7 @@ import type { RelayStatus } from "@core/projection";
 import { normalizeSlug, publicationLink, type WorkMapPublicationSettings } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
-import mark from "./docier-mark.svg";
+import mark from "./branding/docier-mark.svg";
 import { readPreviewPlacement } from "./preview-placement";
 import { announceRelayChange, useRelayStatus } from "./relay-status";
 
