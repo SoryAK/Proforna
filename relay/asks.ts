@@ -150,6 +150,8 @@ export function registerAsks(app: Hono, db: DatabaseSync, isOwner: (c: Context) 
   // Recipient: approve or decline, with a note.
   app.post("/q/:token/answer", async (c) => {
     privatePage(c);
+    // An answer is a note and, at most, a small photo.
+    if (Number(c.req.header("content-length") ?? 0) > 600_000) return c.json({ error: "too-large" }, 413);
     const row = read(hashToken(c.req.param("token")));
     if (!row) return c.json({ error: "not-found" }, 404);
     if (row.status !== "sent" && row.status !== "opened") return c.json({ error: "request-closed" }, 409);
@@ -208,6 +210,11 @@ function answerForm(row: AskRow, token: string): string {
         <label>Organization<input name="join-organization" maxlength="200" autocomplete="organization"></label>
         <label>Role<input name="join-role" maxlength="200" autocomplete="organization-title"></label>
         <label>Phone (optional)<input name="join-phone" maxlength="60" autocomplete="tel"></label>
+        <div class="photo-row">
+          <img class="photo-preview" id="join-photo-preview" alt="" hidden>
+          <label>Photo (optional)<input type="file" id="join-photo" accept="image/jpeg,image/png,image/webp"></label>
+          <button type="button" class="linkish" id="join-photo-clear" hidden>Remove photo</button>
+        </div>
       </div>
       <p class="small" id="join-hint">Leave it unticked to answer without joining. ${first} only sees your answer and note.</p>
       <button type="button" class="linkish" id="join-no">No thanks, don't add me</button>
@@ -219,6 +226,34 @@ function answerForm(row: AskRow, token: string): string {
     const form = document.querySelector("#answer");
     const joinOn = document.querySelector("#join-on");
     let declinedJoin = false;
+    // A chosen photo is shrunk here, in the browser, before it is sent.
+    let joinPhoto = "";
+    const photoInput = document.querySelector("#join-photo");
+    const photoPreview = document.querySelector("#join-photo-preview");
+    const photoClear = document.querySelector("#join-photo-clear");
+    function showPhoto(url) {
+      joinPhoto = url;
+      photoPreview.hidden = !url;
+      photoClear.hidden = !url;
+      if (url) photoPreview.src = url; else { photoPreview.removeAttribute("src"); photoInput.value = ""; }
+    }
+    photoInput.addEventListener("change", async () => {
+      const file = photoInput.files && photoInput.files[0];
+      if (!file) return;
+      try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 256 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        showPhoto(canvas.toDataURL("image/jpeg", 0.85));
+      } catch {
+        showPhoto("");
+        document.querySelector("#status").textContent = "That photo could not be read. Try a JPEG or PNG.";
+      }
+    });
+    photoClear.addEventListener("click", () => showPhoto(""));
     joinOn.addEventListener("change", () => {
       document.querySelector("#join-fields").hidden = !joinOn.checked;
       document.querySelector("#join-no").hidden = joinOn.checked;
@@ -238,6 +273,7 @@ function answerForm(row: AskRow, token: string): string {
       let join;
       if (joinOn.checked) {
         join = { choice: "joined", details: Object.fromEntries(["name", "email", "organization", "role", "phone"].map((k) => [k, data.get("join-" + k) || ""])) };
+        join.details.photo = joinPhoto;
         if (!join.details.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(join.details.email)) {
           document.querySelector("#status").textContent = "Add your name and a valid email to join, or untick the box.";
           return;
@@ -285,7 +321,7 @@ button:disabled{opacity:.5;cursor:default}.done{padding:14px;border-radius:12px;
 .check{display:flex;align-items:center;gap:10px;font-size:14px}.check input{width:18px;height:18px;accent-color:#f3efe6}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fields[hidden]{display:none}
 .fields input{height:36px;padding:0 10px;border-radius:9px;border:1px solid #3a3128;background:#1d1913;color:#f3efe6;font:inherit}
-.small{font-size:12px;color:#a49b8c}.linkish{justify-self:start;height:auto;padding:0;border:0;background:none;color:#c9bdad;font-weight:400;text-decoration:underline}
+.small{font-size:12px;color:#a49b8c}.photo-row{display:flex;align-items:center;gap:12px;grid-column:1/-1}.photo-row label{flex:1}.photo-preview{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none}.linkish{justify-self:start;height:auto;padding:0;border:0;background:none;color:#c9bdad;font-weight:400;text-decoration:underline}
 @media (max-width:520px){.fields{grid-template-columns:1fr}}footer{margin-top:14px;text-align:center;font-size:12px;color:#8f877a}
 </style></head><body><div><main>${content}</main><footer>Sent with Docier · This link is only for you</footer></div></body></html>`;
 }

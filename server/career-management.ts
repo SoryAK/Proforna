@@ -1,3 +1,4 @@
+import { contactPhotoUrl } from "./contact-photos";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -53,7 +54,10 @@ export function readCareerManagement(db: DatabaseSync, occupantId: string) {
     applications: rows(db, "applications", occupantId),
     interviews: rows(db, "interviews", occupantId),
     offers: rows(db, "offers", occupantId),
-    contacts: rows(db, "contacts", occupantId),
+    contacts: rows(db, "contacts", occupantId).map((contact) => ({
+      ...contact,
+      photo_url: contactPhotoUrl(String(contact.id), (contact.photo_stored_name as string | null) ?? null),
+    })),
     plans: rows(db, "career_plans", occupantId).map((plan) => ({
       ...plan,
       tasks: db

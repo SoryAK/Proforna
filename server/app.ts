@@ -30,6 +30,14 @@ import {
   withdrawRequest,
   type RequestRelay,
 } from "./requests";
+import {
+  ContactPhotoError,
+  contactPhotoFile,
+  deleteContactPhotoFile,
+  loadContactPhoto,
+  removeContactPhoto,
+  storeContactPhoto,
+} from "./contact-photos";
 import { answerReceived, listReceived, pullReceived, receivedEmail } from "./received-requests";
 import {
   AccessStoreError,
@@ -2191,12 +2199,60 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.delete("/api/contacts/:id", (c) => {
     const occupant = ensureOccupant(db);
     try {
+      const photo = contactPhotoFile(db, occupant.id, c.req.param("id"));
       removeContact(db, occupant.id, c.req.param("id"));
+      deleteContactPhotoFile(uploadsDir, photo);
       return c.json({ ok: true });
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
       }
+      throw error;
+    }
+  });
+
+  // A contact's photo: add or change it, take it away, and show it.
+  app.post("/api/contacts/:id/photo", async (c) => {
+    const occupant = ensureOccupant(db);
+    const form = await c.req.formData().catch(() => null);
+    const file = form?.get("photo");
+    if (!(file instanceof File)) return c.json({ error: "photo-required" }, 400);
+    try {
+      const photoUrl = storeContactPhoto(db, occupant.id, uploadsDir, c.req.param("id"), {
+        type: file.type,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      });
+      return c.json({ photoUrl }, 201);
+    } catch (error) {
+      if (error instanceof ContactPhotoError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/contacts/:id/photo", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeContactPhoto(db, occupant.id, uploadsDir, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof ContactPhotoError) return c.json({ error: error.code }, 404);
+      throw error;
+    }
+  });
+
+  app.get("/api/contacts/:id/photo", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const photo = loadContactPhoto(db, occupant.id, uploadsDir, c.req.param("id"));
+      if (!photo) return c.json({ error: "not-found" }, 404);
+      return c.body(Buffer.from(photo.bytes), 200, {
+        "content-type": photo.type,
+        "cache-control": "private, max-age=31536000, immutable",
+      });
+    } catch (error) {
+      if (error instanceof ContactPhotoError) return c.json({ error: error.code }, 404);
       throw error;
     }
   });
@@ -2574,7 +2630,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.get("/api/requests", async (c) => {
     const occupant = ensureOccupant(db);
     const reachable = await pullReceived(db, occupant.id, requestRelay);
-    const listed = await listRequests(db, occupant.id, requestRelay, requestOrigin);
+    const listed = await listRequests(db, occupant.id, requestRelay, requestOrigin, uploadsDir);
     const received = listReceived(db, occupant.id);
     return c.json({
       ...listed,

@@ -151,3 +151,16 @@ button.req-menu-row:focus-visible { background: var(--color-background-secondary
 @media (max-width: 767px) {
   .req-tools { flex-direction: column; align-items: stretch; }
 }
+
+/* A person's photo, or their initials in their color. */
+.person-avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}

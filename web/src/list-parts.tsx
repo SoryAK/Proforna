@@ -56,3 +56,34 @@ export function matches(query: string, ...fields: string[]): boolean {
   const text = fields.join(" ").toLowerCase();
   return words.every((word) => text.includes(word));
 }
+
+/** Colors for initials: dark enough for white text, distinct from each other. */
+const AVATAR_COLORS = ["#7c5cd6", "#2e8b7a", "#c0603a", "#3a6fc0", "#a04a7a", "#5f7f2e", "#b8742a", "#4f5bd5", "#2f7f9e", "#8a5a44"];
+
+/** The same name always gets the same color. */
+export function avatarColor(seed: string): string {
+  let hash = 0;
+  for (const char of seed.trim().toLowerCase()) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length]!;
+}
+
+export function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? words[0]![0]! + words[words.length - 1]![0]! : (words[0] ?? "?").slice(0, 2);
+  return letters.toUpperCase();
+}
+
+/** A person's photo when Docier has one, otherwise their initials in their color. */
+export function PersonAvatar({ name, photoUrl, size = 32 }: { name: string; photoUrl?: string | null; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [photoUrl]);
+  const style = { width: size, height: size, fontSize: Math.round(size * 0.38) };
+  if (photoUrl && !broken) {
+    return <img className="person-avatar" src={photoUrl} alt="" style={style} onError={() => setBroken(true)} />;
+  }
+  return (
+    <span className="person-avatar" aria-hidden="true" style={{ ...style, background: avatarColor(name) }}>
+      {initials(name)}
+    </span>
+  );
+}

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertDialog } from "@astryxdesign/core/AlertDialog";
-import { Avatar } from "@astryxdesign/core/Avatar";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
@@ -14,6 +13,8 @@ import { Heading } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { UserRound } from "lucide-react";
+import { PersonAvatar } from "./list-parts";
+import "./requests.css";
 
 type NetworkContact = {
   id: string;
@@ -22,7 +23,12 @@ type NetworkContact = {
   role: string;
   email: string;
   unread_inbound?: number;
+  photo_url?: string | null;
 };
+
+/** Same limits as the profile photo. */
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 type ThreadMessage = {
   id: string;
@@ -43,6 +49,10 @@ type PersonDraft = {
   organization: string;
   role: string;
   email: string;
+  /** The saved photo, a newly chosen one waiting to save, or a removal waiting to save. */
+  photoUrl: string | null;
+  photoFile: File | null;
+  photoRemoved: boolean;
 };
 
 const EMPTY_PERSON: PersonDraft = {
@@ -51,6 +61,9 @@ const EMPTY_PERSON: PersonDraft = {
   organization: "",
   role: "",
   email: "",
+  photoUrl: null,
+  photoFile: null,
+  photoRemoved: false,
 };
 
 export function NetworkPage() {
@@ -138,7 +151,36 @@ export function NetworkPage() {
       organization: contact.organization,
       role: contact.role,
       email: contact.email,
+      photoUrl: contact.photo_url ?? null,
+      photoFile: null,
+      photoRemoved: false,
     });
+  }
+
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!person?.photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(person.photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [person?.photoFile]);
+
+  function choosePhoto(file: File | undefined) {
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) {
+      setFormError("Use a JPEG, PNG, WebP, or GIF photo.");
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setFormError("That photo is too large (5 MB max).");
+      return;
+    }
+    setFormError("");
+    setPerson((current) => (current ? { ...current, photoFile: file, photoRemoved: false } : current));
   }
 
   async function savePerson() {
@@ -165,6 +207,22 @@ export function NetworkPage() {
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
         setFormError(contactError(body?.error));
         return;
+      }
+      const saved = (await response.json().catch(() => null)) as { contact?: { id: string } } | null;
+      const contactId = person.id ?? saved?.contact?.id ?? null;
+      // The photo saves after the person, so a new person has an id to hang it on.
+      if (contactId && person.photoFile) {
+        const form = new FormData();
+        form.append("photo", person.photoFile);
+        const uploaded = await fetch(`/api/contacts/${contactId}/photo`, { method: "POST", body: form });
+        if (!uploaded.ok) {
+          setPerson({ ...person, id: contactId });
+          setFormError("The person was saved, but the photo wasn't. Try the photo again.");
+          await load();
+          return;
+        }
+      } else if (contactId && person.photoRemoved) {
+        await fetch(`/api/contacts/${contactId}/photo`, { method: "DELETE" });
       }
       setPerson(null);
       await load();
@@ -340,7 +398,7 @@ export function NetworkPage() {
                     itemKey={contact.id}
                     label={contact.name}
                     description={detail || contact.email || "No details yet"}
-                    startContent={<Avatar name={contact.name} size={32} tooltip={false} />}
+                    startContent={<PersonAvatar name={contact.name} photoUrl={contact.photo_url} />}
                     endContent={unread > 0 ? <Badge label={String(unread)} variant="info" /> : undefined}
                     isSelected={contact.id === selectedId}
                     onClick={() => void openThread(contact.id)}
@@ -464,6 +522,41 @@ export function NetworkPage() {
                 {formError ? (
                   <Banner status="error" title={formError} container="section" collapsible={false} role="alert" />
                 ) : null}
+                <HStack gap={3} vAlign="center">
+                  <PersonAvatar
+                    name={person?.name || "?"}
+                    photoUrl={photoPreview ?? (person?.photoRemoved ? null : person?.photoUrl)}
+                    size={56}
+                  />
+                  <input
+                    ref={photoInput}
+                    type="file"
+                    accept={PHOTO_TYPES.join(",")}
+                    hidden
+                    onChange={(event) => {
+                      choosePhoto(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                  />
+                  <Button
+                    label={photoPreview || (person?.photoUrl && !person.photoRemoved) ? "Change photo" : "Add photo"}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => photoInput.current?.click()}
+                  />
+                  {photoPreview || (person?.photoUrl && !person.photoRemoved) ? (
+                    <Button
+                      label="Remove photo"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setPerson((current) =>
+                          current ? { ...current, photoFile: null, photoRemoved: Boolean(current.photoUrl) } : current,
+                        )
+                      }
+                    />
+                  ) : null}
+                </HStack>
                 <TextInput
                   label="Name"
                   isRequired

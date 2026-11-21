@@ -15,6 +15,7 @@ import {
   type AccessState,
   type WorkMapPublishSection,
 } from "../core/index";
+import { contactPhotos } from "./contact-photos";
 import { mintOccupantApproval, persistApprovedChange, persistAuditEvent } from "./change-sets";
 import { readProfile } from "./occupant";
 import {
@@ -56,6 +57,8 @@ export type AccessPerson = {
   requestId: string | null;
   /** Newest first. */
   activity: AccessActivity[];
+  /** Their photo, when they're in My Network with one. */
+  photoUrl: string | null;
 };
 
 export type AccessPage = {
@@ -168,7 +171,14 @@ export function readActivity(
   }));
 }
 
-function present(db: DatabaseSync, occupantId: string, row: GrantRow, origin: string | null, now: Date): AccessPerson {
+function present(
+  db: DatabaseSync,
+  occupantId: string,
+  row: GrantRow,
+  origin: string | null,
+  now: Date,
+  photos = contactPhotos(db, occupantId),
+): AccessPerson {
   const page = (JSON.parse(row.projection_json) as { sections: WorkMapPublishSection[] }).sections;
   const chosen = parseSections(row.sections_json);
   return {
@@ -191,6 +201,7 @@ function present(db: DatabaseSync, occupantId: string, row: GrantRow, origin: st
     revokedAt: row.revoked_at,
     requestId: row.request_id,
     activity: withAsk(readActivity(db, occupantId, { grantId: row.id, requestId: row.request_id }), row),
+    photoUrl: photos.find(null, row.person_email || row.requester_email),
   };
 }
 
@@ -282,7 +293,8 @@ export function listAccess(db: DatabaseSync, occupantId: string, origin: string 
   const rows = db
     .prepare(`${SELECT_GRANT} WHERE p.occupant_id = ? ORDER BY g.created_at DESC`)
     .all(occupantId) as GrantRow[];
-  return rows.map((row) => present(db, occupantId, row, origin, now));
+  const photos = contactPhotos(db, occupantId);
+  return rows.map((row) => present(db, occupantId, row, origin, now, photos));
 }
 
 export function readAccess(db: DatabaseSync, occupantId: string, id: string, origin: string | null): AccessPerson {

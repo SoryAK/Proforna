@@ -72,7 +72,7 @@ describe("joining the occupant's network from a request", () => {
     expect(
       mergeJoinIntoContact(
         { name: "Dana Reed", email: "dana@x.co", organization: "Northstar", role: "", notes: "Met at expo" },
-        { name: "D. Reed", email: "dana@x.co", organization: "Other Co", role: "Plant Manager", phone: "555" },
+        { name: "D. Reed", email: "dana@x.co", organization: "Other Co", role: "Plant Manager", phone: "555", photo: "" },
       ),
     ).toEqual({ name: "Dana Reed", email: "dana@x.co", organization: "Northstar", role: "Plant Manager", notes: "Met at expo\nPhone: 555" });
   });

@@ -26,7 +26,7 @@ import {
   type AccessState,
 } from "@core/access";
 import type { WorkMapPublishSection } from "@core/work-map";
-import { Quote, growRows, matches, nearLimit, shortDate } from "./list-parts";
+import { PersonAvatar, Quote, growRows, matches, nearLimit, shortDate } from "./list-parts";
 import "./access.css";
 
 /** Fired after something changes who has access, so the Relay menu refreshes. */
@@ -56,6 +56,7 @@ export type AccessPerson = {
   createdAt: string;
   revokedAt: string | null;
   activity: AccessActivity[];
+  photoUrl?: string | null;
 };
 
 type AccessPage = {
@@ -157,6 +158,7 @@ export function AccessMenuSection({ onManage, onShare }: { onManage: () => void;
         <ul className="access-menu-list">
           {active.slice(0, 3).map((person) => (
             <li key={person.id}>
+              <PersonAvatar name={person.name} photoUrl={person.photoUrl} size={28} />
               <span className="access-menu-who">
                 <span>{person.name}</span>
                 <span className="access-menu-scope">
@@ -572,6 +574,7 @@ export function AccessDialog({
                               ref={person.id === focusId ? focusRef : undefined}
                               isSelected={person.id === focusId || Boolean(edit) || openActivity === person.id}
                               align="start"
+                              startContent={<PersonAvatar name={person.name} photoUrl={person.photoUrl} />}
                               label={
                                 <HStack gap={2}>
                                   <span>{person.name}</span>
