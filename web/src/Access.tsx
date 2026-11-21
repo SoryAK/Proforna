@@ -27,7 +27,7 @@ import {
   type AccessState,
 } from "@core/access";
 import type { WorkMapPublishSection } from "@core/work-map";
-import { Quote, growRows, matches, nearLimit, shortDate } from "./list-parts";
+import { PersonAvatar, Quote, growRows, matches, nearLimit, shortDate } from "./list-parts";
 import "./access.css";
 
 /** Fired after something changes who has access, so the Relay menu refreshes. */
@@ -58,6 +58,7 @@ export type AccessPerson = {
   createdAt: string;
   revokedAt: string | null;
   activity: AccessActivity[];
+  photoUrl?: string | null;
 };
 
 type AccessPage = {
@@ -172,6 +173,7 @@ export function AccessMenuSection({ onManage }: { onManage: (personId?: string) 
           {active.slice(0, 3).map((person) => (
             <li key={person.id}>
               <button type="button" className="access-menu-row" onClick={() => onManage(person.id)}>
+              <PersonAvatar name={person.name} photoUrl={person.photoUrl} size={28} />
               <span className="access-menu-who">
                 <span>{person.name}</span>
                 <span className="access-menu-scope">
@@ -599,6 +601,7 @@ export function AccessDialog({
                               ref={person.id === focusId ? focusRef : undefined}
                               isSelected={open}
                               align="start"
+                              startContent={<PersonAvatar name={person.name} photoUrl={person.photoUrl} />}
                               onClick={() => {
                                 // One card open at a time: opening this one closes any other form.
                                 setOpenId(open ? null : person.id);

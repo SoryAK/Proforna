@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { contactPhotos, takeJoinPhoto } from "./contact-photos";
 import {
   applyRelayRequestState,
   mergeJoinIntoContact,
@@ -238,6 +239,7 @@ export async function listRequests(
   occupantId: string,
   relay: RequestRelay | undefined,
   origin: string | null,
+  uploadsDir?: string,
 ): Promise<{ requests: SentRequest[]; stale: boolean }> {
   const rows = db
     .prepare("SELECT * FROM outgoing_requests WHERE occupant_id = ? ORDER BY created_at DESC")
@@ -256,7 +258,7 @@ export async function listRequests(
       for (const row of pending) {
         const state = states[tokenHash(row.link_token)];
         if (!state) continue;
-        if (isAnswered(state.status)) await takeJoin(db, occupantId, row, state, relay);
+        if (isAnswered(state.status)) await takeJoin(db, occupantId, row, state, relay, uploadsDir);
         const next = applyRelayRequestState(row.status, state);
         if (next === row.status && !(state.openedAt && !row.opened_at)) continue;
         update.run(next, state.note, state.openedAt, state.answeredAt, new Date().toISOString(), row.id);
@@ -270,7 +272,11 @@ export async function listRequests(
     }
   }
   const now = new Date().toISOString();
-  return { requests: rows.map((row) => present(row, origin, now)), stale };
+  const photos = contactPhotos(db, occupantId);
+  return {
+    requests: rows.map((row) => ({ ...present(row, origin, now), photoUrl: photos.find(row.contact_id, row.recipient_email) })),
+    stale,
+  };
 }
 
 function isAnswered(status: string): boolean {
@@ -288,6 +294,7 @@ async function takeJoin(
   row: Row,
   state: RelayRequestState,
   relay: RequestRelay,
+  uploadsDir?: string,
 ): Promise<void> {
   if (row.join_status !== null) return;
   const join = state.join ?? null;
@@ -325,6 +332,7 @@ async function takeJoin(
       notes: details.phone ? `Phone: ${details.phone}` : "",
     }).id;
   }
+  takeJoinPhoto(db, occupantId, uploadsDir, contactId, details.photo ?? "");
   db.prepare(
     "UPDATE outgoing_requests SET join_status = 'joined', joined_contact_id = ?, contact_id = COALESCE(contact_id, ?) WHERE id = ?",
   ).run(contactId, contactId, row.id);

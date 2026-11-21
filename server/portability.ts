@@ -155,6 +155,9 @@ export function createPortableArchive(
     }
   }
   for (const row of tables.work_history_media ?? []) addStoredName(row, storedNames);
+  for (const row of tables.contacts ?? []) {
+    if (typeof row.photo_stored_name === "string") storedNames.add(row.photo_stored_name);
+  }
   for (const storedName of storedNames) {
     const fullPath = safeUploadPath(uploadsDir, storedName);
     if (!existsSync(fullPath)) continue;

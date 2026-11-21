@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@astryxdesign/core/AlertDialog";
-import { Avatar } from "@astryxdesign/core/Avatar";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
@@ -38,7 +37,7 @@ import {
   openAccess,
   type AccessChoiceValue,
 } from "./Access";
-import { Quote, growRows, matches, nearLimit, relativeTime, shortDate } from "./list-parts";
+import { PersonAvatar, Quote, growRows, matches, nearLimit, relativeTime, shortDate } from "./list-parts";
 import "./requests.css";
 
 export type RequestsTab = "new" | "sent" | "received";
@@ -68,6 +67,7 @@ type SentRequest = {
   answeredAt: string | null;
   expiresAt: string;
   joinStatus: "joined" | "declined" | "ignored" | null;
+  photoUrl?: string | null;
 };
 
 type ReceivedRequest = {
@@ -83,6 +83,7 @@ type ReceivedRequest = {
   createdAt: string;
   grantId: string | null;
   activity: AccessActivity[];
+  photoUrl?: string | null;
 };
 
 type Listed = {
@@ -214,7 +215,7 @@ export function RequestsMenu({
               <ul className="req-menu-rows">
                 {waiting.map((request) => (
                   <li key={request.id} className="req-menu-row">
-                    <Avatar name={request.requesterName} size={32} />
+                    <PersonAvatar name={request.requesterName} photoUrl={request.photoUrl} />
                     <span className="req-menu-who">
                       <span className="req-menu-name">{request.requesterName}</span>
                       <span className="req-menu-meta">wants to see your page · {relativeTime(request.createdAt)}</span>
@@ -249,7 +250,7 @@ export function RequestsMenu({
                       className={request.changed ? "req-menu-row is-fresh" : "req-menu-row"}
                       onClick={() => onOpen("sent", request.id)}
                     >
-                      <Avatar name={request.recipientName} size={32} />
+                      <PersonAvatar name={request.recipientName} photoUrl={request.photoUrl} />
                       <span className="req-menu-who">
                         <span className="req-menu-name">{request.recipientName}</span>
                         <span className="req-menu-meta">
@@ -727,6 +728,7 @@ function SentList({
                 ref={request.id === focusId ? focusRef : undefined}
                 isSelected={request.id === focusId}
                 align="start"
+                startContent={<PersonAvatar name={request.recipientName} photoUrl={request.photoUrl} />}
                 label={
                   <HStack gap={2}>
                     <span>{request.recipientName}</span>
@@ -955,6 +957,7 @@ function ReceivedList({
                 ref={request.id === focused ? focusRef : undefined}
                 isSelected={request.id === focused}
                 align="start"
+                startContent={<PersonAvatar name={request.requesterName} photoUrl={request.photoUrl} />}
                 label={
                   <HStack gap={2}>
                     <span>{request.requesterName}</span>

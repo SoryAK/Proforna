@@ -190,7 +190,24 @@ export type JoinDetails = {
   organization: string;
   role: string;
   phone: string;
+  /** An optional photo, as a small image data URL; "" when none was given. */
+  photo: string;
 };
+
+/** A joiner's photo is resized in their browser first, so this is generous. */
+export const JOIN_PHOTO_MAX_CHARS = 400_000;
+const PHOTO_DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/** A photo data URL a joiner may send, or "" when it's missing or not an image. */
+export function readJoinPhoto(value: unknown): string {
+  return typeof value === "string" && value.length <= JOIN_PHOTO_MAX_CHARS && PHOTO_DATA_URL.test(value) ? value : "";
+}
+
+/** The type and base64 body of a photo data URL that passed `readJoinPhoto`. */
+export function splitJoinPhoto(photo: string): { type: string; base64: string } | null {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(photo);
+  return match ? { type: match[1]!, base64: match[2]! } : null;
+}
 
 /**
  * Reads the join part of a recipient's answer. Joining needs a name and a
@@ -214,6 +231,8 @@ export function prepareJoin(
     organization: field(details.organization).slice(0, 200),
     role: field(details.role).slice(0, 200),
     phone: field(details.phone).slice(0, 60),
+    // A bad photo is dropped rather than failing the whole join.
+    photo: readJoinPhoto(details.photo),
   };
   if (!value.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email)) return { ok: false, error: "join-invalid" };
   return { ok: true, value: { choice: "joined", details: value } };

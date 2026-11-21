@@ -10,6 +10,7 @@ import {
   type WorkMapPublishSection,
 } from "../core/index";
 import { readActivity, recordActivity } from "./access";
+import { contactPhotos } from "./contact-photos";
 import { readProfile } from "./occupant";
 import { captureAccessRequest, resolveOpportunityAccess, type ProjectionRelay } from "./projections";
 import { RequestStoreError, type RequestRelay } from "./requests";
@@ -32,6 +33,8 @@ export type ReceivedRequest = {
   grantId: string | null;
   /** Newest first: the ask, the answer, and what followed. */
   activity: AccessActivity[];
+  /** Their photo, when they're in My Network with one. */
+  photoUrl?: string | null;
 };
 
 type Row = {
@@ -131,8 +134,9 @@ export async function pullReceived(
 }
 
 export function listReceived(db: DatabaseSync, occupantId: string): ReceivedRequest[] {
+  const photos = contactPhotos(db, occupantId);
   return (db.prepare(`${SELECT} WHERE p.occupant_id = ? ORDER BY r.created_at DESC`).all(occupantId) as Row[]).map(
-    (row) => present(db, occupantId, row),
+    (row) => ({ ...present(db, occupantId, row), photoUrl: photos.find(null, row.requester_email) }),
   );
 }
 
