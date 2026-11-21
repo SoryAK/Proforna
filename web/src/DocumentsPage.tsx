@@ -13,7 +13,7 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { DOCUMENT_KINDS, type DocumentKind } from "@core/document-vault";
 import { File as FileIcon, Upload } from "lucide-react";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -401,7 +401,7 @@ function FilePreview({ file }: { file: VaultDocument }) {
 
 function PdfPreview({ url }: { url: string }) {
   const host = useRef<HTMLDivElement>(null);
-  const docRef = useRef<Awaited<ReturnType<ReturnType<typeof getDocument>["promise"]>> | null>(null);
+  const docRef = useRef<PDFDocumentProxy | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(0);
@@ -446,7 +446,7 @@ function PdfPreview({ url }: { url: string }) {
     const target = host.current;
     if (!doc || !target || pageCount < 1) return;
     let cancel = false;
-    let renderTask: { cancel: () => void } | null = null;
+    let renderTask: RenderTask | null = null;
     void (async () => {
       try {
         const pageView = await doc.getPage(page);
@@ -460,8 +460,9 @@ function PdfPreview({ url }: { url: string }) {
         canvas.height = Math.floor(viewport.height);
         canvas.style.width = "100%";
         canvas.style.height = "auto";
-        renderTask = pageView.render({ canvas, viewport });
-        await renderTask.promise;
+        const task = pageView.render({ canvas, viewport });
+        renderTask = task;
+        await task.promise;
         if (cancel) return;
         pageView.cleanup();
         target.replaceChildren(canvas);

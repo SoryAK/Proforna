@@ -318,11 +318,11 @@ function sameRoleSet(left: readonly string[], right: readonly string[]) {
 }
 
 /** Use a newer board list only when it belongs to the canvas that started the save. */
-export function localBoardsForReload<T>(
-  jobBoards: readonly T[],
+export function localBoardsForReload<Boards extends readonly unknown[]>(
+  jobBoards: Boards,
   jobRoleIds: readonly string[],
-  latest: { roleIds: readonly string[]; boards: readonly T[] } | null,
-): readonly T[] {
+  latest: { roleIds: readonly string[]; boards: Boards } | null,
+): Boards {
   if (!latest || !sameRoleSet(jobRoleIds, latest.roleIds)) return jobBoards;
   return latest.boards;
 }
