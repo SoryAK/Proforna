@@ -1,0 +1,140 @@
+/* Access: people with a link to the page. The parts are Astryx; this only spaces them. */
+
+.access-faint { color: var(--color-text-secondary, #6b6b73); font-weight: 400; font-size: 12.5px; }
+.access-top { justify-content: space-between; align-items: center; }
+.access-top > :first-child { flex: 1; min-width: 0; }
+.access-box {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border, #e4e4e7);
+  border-radius: 10px;
+}
+.access-checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin-top: 6px;
+}
+/* What a person can see, as one plain line. */
+.access-sees { color: var(--color-text-primary, #171717); }
+.access-sees strong { font-weight: 500; }
+/* A card's actions: small outlined pills, matching Manage in the Relay menu. */
+.access-actions { flex-wrap: wrap; gap: 6px; }
+.access-actions > button {
+  height: 26px;
+  min-height: 0;
+  padding: 0 11px;
+  border: 1px solid var(--color-border-strong, #c9c9cf);
+  border-radius: 999px;
+  background: var(--color-background, #fff);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-primary, #171717);
+}
+.access-actions > button:hover,
+.access-actions > button:focus-visible {
+  border-color: var(--color-text-primary, #171717);
+  background: var(--color-background, #fff);
+}
+.access-actions > button.access-danger { color: var(--color-text-error, #b42318); }
+.access-actions > button.access-danger:hover,
+.access-actions > button.access-danger:focus-visible { border-color: var(--color-text-error, #b42318); }
+.access-danger { color: var(--color-text-error, #b42318); }
+
+/* Activity: newest first, a dot per entry. */
+.access-activity { display: grid; gap: 8px; }
+.access-activity-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
+.access-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--color-border, #e4e4e7);
+  display: grid;
+  gap: 10px;
+}
+.access-timeline li { position: relative; display: grid; gap: 2px; }
+.access-timeline li::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-background, #fff);
+  border: 2px solid #8a8a91;
+}
+.access-timeline li.is-approved::before,
+.access-timeline li.is-shared::before,
+.access-timeline li.is-changed::before,
+.access-timeline li.is-restored::before { border-color: #18794e; }
+.access-timeline li.is-declined::before,
+.access-timeline li.is-revoked::before { border-color: #b42318; }
+.access-timeline li.is-asked::before { border-color: #005fb8; }
+.access-when { font-size: 12px; color: var(--color-text-secondary, #8a8a91); }
+.access-what { font-weight: 500; }
+
+/* The preview in the Relay menu. */
+.access-menu { display: grid; gap: 6px; padding: 10px 12px 2px; border-top: 1px solid var(--color-border, #ececee); }
+.access-menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.access-menu-list li { display: block; }
+.access-menu-who { flex: 1; min-width: 0; display: grid; }
+.access-menu-scope { font-size: 12px; color: var(--color-text-secondary, #6b6b73); }
+.access-menu-actions { display: flex; justify-content: space-between; gap: 8px; }
+
+@media (max-width: 640px) {
+  .access-checks { grid-template-columns: 1fr; }
+  /* The Share button takes its own line so both tabs stay readable. */
+  .access-top { flex-direction: column; align-items: stretch; }
+}
+
+/* An open card's details, under its short line. */
+.access-open { display: grid; gap: 8px; padding-top: 4px; cursor: default; }
+
+/* Who a link is for, with Edit or Name this link beside it. */
+.access-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+/* Pointing at someone's existing record instead of a second link. */
+.access-existing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdf3dc;
+  color: #5c3d00;
+  font-size: 13px;
+}
+.access-menu-share { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The heading carries Manage; each person opens Access at them. Two classes,
+   so the menu's general button style doesn't stretch these. */
+.access-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 4px; }
+.access-menu-head .home-sync-setting { margin: 0; padding-left: 0; }
+/* A smaller version of the slug's outlined Share pill. */
+.home-pub-menu .access-menu-manage {
+  flex: none;
+  width: auto;
+  height: 24px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-strong, #c9c9cf);
+  border-radius: 999px;
+  background: var(--color-background, #fff);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-primary, #171717);
+}
+.home-pub-menu .access-menu-manage:hover,
+.home-pub-menu .access-menu-manage:focus-visible { border-color: var(--color-text-primary, #171717); background: var(--color-background, #fff); }
+.home-pub-menu .access-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border-radius: 8px;
+}

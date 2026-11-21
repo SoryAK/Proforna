@@ -253,6 +253,8 @@ export {
   mayPublishProjection,
   planProjectionAccessDecision,
   planProjectionGrant,
+  planProjectionGrantRevoke,
+  planProjectionRemove,
   planProjectionRevoke,
   presentRelayStatus,
   type InteractiveProjection,
@@ -268,6 +270,7 @@ export {
   prepareExternalAction,
   planContactSubmission,
   prepareOpportunity,
+  preparePlan,
   transitionApplication,
   type Application,
   type ApplicationStage,
@@ -279,6 +282,7 @@ export {
   type ExternalActionKind,
   type Opportunity,
   type OpportunityKind,
+  type PreparedPlan,
 } from "./career-management";
 export {
   judgeListingFit,
@@ -378,8 +382,10 @@ export {
 export {
   CURATED_CAPABILITIES,
   PORTABLE_FORMAT_VERSION,
+  prepareIntegration,
   validatePortableManifest,
   type IntegrationConnection,
+  type IntegrationError,
   type IntegrationKind,
   type PortableManifest,
 } from "./portability";
@@ -544,3 +550,29 @@ export {
   type RequestRecipient,
   type SentRequestStatus,
 } from "./requests";
+
+export {
+  ACCESS_DEFAULT_DAYS,
+  ACCESS_LENGTHS,
+  ACCESS_MESSAGE_MAX,
+  ACCESS_NO_END,
+  ACCESS_SECTION_LABEL,
+  ACCESS_SOON_DAYS,
+  accessEmailDraft,
+  accessExpiry,
+  accessState,
+  describeActivity,
+  effectiveSections,
+  isOpenActivity,
+  isOpenEnded,
+  limitProjection,
+  planAccessChange,
+  planAccessRemove,
+  prepareAccessChange,
+  type AccessActivity,
+  type AccessActivityKind,
+  type AccessChange,
+  type AccessChangeError,
+  type AccessLength,
+  type AccessState,
+} from "./access";

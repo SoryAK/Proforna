@@ -52,13 +52,27 @@ export function openRelayDatabase(path: string): DatabaseSync {
       occurred_at TEXT NOT NULL
     );
   `);
-  // Added after relay_asks first shipped; harmless when already present.
-  for (const column of ["join_choice TEXT", "join_json TEXT"]) {
+  // Added after these tables first shipped; harmless when already present.
+  for (const [table, column] of [
+    ["relay_asks", "join_choice TEXT"],
+    ["relay_asks", "join_json TEXT"],
+    // The sections one link opens; NULL opens the whole page.
+    ["relay_grants", "sections_json TEXT"],
+  ]) {
     try {
-      db.exec(`ALTER TABLE relay_asks ADD COLUMN ${column}`);
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column}`);
     } catch {
       /* the column exists */
     }
   }
+  // When each link was opened, read back by the owner for Activity.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS relay_grant_opens (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL,
+      token_hash TEXT NOT NULL,
+      opened_at TEXT NOT NULL
+    );
+  `);
   return db;
 }

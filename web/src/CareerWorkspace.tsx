@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { AlertDialog } from "@astryxdesign/core/AlertDialog";
 import type { FitJudgment } from "@core/fit-judgment";
 import {
   SEARCH_RADIUS_MILES,
@@ -208,8 +209,12 @@ function OpportunitiesPage() {
   const [title, setTitle] = useState("");
   const [organization, setOrganization] = useState("");
   const [fitSummary, setFitSummary] = useState("");
+  const [editingOpportunityId, setEditingOpportunityId] = useState<string | null>(null);
+  const opportunityTitleRef = useRef<HTMLInputElement>(null);
   const [planTitle, setPlanTitle] = useState("");
   const [planOutcome, setPlanOutcome] = useState("");
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [removingPlan, setRemovingPlan] = useState<{ id: string; title: string } | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -325,18 +330,42 @@ function OpportunitiesPage() {
 
   async function saveOpportunity(event: FormEvent) {
     event.preventDefault();
-    const response = await fetch("/api/opportunities", {
-      method: "POST",
+    const editing = editingOpportunityId;
+    const response = await fetch(editing ? `/api/opportunities/${editing}` : "/api/opportunities", {
+      method: editing ? "PUT" : "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: "role", title, organization, fitSummary }),
+      body: JSON.stringify(
+        editing ? { title, organization, fitSummary } : { kind: "role", title, organization, fitSummary },
+      ),
     });
-    setMessage(response.ok ? "Opportunity saved." : "Check the role and organization.");
+    setMessage(
+      response.ok
+        ? editing
+          ? "Role saved."
+          : "Opportunity saved."
+        : "Check the role and organization.",
+    );
     if (response.ok) {
-      setTitle("");
-      setOrganization("");
-      setFitSummary("");
+      closeOpportunityForm();
       await load();
     }
+  }
+
+  function editOpportunity(opportunity: { id: string; title: string; organization: string; fit_summary: string }) {
+    setEditingOpportunityId(opportunity.id);
+    setTitle(opportunity.title);
+    setOrganization(opportunity.organization);
+    setFitSummary(opportunity.fit_summary ?? "");
+    const field = opportunityTitleRef.current;
+    field?.scrollIntoView({ block: "center", behavior: "smooth" });
+    field?.focus({ preventScroll: true });
+  }
+
+  function closeOpportunityForm() {
+    setEditingOpportunityId(null);
+    setTitle("");
+    setOrganization("");
+    setFitSummary("");
   }
 
   async function startApplication(opportunityId: string) {
@@ -365,6 +394,7 @@ function OpportunitiesPage() {
       method: "DELETE",
     });
     setMessage(response.ok ? "Removed." : "That role could not be removed.");
+    if (response.ok && editingOpportunityId === opportunityId) closeOpportunityForm();
     await load();
   }
 
@@ -392,17 +422,44 @@ function OpportunitiesPage() {
 
   async function savePlan(event: FormEvent) {
     event.preventDefault();
-    await fetch("/api/plans", {
-      method: "POST",
+    const editing = editingPlanId;
+    const response = await fetch(editing ? `/api/plans/${editing}` : "/api/plans", {
+      method: editing ? "PUT" : "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        title: planTitle,
-        outcome: planOutcome,
-        horizon: "90 days",
-      }),
+      body: JSON.stringify(
+        editing
+          ? { title: planTitle, outcome: planOutcome }
+          : { title: planTitle, outcome: planOutcome, horizon: "90 days" },
+      ),
     });
+    if (!response.ok) {
+      setMessage(editing ? "Could not save that plan." : "Could not create that plan.");
+      return;
+    }
+    setMessage(editing ? "Plan saved." : "");
+    closePlanForm();
+    await load();
+  }
+
+  function editPlan(plan: { id: string; title: string; outcome: string }) {
+    setEditingPlanId(plan.id);
+    setPlanTitle(plan.title);
+    setPlanOutcome(plan.outcome);
+  }
+
+  function closePlanForm() {
+    setEditingPlanId(null);
     setPlanTitle("");
     setPlanOutcome("");
+  }
+
+  async function removePlan() {
+    const plan = removingPlan;
+    if (!plan) return;
+    setRemovingPlan(null);
+    const response = await fetch(`/api/plans/${plan.id}`, { method: "DELETE" });
+    setMessage(response.ok ? "Plan removed." : "Could not remove that plan.");
+    if (editingPlanId === plan.id) closePlanForm();
     await load();
   }
 
@@ -579,6 +636,9 @@ function OpportunitiesPage() {
                       <option value="rejected">Rejected</option>
                       <option value="withdrawn">Withdrawn</option>
                     </select>
+                    <button type="button" onClick={() => editOpportunity(opportunity)}>
+                      Edit
+                    </button>
                     <button
                       className="is-danger"
                       type="button"
@@ -591,6 +651,9 @@ function OpportunitiesPage() {
                   <div className="opportunity-actions">
                     <button onClick={() => void startApplication(opportunity.id)}>
                       Start application
+                    </button>
+                    <button type="button" onClick={() => editOpportunity(opportunity)}>
+                      Edit
                     </button>
                     <button
                       className="is-danger"
@@ -612,8 +675,9 @@ function OpportunitiesPage() {
         </main>
         <aside>
           <form className="compact-career-form" onSubmit={saveOpportunity}>
-            <h2>Save a role</h2>
+            <h2>{editingOpportunityId ? "Edit role" : "Save a role"}</h2>
             <input
+              ref={opportunityTitleRef}
               required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -630,10 +694,17 @@ function OpportunitiesPage() {
               onChange={(event) => setFitSummary(event.target.value)}
               placeholder="Why this fits"
             />
-            <button type="submit">Save opportunity</button>
+            <div className="career-form-actions">
+              <button type="submit">{editingOpportunityId ? "Save role" : "Save opportunity"}</button>
+              {editingOpportunityId ? (
+                <button type="button" onClick={closeOpportunityForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
           <form className="compact-career-form" onSubmit={savePlan}>
-            <h2>Career plan</h2>
+            <h2>{editingPlanId ? "Edit plan" : "Career plan"}</h2>
             <input
               required
               value={planTitle}
@@ -645,11 +716,42 @@ function OpportunitiesPage() {
               onChange={(event) => setPlanOutcome(event.target.value)}
               placeholder="Desired outcome"
             />
-            <button type="submit">Create plan</button>
+            <div className="career-form-actions">
+              <button type="submit">{editingPlanId ? "Save plan" : "Create plan"}</button>
+              {editingPlanId ? (
+                <button type="button" onClick={closePlanForm}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
             {(data?.plans ?? []).map((plan) => (
-              <small key={plan.id}>{plan.title} · {plan.horizon}</small>
+              <div className="career-plan-row" key={plan.id}>
+                <small>
+                  {plan.title} · {plan.horizon}
+                </small>
+                <button type="button" aria-label={`Edit ${plan.title}`} onClick={() => editPlan(plan)}>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${plan.title}`}
+                  onClick={() => setRemovingPlan({ id: plan.id, title: plan.title })}
+                >
+                  Remove
+                </button>
+              </div>
             ))}
           </form>
+          <AlertDialog
+            isOpen={removingPlan != null}
+            onOpenChange={(next) => {
+              if (!next) setRemovingPlan(null);
+            }}
+            title="Remove this plan?"
+            description={removingPlan ? `${removingPlan.title} and its tasks are removed.` : ""}
+            actionLabel="Remove"
+            onAction={() => void removePlan()}
+          />
         </aside>
         </div>
         <div className="opportunity-stage">

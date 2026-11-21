@@ -433,6 +433,8 @@ describe("interactive projections HTTP seam", () => {
       expect(grant).toHaveBeenCalledWith("sory-systems", {
         token: grantBody.grant.token,
         expiresAt: "2026-12-01T00:00:00.000Z",
+        // A link made here opens the whole page.
+        sections: null,
       });
 
       expect(

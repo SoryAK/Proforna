@@ -137,3 +137,52 @@ function revealModelKey(
   }
   return openSecret(stored, vaultKey(false));
 }
+
+/**
+ * Changes a connection with the same fields that add it. The API key is never
+ * sent back to the screen, so a blank key keeps the one already stored.
+ */
+export function updateModelConnection(
+  db: DatabaseSync,
+  occupantId: string,
+  connectionId: string,
+  input: ModelConnectionInput,
+): PublicModelConnection {
+  const current = db
+    .prepare("SELECT api_key AS apiKey FROM model_connections WHERE id = ? AND occupant_id = ?")
+    .get(connectionId, occupantId) as { apiKey: string | null } | undefined;
+  if (!current) throw new ModelConnectionError("not-found");
+  const sentKey = typeof input.apiKey === "string" && input.apiKey.trim() ? input.apiKey : null;
+  const keptKey = sentKey ?? (current.apiKey ? revealModelKey(db, connectionId, current.apiKey) : null);
+  const prepared = prepareModelConnection({ ...input, apiKey: keptKey ?? undefined });
+  if (!prepared.ok) throw new ModelConnectionError(prepared.error);
+  db.prepare(
+    `UPDATE model_connections SET hosting = ?, base_url = ?, model = ?, api_key = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    prepared.value.hosting,
+    prepared.value.baseUrl,
+    prepared.value.model,
+    storedModelKey(prepared.value.apiKey),
+    connectionId,
+    occupantId,
+  );
+  return {
+    id: connectionId,
+    hosting: prepared.value.hosting,
+    baseUrl: prepared.value.baseUrl,
+    model: prepared.value.model,
+    hasKey: Boolean(prepared.value.apiKey),
+  };
+}
+
+export function removeModelConnection(
+  db: DatabaseSync,
+  occupantId: string,
+  connectionId: string,
+): void {
+  const removed = db
+    .prepare("DELETE FROM model_connections WHERE id = ? AND occupant_id = ?")
+    .run(connectionId, occupantId);
+  if (removed.changes !== 1) throw new ModelConnectionError("not-found");
+}

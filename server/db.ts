@@ -642,6 +642,31 @@ export function openDatabase(path: string): DatabaseSync {
   addColumnIfMissing(db, "projection_access_requests", "relay_request_id", "TEXT");
   addColumnIfMissing(db, "projection_access_requests", "owner_note", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "projection_access_requests", "answered_at", "TEXT");
+  // Which access request a link answered, so the owner can see who it is for.
+  addColumnIfMissing(db, "projection_access_grants", "request_id", "TEXT");
+  // Access (managed from the Relay menu): who each link is for, what it opens,
+  // the link itself so it can be copied again, and when it was last opened.
+  addColumnIfMissing(db, "projection_access_grants", "person_name", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "projection_access_grants", "person_email", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "projection_access_grants", "source", "TEXT NOT NULL DEFAULT 'shared'");
+  addColumnIfMissing(db, "projection_access_grants", "sections_json", "TEXT");
+  addColumnIfMissing(db, "projection_access_grants", "link_token", "TEXT");
+  addColumnIfMissing(db, "projection_access_grants", "open_count", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(db, "projection_access_grants", "last_opened_at", "TEXT");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS access_activity (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      grant_id TEXT,
+      request_id TEXT,
+      kind TEXT NOT NULL,
+      sections_json TEXT,
+      expires_at TEXT,
+      message TEXT NOT NULL DEFAULT '',
+      relay_open_id TEXT UNIQUE,
+      occurred_at TEXT NOT NULL
+    )
+  `);
   addColumnIfMissing(
     db,
     "contacts",

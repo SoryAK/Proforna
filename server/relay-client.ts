@@ -23,6 +23,13 @@ export function createHttpProjectionRelay(
       throw new RelayTransportError(response.status, await response.text());
     }
   }
+  async function read(path: string): Promise<Response> {
+    const response = await fetch(`${root}${path}`, {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    });
+    if (!response.ok) throw new RelayTransportError(response.status, await response.text());
+    return response;
+  }
   return {
     async publish(projection: RelayProjection) {
       await request(`/relay/publications/${encodeURIComponent(projection.slug)}`, {
@@ -35,11 +42,34 @@ export function createHttpProjectionRelay(
         method: "DELETE",
       });
     },
-    async grant(slug: string, grant: { token: string; expiresAt: string }) {
+    async revokeGrant(slug: string, tokenHash: string) {
+      await request(
+        `/relay/publications/${encodeURIComponent(slug)}/grants/${encodeURIComponent(tokenHash)}`,
+        { method: "DELETE" },
+      );
+    },
+    async erase(slug: string) {
+      await request(`/relay/publications/${encodeURIComponent(slug)}/erase`, {
+        method: "POST",
+      });
+    },
+    async grant(slug: string, grant: { token: string; expiresAt: string; sections?: string[] | null }) {
       await request(
         `/relay/publications/${encodeURIComponent(slug)}/grants`,
         { method: "POST", body: JSON.stringify(grant) },
       );
+    },
+    async updateGrant(slug: string, tokenHash: string, change: { expiresAt: string; sections: string[] | null }) {
+      await request(
+        `/relay/publications/${encodeURIComponent(slug)}/grants/${encodeURIComponent(tokenHash)}`,
+        { method: "PATCH", body: JSON.stringify(change) },
+      );
+    },
+    async grantOpens(after: string) {
+      const response = await read(`/relay/grants/opens?after=${encodeURIComponent(after)}`);
+      return ((await response.json()) as {
+        opens: Array<{ id: string; slug: string; tokenHash: string; openedAt: string }>;
+      }).opens;
     },
   };
 }

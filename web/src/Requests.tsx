@@ -27,6 +27,17 @@ import {
   type RequestKind,
   type SentRequestStatus,
 } from "@core/requests";
+import type { AccessActivity } from "@core/access";
+import type { WorkMapPublishSection } from "@core/work-map";
+import {
+  AccessChoice,
+  ActivityList,
+  choiceBody,
+  defaultChoice,
+  openAccess,
+  type AccessChoiceValue,
+} from "./Access";
+import { Quote, growRows, matches, nearLimit, shortDate } from "./list-parts";
 import "./requests.css";
 
 export type RequestsTab = "new" | "sent" | "received";
@@ -65,7 +76,10 @@ type ReceivedRequest = {
   status: ReceivedRequestStatus;
   note: string;
   pageSlug: string;
+  pageSections: WorkMapPublishSection[];
   createdAt: string;
+  grantId: string | null;
+  activity: AccessActivity[];
 };
 
 type Listed = {
@@ -85,9 +99,6 @@ async function loadRequests(): Promise<Listed> {
   return (await response.json()) as Listed;
 }
 
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 const STATUS_VARIANT: Record<SentRequestStatus, "neutral" | "warning" | "success" | "error"> = {
   sent: "neutral",
@@ -129,39 +140,8 @@ export function useRequestsWaiting(): number {
   return waiting;
 }
 
-/** Lines a text box needs for its text, so it grows from `min` up to `max` and then scrolls. */
-function growRows(value: string, min: number, max: number): number {
-  const lines = value.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 70)), 0);
-  return Math.min(max, Math.max(min, lines));
-}
 
-/** Astryx's counter, shown only once a text is close to its limit. */
-function nearLimit(value: string, max: number): number | undefined {
-  return value.length >= max * 0.75 ? max : undefined;
-}
 
-/** A quoted message cut to three lines, with Show more when it's longer. */
-function Quote({ text, prefix = "" }: { text: string; prefix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [open, setOpen] = useState(false);
-  const [long, setLong] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (el && !open) setLong(el.scrollHeight > el.clientHeight + 1);
-  }, [text, open]);
-  return (
-    <span className="req-quote">
-      <span ref={ref} className={open ? "req-note" : "req-note is-clamped"}>
-        {prefix}“{text}”
-      </span>
-      {long || open ? (
-        <button type="button" className="req-more" onClick={() => setOpen((value) => !value)}>
-          {open ? "Show less" : "Show more"}
-        </button>
-      ) : null}
-    </span>
-  );
-}
 
 const ERRORS: Record<string, string> = {
   "relay-not-configured": "Requests are answered on your Relay, and no Relay is set up yet.",
@@ -598,11 +578,6 @@ function CreatedRequest({ request, onDone }: { request: SentRequest; onDone: () 
 /** Search, plus a kind choice when there's more than one kind, above a long list. */
 const SEARCH_FROM = 5;
 
-function matches(query: string, ...fields: string[]): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const text = fields.join(" ").toLowerCase();
-  return words.every((word) => text.includes(word));
-}
 
 function ListTools({
   query,
@@ -830,7 +805,12 @@ function ReceivedList({
     if (listed.waiting > 0) setFilter("waiting");
   }, [listed]);
   const [query, setQuery] = useState("");
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  // One request at a time is being answered, with its choice of what they see.
+  const [answering, setAnswering] = useState<{ id: string; decision: "approved" | "declined" } | null>(null);
+  const [choice, setChoice] = useState<AccessChoiceValue>(() => defaultChoice([]));
+  const [declineMessage, setDeclineMessage] = useState("");
+  const [openActivity, setOpenActivity] = useState<string | null>(null);
+  const [justAnswered, setJustAnswered] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [granted, setGranted] = useState<Record<string, string>>({});
@@ -846,9 +826,10 @@ function ReceivedList({
       .catch(() => setGmail(false));
   }, []);
 
+  const focused = justAnswered ?? focusId;
   useEffect(() => {
     focusRef.current?.scrollIntoView({ block: "nearest" });
-  }, [focusId, received.length]);
+  }, [focused, received.length]);
 
   if (!listed) return <Text type="supporting" color="secondary">Loading…</Text>;
   if (received.length === 0) {
@@ -867,14 +848,24 @@ function ReceivedList({
   const shown = narrowed.filter((request) => RECEIVED_FILTERS.find((item) => item.id === filter)!.match(request.status));
   const count = (id: string) => narrowed.filter((request) => RECEIVED_FILTERS.find((item) => item.id === id)!.match(request.status)).length;
 
+  function startAnswer(request: ReceivedRequest, decision: "approved" | "declined") {
+    setAnswering({ id: request.id, decision });
+    setChoice(defaultChoice(request.pageSections));
+    setDeclineMessage("");
+  }
+
   async function answer(request: ReceivedRequest, decision: "approved" | "declined") {
     setBusyId(request.id);
     setMessage("");
     try {
+      const body =
+        decision === "approved"
+          ? { decision, note: choice.message, ...choiceBody(choice, request.pageSections) }
+          : { decision, note: declineMessage };
       const response = await fetch(`/api/requests/received/${request.id}/answer`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ decision, note: notes[request.id] ?? "" }),
+        body: JSON.stringify(body),
       });
       const result = (await response.json().catch(() => ({}))) as { accessLink?: string | null; error?: string };
       if (!response.ok) {
@@ -883,7 +874,12 @@ function ReceivedList({
       }
       if (result.accessLink) setGranted((current) => ({ ...current, [request.id]: result.accessLink as string }));
       setMessage(decision === "approved" ? `Approved. Send ${request.requesterName.split(/\s+/)[0]} the link.` : "Declined.");
+      setAnswering(null);
+      // Keep the answered request in view, with its link and the way into Access.
+      setFilter("all");
+      setJustAnswered(request.id);
       window.dispatchEvent(new Event(REQUESTS_CHANGED));
+      window.dispatchEvent(new Event("docier:access-changed"));
       await onChanged();
     } finally {
       setBusyId(null);
@@ -933,8 +929,8 @@ function ReceivedList({
               <ListItem
                 key={request.id}
                 itemKey={request.id}
-                ref={request.id === focusId ? focusRef : undefined}
-                isSelected={request.id === focusId}
+                ref={request.id === focused ? focusRef : undefined}
+                isSelected={request.id === focused}
                 align="start"
                 label={
                   <HStack gap={2}>
@@ -948,48 +944,54 @@ function ReceivedList({
                       {request.requesterEmail} · {shortDate(request.createdAt)}
                     </span>
                     {request.message ? <Quote text={request.message} /> : null}
-                    {waiting ? (
-                      <>
-                        {request.id in notes ? (
-                          <TextArea
-                            label={`Your note to ${request.requesterName.split(/\s+/)[0]} (optional)`}
-                            value={notes[request.id] ?? ""}
-                            onChange={(value) =>
-                              setNotes((current) => ({ ...current, [request.id]: value.slice(0, REQUEST_NOTE_MAX) }))
-                            }
-                            rows={growRows(notes[request.id] ?? "", 2, 8)}
-                            maxLength={nearLimit(notes[request.id] ?? "", REQUEST_NOTE_MAX)}
-                            hasAutoFocus
-                          />
-                        ) : null}
-                        <HStack gap={1}>
+                    {waiting && answering?.id === request.id && answering.decision === "approved" ? (
+                      <div className="access-box">
+                        <Text type="label">Approve {request.requesterName.split(/\s+/)[0]} — what can they see?</Text>
+                        <AccessChoice
+                          page={request.pageSections}
+                          value={choice}
+                          onChange={setChoice}
+                          who={request.requesterName.split(/\s+/)[0]}
+                        />
+                        <div className="req-actions">
+                          <Button label="Cancel" variant="ghost" size="sm" onClick={() => setAnswering(null)} />
                           <Button
                             label="Approve"
                             variant="primary"
                             size="sm"
-                            isDisabled={busyId === request.id}
+                            isDisabled={busyId === request.id || choice.sections.length === 0}
                             onClick={() => void answer(request, "approved")}
                           />
+                        </div>
+                      </div>
+                    ) : waiting && answering?.id === request.id ? (
+                      <div className="access-box">
+                        <TextArea
+                          label={`Message to ${request.requesterName.split(/\s+/)[0]} (optional)`}
+                          value={declineMessage}
+                          onChange={(value) => setDeclineMessage(value.slice(0, REQUEST_NOTE_MAX))}
+                          rows={growRows(declineMessage, 2, 8)}
+                          maxLength={nearLimit(declineMessage, REQUEST_NOTE_MAX)}
+                          hasAutoFocus
+                        />
+                        <div className="req-actions">
+                          <Button label="Cancel" variant="ghost" size="sm" onClick={() => setAnswering(null)} />
                           <Button
                             label="Decline"
-                            variant="secondary"
+                            variant="primary"
                             size="sm"
                             isDisabled={busyId === request.id}
                             onClick={() => void answer(request, "declined")}
                           />
-                          {request.id in notes ? null : (
-                            <Button
-                              label="Add a note"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setNotes((current) => ({ ...current, [request.id]: "" }))}
-                            />
-                          )}
-                        </HStack>
-                      </>
+                        </div>
+                      </div>
+                    ) : waiting ? (
+                      <HStack gap={1}>
+                        <Button label="Approve" variant="primary" size="sm" onClick={() => startAnswer(request, "approved")} />
+                        <Button label="Decline" variant="secondary" size="sm" onClick={() => startAnswer(request, "declined")} />
+                      </HStack>
                     ) : (
                       <>
-                        {request.note ? <Quote text={request.note} prefix="Your note: " /> : null}
                         {link ? (
                           <div className="req-linkbox">
                             <code>{link}</code>
@@ -1001,11 +1003,28 @@ function ReceivedList({
                             />
                           </div>
                         ) : null}
-                        {gmail ? (
-                          <HStack gap={1}>
-                            <Button label="Draft reply in Gmail" variant="ghost" size="sm" onClick={() => void draft(request)} />
-                          </HStack>
+                        {openActivity === request.id ? (
+                          <ActivityList activity={request.activity} name={request.requesterName} />
                         ) : null}
+                        <HStack gap={1} className="access-actions">
+                          {request.grantId ? (
+                            <Button
+                              label="Manage in Access"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => openAccess(request.grantId ?? undefined)}
+                            />
+                          ) : null}
+                          <Button
+                            label={openActivity === request.id ? "Hide activity" : "Activity"}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setOpenActivity((current) => (current === request.id ? null : request.id))}
+                          />
+                          {gmail ? (
+                            <Button label="Draft reply in Gmail" variant="ghost" size="sm" onClick={() => void draft(request)} />
+                          ) : null}
+                        </HStack>
                       </>
                     )}
                   </VStack>
