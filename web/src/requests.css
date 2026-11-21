@@ -60,3 +60,24 @@
 @media (max-width: 640px) {
   .req-row2 { grid-template-columns: 1fr; }
 }
+
+/* Long messages and notes show three lines until Show more. */
+.req-quote { display: grid; justify-items: start; gap: 2px; }
+.req-quote .req-note { justify-self: stretch; }
+.req-note.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.req-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-link, #005fb8);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.req-more:hover,
+.req-more:focus-visible { text-decoration: underline; }

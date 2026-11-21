@@ -17,8 +17,10 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import {
+  REQUEST_BODY_MAX,
   REQUEST_KINDS,
   REQUEST_KIND_LABEL,
+  REQUEST_NOTE_MAX,
   RECEIVED_STATUS_LABEL,
   SENT_STATUS_LABEL,
   type ReceivedRequestStatus,
@@ -125,6 +127,40 @@ export function useRequestsWaiting(): number {
     };
   }, []);
   return waiting;
+}
+
+/** Lines a text box needs for its text, so it grows from `min` up to `max` and then scrolls. */
+function growRows(value: string, min: number, max: number): number {
+  const lines = value.split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 70)), 0);
+  return Math.min(max, Math.max(min, lines));
+}
+
+/** Astryx's counter, shown only once a text is close to its limit. */
+function nearLimit(value: string, max: number): number | undefined {
+  return value.length >= max * 0.75 ? max : undefined;
+}
+
+/** A quoted message cut to three lines, with Show more when it's longer. */
+function Quote({ text, prefix = "" }: { text: string; prefix?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [long, setLong] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && !open) setLong(el.scrollHeight > el.clientHeight + 1);
+  }, [text, open]);
+  return (
+    <span className="req-quote">
+      <span ref={ref} className={open ? "req-note" : "req-note is-clamped"}>
+        {prefix}“{text}”
+      </span>
+      {long || open ? (
+        <button type="button" className="req-more" onClick={() => setOpen((value) => !value)}>
+          {open ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+    </span>
+  );
 }
 
 const ERRORS: Record<string, string> = {
@@ -477,7 +513,14 @@ function RequestForm({
           <SegmentedControlItem key={option} value={option} label={REQUEST_KIND_LABEL[option]} />
         ))}
       </SegmentedControl>
-      <TextArea label="Request" value={body} onChange={setBody} rows={4} />
+      <TextArea
+        label="Request"
+        value={body}
+        // Typing stops at the limit rather than failing on Create.
+        onChange={(value) => setBody(value.slice(0, REQUEST_BODY_MAX))}
+        rows={growRows(body, 4, 12)}
+        maxLength={nearLimit(body, REQUEST_BODY_MAX)}
+      />
       {to === "new" ? (
         <Text type="supporting" color="secondary">
           They won't be added to My Network. They answer on a private link that works for 30 days.
@@ -639,7 +682,7 @@ function SentList({
                       {request.contactId ? "My Network" : "Not in your network"} · {shortDate(request.createdAt)}
                       {pending ? ` · expires ${shortDate(request.expiresAt)}` : ""}
                     </span>
-                    {request.note ? <span className="req-note">“{request.note}”</span> : null}
+                    {request.note ? <Quote text={request.note} /> : null}
                     {request.joinStatus === "joined" ? (
                       <span>Joined your network</span>
                     ) : request.joinStatus === "declined" ? (
@@ -832,15 +875,21 @@ function ReceivedList({
                     <span>
                       {request.requesterEmail} · {shortDate(request.createdAt)}
                     </span>
-                    {request.message ? <span className="req-note">“{request.message}”</span> : null}
+                    {request.message ? <Quote text={request.message} /> : null}
                     {waiting ? (
                       <>
-                        <TextArea
-                          label={`Your note to ${request.requesterName.split(/\s+/)[0]} (optional)`}
-                          value={notes[request.id] ?? ""}
-                          onChange={(value) => setNotes((current) => ({ ...current, [request.id]: value }))}
-                          rows={2}
-                        />
+                        {request.id in notes ? (
+                          <TextArea
+                            label={`Your note to ${request.requesterName.split(/\s+/)[0]} (optional)`}
+                            value={notes[request.id] ?? ""}
+                            onChange={(value) =>
+                              setNotes((current) => ({ ...current, [request.id]: value.slice(0, REQUEST_NOTE_MAX) }))
+                            }
+                            rows={growRows(notes[request.id] ?? "", 2, 8)}
+                            maxLength={nearLimit(notes[request.id] ?? "", REQUEST_NOTE_MAX)}
+                            hasAutoFocus
+                          />
+                        ) : null}
                         <HStack gap={1}>
                           <Button
                             label="Approve"
@@ -856,11 +905,19 @@ function ReceivedList({
                             isDisabled={busyId === request.id}
                             onClick={() => void answer(request, "declined")}
                           />
+                          {request.id in notes ? null : (
+                            <Button
+                              label="Add a note"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setNotes((current) => ({ ...current, [request.id]: "" }))}
+                            />
+                          )}
                         </HStack>
                       </>
                     ) : (
                       <>
-                        {request.note ? <span>Your note: “{request.note}”</span> : null}
+                        {request.note ? <Quote text={request.note} prefix="Your note: " /> : null}
                         {link ? (
                           <div className="req-linkbox">
                             <code>{link}</code>
