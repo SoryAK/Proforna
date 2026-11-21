@@ -153,19 +153,26 @@ export function useAccess(active: boolean) {
 }
 
 /** "People with access" in the Relay menu: a short preview with the way in. */
-export function AccessMenuSection({ onManage }: { onManage: () => void }) {
+export function AccessMenuSection({ onManage }: { onManage: (personId?: string) => void }) {
   const listed = useAccess(true);
   if (!listed?.page?.published) return null;
   const active = listed.people.filter(isActive);
   return (
     <div className="access-menu">
-      <p className="home-sync-setting">People with access{active.length ? ` · ${active.length}` : ""}</p>
+      <div className="access-menu-head">
+        <p className="home-sync-setting">People with access{active.length ? ` · ${active.length}` : ""}</p>
+        {/* The section's own action, on its heading. */}
+        <button type="button" className="access-menu-manage" onClick={() => onManage()}>
+          Manage →
+        </button>
+      </div>
       {active.length === 0 ? (
-        <p className="home-sync-address-gap">Nobody has a link yet.</p>
+        <p className="home-sync-address-gap">Nobody has a link yet. Share your page to give someone one.</p>
       ) : (
         <ul className="access-menu-list">
           {active.slice(0, 3).map((person) => (
             <li key={person.id}>
+              <button type="button" className="access-menu-row" onClick={() => onManage(person.id)}>
               <PersonAvatar name={person.name} photoUrl={person.photoUrl} size={28} />
               <span className="access-menu-who">
                 <span>{person.name}</span>
@@ -174,15 +181,11 @@ export function AccessMenuSection({ onManage }: { onManage: () => void }) {
                 </span>
               </span>
               {person.state === "ending" ? <Badge label="Ends soon" variant="warning" /> : null}
+              </button>
             </li>
           ))}
         </ul>
       )}
-      <div className="access-menu-actions">
-        <button type="button" onClick={onManage}>
-          Manage access
-        </button>
-      </div>
     </div>
   );
 }
