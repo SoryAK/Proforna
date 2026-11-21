@@ -162,7 +162,7 @@ export function AccessMenuSection({ onManage }: { onManage: (personId?: string) 
         <p className="home-sync-setting">People with access{active.length ? ` · ${active.length}` : ""}</p>
         {/* The section's own action, on its heading. */}
         <button type="button" className="access-menu-manage" onClick={() => onManage()}>
-          Manage →
+          Manage
         </button>
       </div>
       {active.length === 0 ? (
