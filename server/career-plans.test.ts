@@ -50,6 +50,13 @@ describe("career plans can be added, changed and removed", () => {
 
       await app.request(`/api/plans/${plan.id}`, json("PUT", { title: "Lead a shift", tasks: [{ title: "Shadow" }] }));
       expect((await plans())[0].tasks.map((task) => task.title)).toEqual(["Shadow"]);
+      // Leaving the outcome or the title out keeps them; sending them changes them.
+      expect((await plans())[0].outcome).toBe("Team of 5");
+      expect((await app.request(`/api/plans/${plan.id}`, json("PUT", { outcome: "Team of 6" }))).status).toBe(200);
+      expect((await plans())[0]).toMatchObject({ title: "Lead a shift", outcome: "Team of 6" });
+      await app.request(`/api/plans/${plan.id}`, json("PUT", { outcome: "" }));
+      expect((await plans())[0].outcome).toBe("");
+      expect((await app.request(`/api/plans/${plan.id}`, json("PUT", { title: "  " }))).status).toBe(400);
     } finally {
       db.close();
     }

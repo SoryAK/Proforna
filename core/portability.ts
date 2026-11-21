@@ -90,12 +90,19 @@ export function prepareIntegration(
     record.config && typeof record.config === "object" && !Array.isArray(record.config)
       ? (record.config as Record<string, unknown>)
       : {};
-  if (
-    Object.keys(config).some((key) =>
-      /password|secret|api.?key|access.?token|refresh.?token/i.test(key),
-    )
-  ) {
-    return { ok: false, error: "secret-not-allowed" };
-  }
+  if (holdsSecret(config)) return { ok: false, error: "secret-not-allowed" };
   return { ok: true, value: { kind, label, config } };
+}
+
+const SECRET_KEY = /password|secret|api.?key|access.?token|refresh.?token/i;
+
+/** True when any key, at any depth of objects and arrays, names a secret. */
+function holdsSecret(value: unknown, depth = 0): boolean {
+  // Settings are shallow metadata; anything nested this deep is refused outright.
+  if (depth > 20) return true;
+  if (Array.isArray(value)) return value.some((item) => holdsSecret(item, depth + 1));
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value as Record<string, unknown>).some(
+    ([key, item]) => SECRET_KEY.test(key) || holdsSecret(item, depth + 1),
+  );
 }

@@ -542,16 +542,22 @@ export function updatePlan(
   planId: string,
   input: JsonObject,
 ) {
-  const prepared = preparePlan(input);
-  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
   const current = db
     .prepare(
-      "SELECT horizon, status, created_at FROM career_plans WHERE id = ? AND occupant_id = ?",
+      "SELECT title, outcome, horizon, status, created_at FROM career_plans WHERE id = ? AND occupant_id = ?",
     )
     .get(planId, occupantId) as
-    | { horizon: string; status: string; created_at: string }
+    | { title: string; outcome: string; horizon: string; status: string; created_at: string }
     | undefined;
   if (!current) throw new CareerManagementStoreError("not-found");
+  // A field left out keeps what it was; a field sent is checked as sent, so a
+  // blank title is still refused and a blank outcome still clears it.
+  const prepared = preparePlan({
+    ...input,
+    title: "title" in input ? input.title : current.title,
+    outcome: "outcome" in input ? input.outcome : current.outcome,
+  });
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
   const horizon = prepared.value.horizon ?? current.horizon;
   db.exec("BEGIN");
   try {

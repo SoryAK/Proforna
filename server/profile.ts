@@ -132,16 +132,18 @@ export function removeAvatar(
   uploadsDir: string,
 ): ProfileRow {
   const previous = avatarStoredName(db, occupantId);
-  db.prepare(
-    "UPDATE profiles SET avatar_stored_name = NULL, updated_at = ? WHERE occupant_id = ?",
-  ).run(new Date().toISOString(), occupantId);
+  // The file goes first. If it can't be deleted, the profile keeps its name so
+  // removing can be tried again; a file that's already gone is fine.
   if (previous) {
     try {
       unlinkSync(join(uploadsDir, previous));
-    } catch {
-      /* leftover file is harmless */
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new ProfileError("avatar-delete-failed");
     }
   }
+  db.prepare(
+    "UPDATE profiles SET avatar_stored_name = NULL, updated_at = ? WHERE occupant_id = ?",
+  ).run(new Date().toISOString(), occupantId);
   return readProfile(db, occupantId);
 }
 

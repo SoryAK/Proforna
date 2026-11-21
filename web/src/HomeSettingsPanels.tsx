@@ -287,7 +287,7 @@ export function ProfileSettingsPanel({
         next = failed.profile;
       } else if (removePhoto) {
         const removed = await fetch("/api/profile/avatar", { method: "DELETE" });
-        const body = (await removed.json()) as { profile?: OnboardingProfileValue };
+        const body = (await removed.json().catch(() => ({}))) as { profile?: OnboardingProfileValue };
         if (!removed.ok || !body.profile) {
           setError("Could not remove the photo.");
           return;
@@ -295,6 +295,9 @@ export function ProfileSettingsPanel({
         next = body.profile;
       }
       onSaved(next);
+    } catch {
+      // A failed request (or a reply that isn't JSON) keeps the form as typed, to retry.
+      setError("Could not reach Docier, so not everything was saved. Try again.");
     } finally {
       setBusy(false);
     }
@@ -1787,9 +1790,12 @@ export function PublicationSettingsPanel() {
   const [relayOrigin, setRelayOrigin] = useState<string | null>(null);
   const [publications, setPublications] = useState<PublishedPage[]>([]);
   const [openLinks, setOpenLinks] = useState<string | null>(null);
-  const [links, setLinks] = useState<AccessLink[]>([]);
+  // The links shown, with the page they belong to; only the newest load counts.
+  const [loadedLinks, setLoadedLinks] = useState<{ pageId: string; grants: AccessLink[] } | null>(null);
+  const linksRequest = useRef(0);
+  const links = loadedLinks && loadedLinks.pageId === openLinks ? loadedLinks.grants : [];
   const [removingPage, setRemovingPage] = useState<PublishedPage | null>(null);
-  const [revokingLink, setRevokingLink] = useState<AccessLink | null>(null);
+  const [revokingLink, setRevokingLink] = useState<{ pageId: string; link: AccessLink } | null>(null);
   const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1874,63 +1880,89 @@ export function PublicationSettingsPanel() {
     setPublications(listed.projections);
   }
 
+  /** Loads a page's links; a slower, older load can't replace a newer one. */
+  async function loadLinks(pageId: string): Promise<boolean> {
+    const request = ++linksRequest.current;
+    try {
+      const response = await fetch(`/api/projections/${pageId}/grants`);
+      if (!response.ok) throw new Error("grants");
+      const grants = ((await response.json()) as { grants: AccessLink[] }).grants;
+      if (request === linksRequest.current) setLoadedLinks({ pageId, grants });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function showLinks(page: PublishedPage) {
     if (openLinks === page.id) {
       setOpenLinks(null);
+      linksRequest.current += 1;
       return;
     }
     setOpenLinks(page.id);
-    setLinks([]);
-    const response = await fetch(`/api/projections/${page.id}/grants`);
-    if (!response.ok) {
-      setError("Could not load the access links.");
-      return;
-    }
-    setLinks(((await response.json()) as { grants: AccessLink[] }).grants);
+    setLoadedLinks(null);
+    if (!(await loadLinks(page.id))) setError("Could not load the access links. Try again.");
   }
+
+  const relayMessage = (status: number, error: string | undefined, nothing: string) =>
+    status === 502
+      ? `The relay could not be reached, so ${nothing}. Try again.`
+      : error === "relay-not-configured"
+        ? `This lives on your relay, and no relay is set up right now, so ${nothing}.`
+        : null;
 
   async function removePage(page: PublishedPage) {
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      const response = await fetch(`/api/projections/${page.id}`, { method: "DELETE" });
+      let response: Response;
+      try {
+        response = await fetch(`/api/projections/${page.id}`, { method: "DELETE" });
+      } catch {
+        setError("Could not reach Docier, so nothing was removed. Try again.");
+        return;
+      }
       if (!response.ok) {
-        setError(
-          response.status === 502
-            ? "The relay could not be reached, so nothing was removed. Try again."
-            : "Could not remove that page.",
-        );
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        setError(relayMessage(response.status, body.error, "nothing was removed") ?? "Could not remove that page.");
         return;
       }
       if (openLinks === page.id) setOpenLinks(null);
       setMessage(`/r/${page.slug} was removed.`);
       announceRelayChange();
-      await reloadPages();
+      try {
+        await reloadPages();
+      } catch {
+        setError("The page was removed, but the list couldn't be refreshed. Reopen Settings to see it.");
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  async function revokeLink(page: PublishedPage, link: AccessLink) {
+  async function revokeLink(pageId: string, link: AccessLink) {
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      const response = await fetch(`/api/projections/${page.id}/grants/${link.id}/revoke`, {
-        method: "POST",
-      });
+      let response: Response;
+      try {
+        response = await fetch(`/api/projections/${pageId}/grants/${link.id}/revoke`, { method: "POST" });
+      } catch {
+        setError("Could not reach Docier, so the link still works. Try again.");
+        return;
+      }
       if (!response.ok) {
-        setError(
-          response.status === 502
-            ? "The relay could not be reached, so the link still works. Try again."
-            : "Could not revoke that link.",
-        );
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        setError(relayMessage(response.status, body.error, "the link still works") ?? "Could not revoke that link.");
         return;
       }
       setMessage(`${linkOwner(link)} can no longer open the page.`);
-      const refreshed = await fetch(`/api/projections/${page.id}/grants`);
-      if (refreshed.ok) setLinks(((await refreshed.json()) as { grants: AccessLink[] }).grants);
+      if (!(await loadLinks(pageId))) {
+        setError("The link was revoked, but the list couldn't be refreshed. Reopen it to see the change.");
+      }
     } finally {
       setBusy(false);
     }
@@ -2108,7 +2140,7 @@ export function PublicationSettingsPanel() {
                                   size="sm"
                                   isDisabled={busy}
                                   aria-label={`Revoke access for ${linkOwner(link)}`}
-                                  onClick={() => setRevokingLink(link)}
+                                  onClick={() => setRevokingLink({ pageId: page.id, link })}
                                 />
                               ) : null}
                             </HStack>
@@ -2149,15 +2181,15 @@ export function PublicationSettingsPanel() {
         title="Revoke this access link?"
         description={
           revokingLink
-            ? `${linkOwner(revokingLink)} can no longer open the page. Everyone else keeps their link.`
+            ? `${linkOwner(revokingLink.link)} can no longer open the page. Everyone else keeps their link.`
             : ""
         }
         actionLabel="Revoke"
         onAction={() => {
-          const link = revokingLink;
-          const page = publications.find((item) => item.id === openLinks);
+          const pending = revokingLink;
           setRevokingLink(null);
-          if (link && page) void revokeLink(page, link);
+          // The link carries its own page, whatever list is open by now.
+          if (pending) void revokeLink(pending.pageId, pending.link);
         }}
       />
       <SettingsCard title="Frame">

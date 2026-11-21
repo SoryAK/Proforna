@@ -603,8 +603,13 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.delete("/api/profile/avatar", (c) => {
     const occupant = ensureOccupant(db);
-    const profile = removeAvatar(db, occupant.id, uploadsDir);
-    return c.json({ occupant, profile });
+    try {
+      const profile = removeAvatar(db, occupant.id, uploadsDir);
+      return c.json({ occupant, profile });
+    } catch (error) {
+      if (error instanceof ProfileError) return c.json({ error: error.code }, 500);
+      throw error;
+    }
   });
 
   app.get("/api/profile/avatar", (c) => {
@@ -1666,7 +1671,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       return c.json({ ok: true });
     } catch (error) {
       if (error instanceof ProjectionStoreError) {
-        return c.json({ error: error.code }, 404);
+        return c.json({ error: error.code }, error.code === "relay-not-configured" ? 409 : 404);
       }
       if (error instanceof RelayTransportError) {
         return c.json({ error: "relay-unavailable" }, 502);
@@ -1682,7 +1687,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       return c.json({ ok: true });
     } catch (error) {
       if (error instanceof ProjectionStoreError) {
-        return c.json({ error: error.code }, 404);
+        return c.json({ error: error.code }, error.code === "relay-not-configured" ? 409 : 404);
       }
       if (error instanceof RelayTransportError) {
         return c.json({ error: "relay-unavailable" }, 502);

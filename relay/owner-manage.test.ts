@@ -62,6 +62,14 @@ describe("the owner manages a page on the relay", () => {
         expect(count(db, table), table).toBe(0);
       }
       expect((await app.request("/r/systems")).status).toBe(404);
+      // A page left open can't bring its events back.
+      const late = await app.request("/r/systems/events", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventType: "section", section: "history" }),
+      });
+      expect(late.status).toBe(404);
+      expect(count(db, "relay_events")).toBe(0);
       // Erasing again is not an error.
       expect((await app.request("/relay/publications/systems/erase", { method: "POST", headers: owner })).status).toBe(200);
     } finally {

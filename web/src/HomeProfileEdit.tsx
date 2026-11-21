@@ -79,7 +79,7 @@ export function HomeProfileEdit({
         profile = failed.profile;
       } else if (removePhoto) {
         const removed = await fetch("/api/profile/avatar", { method: "DELETE" });
-        const body = (await removed.json()) as { profile?: OnboardingProfileValue };
+        const body = (await removed.json().catch(() => ({}))) as { profile?: OnboardingProfileValue };
         if (!removed.ok || !body.profile) {
           setError("Could not remove the photo.");
           return;
@@ -87,6 +87,9 @@ export function HomeProfileEdit({
         profile = body.profile;
       }
       onSaved(profile);
+    } catch {
+      // A failed request (or a reply that isn't JSON) keeps the form as typed, to retry.
+      setError("Could not reach Docier, so not everything was saved. Try again.");
     } finally {
       setBusy(false);
     }

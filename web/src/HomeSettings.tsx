@@ -656,6 +656,8 @@ export function HomeSettings({
   const [connections, setConnections] = useState<PublicConnection[]>([]);
   // Extract and chat use the newest connection, so that is the one the form edits.
   const connection = connections[connections.length - 1] ?? null;
+  // Until the saved connections have loaded, a save can't tell adding from changing.
+  const [modelsLoad, setModelsLoad] = useState<"loading" | "ready" | "failed">("loading");
   const [session, setSession] = useState(0);
   const [wasOpen, setWasOpen] = useState(false);
   const selectPanelRef = useRef<(panel: Section) => void>(() => {});
@@ -674,13 +676,15 @@ export function HomeSettings({
 
   useEffect(() => {
     if (!open) return;
+    setModelsLoad("loading");
     void fetch("/api/models")
       .then(async (res) => {
+        if (!res.ok) throw new Error("models");
         const body = (await res.json()) as { connections?: PublicConnection[] };
-        const rows = body.connections ?? [];
-        setConnections(rows);
+        setConnections(body.connections ?? []);
+        setModelsLoad("ready");
       })
-      .catch(() => setConnections([]));
+      .catch(() => setModelsLoad("failed"));
   }, [open]);
 
   async function saveModel(input: {
@@ -689,6 +693,14 @@ export function HomeSettings({
     model: string;
     apiKey: string;
   }) {
+    if (modelsLoad !== "ready") {
+      setModelError(
+        modelsLoad === "loading"
+          ? "Your connections are still loading. Try again in a moment."
+          : "Your connections couldn't be loaded, so nothing was saved. Close Settings and open it again.",
+      );
+      return;
+    }
     setModelBusy(true);
     setModelError(null);
     setModelNote(null);
@@ -729,11 +741,17 @@ export function HomeSettings({
         setModelError("Could not remove that connection.");
         return;
       }
-      const list = await fetch("/api/models");
-      const body = (await list.json()) as { connections?: PublicConnection[] };
-      const rows = body.connections ?? [];
-      setConnections(rows);
+      // It's gone: drop it here at once, so nothing goes on pointing at it.
+      setConnections((rows) => rows.filter((row) => row.id !== id));
       setModelNote("Connection removed.");
+      try {
+        const list = await fetch("/api/models");
+        if (!list.ok) throw new Error("models");
+        const body = (await list.json()) as { connections?: PublicConnection[] };
+        setConnections(body.connections ?? []);
+      } catch {
+        setModelNote("Connection removed. The list couldn't be refreshed; reopen Settings to see it.");
+      }
     } catch {
       setModelError("Could not remove that connection.");
     } finally {

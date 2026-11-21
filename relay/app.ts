@@ -226,6 +226,11 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
     if (!["section", "contact"].includes(eventType)) {
       return c.json({ error: "Unsupported event." }, 400);
     }
+    // A page left open after its page was erased must not bring its events back.
+    const live = db
+      .prepare("SELECT 1 FROM relay_publications WHERE slug = ? AND revoked_at IS NULL")
+      .get(c.req.param("slug"));
+    if (!live) return c.json({ error: "Publication not found." }, 404);
     db.prepare(
       `INSERT INTO relay_events
         (id, slug, event_type, section, occurred_at)

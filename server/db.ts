@@ -618,6 +618,10 @@ export function openDatabase(path: string): DatabaseSync {
   addColumnIfMissing(db, "projection_access_requests", "opportunity_id", "TEXT");
   // Which access request a link answered, so the owner can see who it is for.
   addColumnIfMissing(db, "projection_access_grants", "request_id", "TEXT");
+  // Whether a publish or link reached the Relay. 1 means a copy lives there, so
+  // removing or revoking it must reach the Relay too. Older rows are NULL.
+  addColumnIfMissing(db, "publications", "relayed", "INTEGER");
+  addColumnIfMissing(db, "projection_access_grants", "relayed", "INTEGER");
   addColumnIfMissing(
     db,
     "contacts",

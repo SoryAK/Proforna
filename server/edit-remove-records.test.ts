@@ -122,6 +122,31 @@ describe("integrations can be changed and removed", () => {
     });
   });
 
+  it("finds a secret however deep it sits, and keeps ordinary nested settings", async () => {
+    const { db, app, json } = setup();
+    try {
+      const nested = { kind: "calendar", label: "Work", config: { auth: { accessToken: "x" } } };
+      const inList = { kind: "calendar", label: "Work", config: { accounts: [{ refresh_token: "x" }] } };
+      expect(prepareIntegration(nested)).toEqual({ ok: false, error: "secret-not-allowed" });
+      expect(prepareIntegration(inList)).toEqual({ ok: false, error: "secret-not-allowed" });
+      expect((await app.request("/api/integrations", json("POST", nested))).status).toBe(400);
+
+      const added = await app.request(
+        "/api/integrations",
+        json("POST", { kind: "calendar", label: "Work", config: { calendar: { id: "primary" } } }),
+      );
+      expect(added.status).toBe(201);
+      const { integration } = (await added.json()) as { integration: { id: string } };
+      expect((await app.request(`/api/integrations/${integration.id}`, json("PUT", nested))).status).toBe(400);
+      const stored = db.prepare("SELECT config_json FROM integration_connections WHERE id = ?").get(integration.id) as {
+        config_json: string;
+      };
+      expect(JSON.parse(stored.config_json)).toEqual({ calendar: { id: "primary" } });
+    } finally {
+      db.close();
+    }
+  });
+
   it("changes and removes an integration, still refusing secrets", async () => {
     const { db, app, json } = setup();
     try {
@@ -180,6 +205,15 @@ describe("the profile photo can be removed", () => {
       expect((await app.request("/api/profile/avatar", { method: "POST", body: empty })).status).toBe(400);
       // Removing again is harmless.
       expect((await app.request("/api/profile/avatar", { method: "DELETE" })).status).toBe(200);
+
+      // A file that can't be deleted keeps its name, so removing can be tried again.
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(join(uploadsDir, "avatar-stuck.png"));
+      db.prepare("UPDATE profiles SET avatar_stored_name = 'avatar-stuck.png'").run();
+      expect((await app.request("/api/profile/avatar", { method: "DELETE" })).status).toBe(500);
+      expect((db.prepare("SELECT avatar_stored_name AS name FROM profiles").get() as { name: string }).name).toBe(
+        "avatar-stuck.png",
+      );
     } finally {
       db.close();
       rmSync(uploadsDir, { recursive: true, force: true });
