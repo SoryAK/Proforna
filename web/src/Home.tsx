@@ -20,7 +20,7 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { MapPin } from "lucide-react";
-import { RequestsDialog, type RequestsTab } from "./Requests";
+import { OPEN_REQUESTS, REQUESTS_CHANGED, RequestsDialog, type RequestsTab } from "./Requests";
 import { HomeBar, type HomeBioMode } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
@@ -203,6 +203,15 @@ export function Home({
   function openRequests(tab: RequestsTab, focusId?: string) {
     setRequests({ tab, focusId: focusId ?? null });
   }
+
+  useEffect(() => {
+    function onOpen(event: Event) {
+      const detail = (event as CustomEvent<{ tab?: RequestsTab; id?: string }>).detail ?? {};
+      openRequests(detail.tab ?? "sent", detail.id);
+    }
+    window.addEventListener(OPEN_REQUESTS, onOpen);
+    return () => window.removeEventListener(OPEN_REQUESTS, onOpen);
+  }, []);
 
   function goPage(next: HomePage) {
     setPage(next);
@@ -591,7 +600,10 @@ export function Home({
         tab={requests?.tab ?? "sent"}
         focusId={requests?.focusId ?? null}
         onTab={(tab) => setRequests((current) => ({ tab, focusId: current?.focusId ?? null }))}
-        onClose={() => setRequests(null)}
+        onClose={() => {
+          setRequests(null);
+          window.dispatchEvent(new Event(REQUESTS_CHANGED));
+        }}
         onOpenNetwork={() => {
           setRequests(null);
           goPage("network");

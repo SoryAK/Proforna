@@ -30,6 +30,7 @@ import {
   withdrawRequest,
   type RequestRelay,
 } from "./requests";
+import { answerReceived, listReceived, pullReceived, receivedEmail } from "./received-requests";
 import {
   applyComparedResume,
   loadCareerFile,
@@ -2395,8 +2396,52 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.get("/api/requests", async (c) => {
     const occupant = ensureOccupant(db);
+    const reachable = await pullReceived(db, occupant.id, requestRelay);
     const listed = await listRequests(db, occupant.id, requestRelay, requestOrigin);
-    return c.json({ ...listed, relayConfigured: Boolean(requestRelay && requestOrigin) });
+    const received = listReceived(db, occupant.id);
+    return c.json({
+      ...listed,
+      stale: listed.stale || !reachable,
+      received,
+      waiting: received.filter((request) => request.status === "waiting").length,
+      relayConfigured: Boolean(requestRelay && requestOrigin),
+    });
+  });
+
+  app.post("/api/requests/received/:id/answer", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const answered = await answerReceived(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        await c.req.json(),
+        options.relay,
+        requestOrigin,
+      );
+      return c.json(answered);
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) return c.json({ error: error.code }, 400);
+      return requestError(c, error);
+    }
+  });
+
+  // Drafts the reply to a received request in Gmail. Docier never sends it.
+  app.post("/api/requests/received/:id/gmail-draft", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json().catch(() => ({}))) as { accessLink?: unknown };
+    // Only a link on this Relay goes into the draft.
+    const accessLink =
+      typeof body.accessLink === "string" && requestOrigin && body.accessLink.startsWith(`${requestOrigin.replace(/\/+$/, "")}/r/`)
+        ? body.accessLink
+        : null;
+    try {
+      const draft = await draftGmail(db, occupant.id, receivedEmail(db, occupant.id, c.req.param("id"), accessLink));
+      return c.json({ draft }, 201);
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      return requestError(c, error);
+    }
   });
 
   app.post("/api/requests", async (c) => {

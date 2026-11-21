@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   applyRelayRequestState,
+  mergeJoinIntoContact,
   effectiveRequestStatus,
   isPendingRequest,
   planRequestShare,
@@ -13,6 +14,7 @@ import {
   type SentRequestStatus,
 } from "../core/index";
 import { mintOccupantApproval, persistApprovedChange, persistAuditEvent } from "./change-sets";
+import { createContact } from "./career-management";
 import { readProfile } from "./occupant";
 
 /** How Docier reaches the Relay for requests. */
@@ -20,6 +22,19 @@ export type RequestRelay = {
   putAsk(tokenHash: string, ask: RelayAsk): Promise<void>;
   withdrawAsk(tokenHash: string): Promise<void>;
   askStates(tokenHashes: string[]): Promise<Record<string, RelayRequestState>>;
+  /** Tells the Relay to drop a joiner's details once Docier has them. */
+  forgetJoin(tokenHash: string): Promise<void>;
+  /** Access requests left on public pages after `after` (an ISO time). */
+  inbound(after: string): Promise<InboundAccessRequest[]>;
+};
+
+export type InboundAccessRequest = {
+  id: string;
+  slug: string;
+  name: string;
+  email: string;
+  message: string;
+  createdAt: string;
 };
 
 export type RelayAsk = {
@@ -47,6 +62,8 @@ export type SentRequest = {
   openedAt: string | null;
   answeredAt: string | null;
   expiresAt: string;
+  /** Whether the recipient joined My Network; null while unknown or not asked yet. */
+  joinStatus: "joined" | "declined" | "ignored" | null;
 };
 
 type Row = {
@@ -64,6 +81,8 @@ type Row = {
   answered_at: string | null;
   expires_at: string;
   created_at: string;
+  join_status: "joined" | "declined" | "ignored" | null;
+  joined_contact_id: string | null;
 };
 
 export class RequestStoreError extends Error {
@@ -99,6 +118,7 @@ function present(row: Row, origin: string | null, now: string): SentRequest {
     openedAt: row.opened_at,
     answeredAt: row.answered_at,
     expiresAt: row.expires_at,
+    joinStatus: row.join_status,
   };
 }
 
@@ -223,7 +243,8 @@ export async function listRequests(
     .prepare("SELECT * FROM outgoing_requests WHERE occupant_id = ? ORDER BY created_at DESC")
     .all(occupantId) as Row[];
   let stale = false;
-  const pending = rows.filter((row) => isPendingRequest(row.status));
+  // Waiting requests, plus answered ones whose join choice hasn't been taken in yet.
+  const pending = rows.filter((row) => isPendingRequest(row.status) || (isAnswered(row.status) && row.join_status === null));
   if (relay && pending.length > 0) {
     try {
       const states = await relay.askStates(pending.map((row) => tokenHash(row.link_token)));
@@ -235,6 +256,7 @@ export async function listRequests(
       for (const row of pending) {
         const state = states[tokenHash(row.link_token)];
         if (!state) continue;
+        if (isAnswered(state.status)) await takeJoin(db, occupantId, row, state, relay);
         const next = applyRelayRequestState(row.status, state);
         if (next === row.status && !(state.openedAt && !row.opened_at)) continue;
         update.run(next, state.note, state.openedAt, state.answeredAt, new Date().toISOString(), row.id);
@@ -249,6 +271,69 @@ export async function listRequests(
   }
   const now = new Date().toISOString();
   return { requests: rows.map((row) => present(row, origin, now)), stale };
+}
+
+function isAnswered(status: string): boolean {
+  return status === "approved" || status === "declined";
+}
+
+/**
+ * Takes in what the recipient chose about joining. Joining adds them to My
+ * Network, or fills blanks on the contact with that email, and then the Relay
+ * forgets their details. Answering without choosing counts as ignored.
+ */
+async function takeJoin(
+  db: DatabaseSync,
+  occupantId: string,
+  row: Row,
+  state: RelayRequestState,
+  relay: RequestRelay,
+): Promise<void> {
+  if (row.join_status !== null) return;
+  const join = state.join ?? null;
+  if (!join) {
+    db.prepare("UPDATE outgoing_requests SET join_status = 'ignored' WHERE id = ?").run(row.id);
+    row.join_status = "ignored";
+    return;
+  }
+  if (join.choice === "declined" || !join.details) {
+    db.prepare("UPDATE outgoing_requests SET join_status = ? WHERE id = ?").run(join.choice, row.id);
+    row.join_status = join.choice;
+    return;
+  }
+  const details = join.details;
+  const existing = db
+    .prepare(
+      "SELECT id, name, email, organization, role, notes FROM contacts WHERE occupant_id = ? AND lower(email) = lower(?) LIMIT 1",
+    )
+    .get(occupantId, details.email) as
+    | { id: string; name: string; email: string; organization: string; role: string; notes: string }
+    | undefined;
+  let contactId: string;
+  if (existing) {
+    const merged = mergeJoinIntoContact(existing, details);
+    db.prepare(
+      "UPDATE contacts SET name = ?, email = ?, organization = ?, role = ?, notes = ? WHERE id = ? AND occupant_id = ?",
+    ).run(merged.name, merged.email, merged.organization, merged.role, merged.notes, existing.id, occupantId);
+    contactId = existing.id;
+  } else {
+    contactId = createContact(db, occupantId, {
+      name: details.name,
+      email: details.email,
+      organization: details.organization,
+      role: details.role,
+      notes: details.phone ? `Phone: ${details.phone}` : "",
+    }).id;
+  }
+  db.prepare(
+    "UPDATE outgoing_requests SET join_status = 'joined', joined_contact_id = ?, contact_id = COALESCE(contact_id, ?) WHERE id = ?",
+  ).run(contactId, contactId, row.id);
+  row.join_status = "joined";
+  row.joined_contact_id = contactId;
+  row.contact_id = row.contact_id ?? contactId;
+  // Docier has the details now, so the Relay drops them. If that call fails the
+  // contact is still right here; the details stay on the Relay until it expires.
+  await relay.forgetJoin(tokenHash(row.link_token)).catch(() => undefined);
 }
 
 /** Changes a request nobody has answered yet, with the same fields that create it. */

@@ -21,6 +21,13 @@ async function setup() {
     async withdrawAsk(hash) {
       await relayApp.request(`/relay/asks/${hash}`, { method: "DELETE", headers: owner });
     },
+    async forgetJoin(hash) {
+      await relayApp.request(`/relay/asks/${hash}/join`, { method: "DELETE", headers: owner });
+    },
+    async inbound(after) {
+      const response = await relayApp.request(`/relay/inbound?after=${encodeURIComponent(after)}`, { headers: owner });
+      return ((await response.json()) as { requests: Awaited<ReturnType<RequestRelay["inbound"]>> }).requests;
+    },
     async askStates(hashes) {
       const response = await relayApp.request("/relay/asks/states", { method: "POST", headers: owner, body: JSON.stringify({ hashes }) });
       return ((await response.json()) as { states: Awaited<ReturnType<RequestRelay["askStates"]>> }).states;

@@ -42,14 +42,20 @@
   border: 1px dashed #c9c9cf;
   border-radius: 8px;
 }
+.req-linkbox {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+/* A long link wraps instead of widening the row past the dialog. */
 .req-linkbox code {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
   font-size: 12px;
 }
+.req-note { overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
   .req-row2 { grid-template-columns: 1fr; }

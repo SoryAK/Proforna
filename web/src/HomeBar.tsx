@@ -7,7 +7,7 @@ import type { RelayStatus } from "@core/projection";
 import { normalizeSlug, publicationLink, type WorkMapPublicationSettings } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
-import { RequestsMenu, type RequestsTab } from "./Requests";
+import { RequestsMenu, useRequestsWaiting, type RequestsTab } from "./Requests";
 import mark from "./branding/docier-mark.svg";
 import { readPreviewPlacement } from "./preview-placement";
 import { announceRelayChange, useRelayStatus } from "./relay-status";
@@ -101,6 +101,7 @@ export function HomeBar({
   const visibilityId = useId();
   const letters = initials(name);
   const previewPlacement = readPreviewPlacement();
+  const requestsWaiting = useRequestsWaiting();
 
   // Opening a menu moves focus into it; closing it gives focus back to the
   // button that opened it, unless the person already moved on elsewhere.
@@ -751,6 +752,7 @@ export function HomeBar({
             <button
               type="button"
               className="home-request-btn"
+              aria-label={requestsWaiting ? `Request, ${requestsWaiting} waiting on you` : undefined}
               aria-expanded={menu === "requests"}
               aria-haspopup="menu"
               onClick={openRequests}
@@ -763,17 +765,27 @@ export function HomeBar({
                 <Icon name="request" />
               </span>
               <span className="home-request-label">Request</span>
+              {requestsWaiting ? (
+                <span className="home-notice-count" aria-hidden="true">
+                  {requestsWaiting > 9 ? "9+" : requestsWaiting}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
               className="home-notice-btn home-request-icon"
-              aria-label="Request"
+              aria-label={requestsWaiting ? `Request, ${requestsWaiting} waiting on you` : "Request"}
               title="Request"
               aria-expanded={menu === "requests"}
               aria-haspopup="menu"
               onClick={openRequests}
             >
               <Icon name="request" />
+              {requestsWaiting ? (
+                <span className="home-notice-count" aria-hidden="true">
+                  {requestsWaiting > 9 ? "9+" : requestsWaiting}
+                </span>
+              ) : null}
             </button>
             <Popover
               anchorRef={requestAnchor}

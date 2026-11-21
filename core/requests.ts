@@ -114,6 +114,8 @@ export type RelayRequestState = {
   note: string;
   openedAt: string | null;
   answeredAt: string | null;
+  /** Whether they chose to join, and their details until Docier has taken them. */
+  join?: { choice: "joined" | "declined"; details: JoinDetails | null } | null;
 };
 
 /**
@@ -177,4 +179,93 @@ export function planRequestShare(input: {
 
 export function planRequestWithdraw(input: { requestId: string }): ChangeOperation {
   return { action: "revoke", entityType: "outgoing-request", entityId: input.requestId, values: {} };
+}
+
+/** What a recipient chose about joining the occupant's network. Unanswered means they ignored it. */
+export type JoinChoice = "joined" | "declined";
+
+export type JoinDetails = {
+  name: string;
+  email: string;
+  organization: string;
+  role: string;
+  phone: string;
+};
+
+/**
+ * Reads the join part of a recipient's answer. Joining needs a name and a
+ * valid email; "declined" and leaving it out carry no details.
+ */
+export function prepareJoin(
+  input: unknown,
+):
+  | { ok: true; value: { choice: JoinChoice; details: JoinDetails | null } | null }
+  | { ok: false; error: "join-invalid" } {
+  if (input === undefined || input === null) return { ok: true, value: null };
+  const record =
+    typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>) : null;
+  if (!record) return { ok: false, error: "join-invalid" };
+  if (record.choice === "declined") return { ok: true, value: { choice: "declined", details: null } };
+  if (record.choice !== "joined") return { ok: false, error: "join-invalid" };
+  const details = (record.details ?? {}) as Record<string, unknown>;
+  const value: JoinDetails = {
+    name: field(details.name).slice(0, 200),
+    email: field(details.email).slice(0, 320),
+    organization: field(details.organization).slice(0, 200),
+    role: field(details.role).slice(0, 200),
+    phone: field(details.phone).slice(0, 60),
+  };
+  if (!value.name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.email)) return { ok: false, error: "join-invalid" };
+  return { ok: true, value: { choice: "joined", details: value } };
+}
+
+/** Fills a contact's blank fields from join details; nothing the occupant typed is replaced. */
+export function mergeJoinIntoContact(
+  contact: { name: string; email: string; organization: string; role: string; notes: string },
+  details: JoinDetails,
+): { name: string; email: string; organization: string; role: string; notes: string } {
+  const phoneLine = details.phone ? `Phone: ${details.phone}` : "";
+  return {
+    name: contact.name || details.name,
+    email: contact.email || details.email,
+    organization: contact.organization || details.organization,
+    role: contact.role || details.role,
+    notes:
+      phoneLine && !contact.notes.includes(details.phone)
+        ? [contact.notes, phoneLine].filter(Boolean).join("\n")
+        : contact.notes,
+  };
+}
+
+/** A request someone sent to the occupant. Today these are access requests from the public page. */
+export type ReceivedRequestStatus = "waiting" | "approved" | "declined";
+
+export const RECEIVED_STATUS_LABEL: Record<ReceivedRequestStatus, string> = {
+  waiting: "Needs answer",
+  approved: "Approved",
+  declined: "Declined",
+};
+
+/** Maps the stored access-request status to what Requests shows. */
+export function receivedStatus(stored: string): ReceivedRequestStatus {
+  return stored === "granted" ? "approved" : stored === "declined" ? "declined" : "waiting";
+}
+
+/** The email the occupant can draft to answer a received request. */
+export function receivedReplyDraft(input: {
+  fromName: string;
+  requesterName: string;
+  decision: RequestDecision;
+  note: string;
+  accessLink: string | null;
+}): { subject: string; body: string } {
+  const first = input.requesterName.split(/\s+/)[0] || input.requesterName;
+  const lead =
+    input.decision === "approved"
+      ? `Thanks for asking. Here's your private link to my career page${input.accessLink ? `: ${input.accessLink}` : "."}`
+      : "Thanks for asking. I'm not able to share my career page right now.";
+  return {
+    subject: `Re: access to ${input.fromName}'s career page`,
+    body: [`Hi ${first},`, lead, input.note, input.fromName].filter(Boolean).join("\n\n"),
+  };
 }

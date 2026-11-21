@@ -547,6 +547,8 @@ export function captureAccessRequest(
   db: DatabaseSync,
   slug: string,
   input: JsonObject,
+  /** Set when the request was left on the Relay and pulled in, so it's taken only once. */
+  fromRelay?: { id: string; createdAt: string },
 ) {
   const projection = db
     .prepare(
@@ -571,7 +573,7 @@ export function captureAccessRequest(
     name,
     email,
     message: text(input.message),
-    createdAt: new Date().toISOString(),
+    createdAt: fromRelay?.createdAt ?? new Date().toISOString(),
   };
   db.exec("BEGIN");
   try {
@@ -584,8 +586,8 @@ export function captureAccessRequest(
     db.prepare(
       `INSERT INTO projection_access_requests
         (id, projection_id, requester_name, requester_email, message, status,
-         opportunity_id, created_at)
-       VALUES (?, ?, ?, ?, ?, 'new', ?, ?)`,
+         opportunity_id, created_at, relay_request_id)
+       VALUES (?, ?, ?, ?, ?, 'new', ?, ?, ?)`,
     ).run(
       request.id,
       request.projectionId,
@@ -594,6 +596,7 @@ export function captureAccessRequest(
       request.message,
       opportunity.id,
       request.createdAt,
+      fromRelay?.id ?? null,
     );
     db.exec("COMMIT");
   } catch (error) {
