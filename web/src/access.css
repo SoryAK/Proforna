@@ -93,8 +93,8 @@
 
 /* The heading carries Manage; each person opens Access at them. Two classes,
    so the menu's general button style doesn't stretch these. */
-.access-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.access-menu-head .home-sync-setting { margin-left: 0; padding-left: 0; }
+.access-menu-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-top: 4px; }
+.access-menu-head .home-sync-setting { margin: 0; padding-left: 0; }
 .home-pub-menu .access-menu-manage {
   width: auto;
   margin: 0;
