@@ -604,9 +604,11 @@ export function AccessDialog({
                               align="start"
                               startContent={<PersonAvatar name={person.name} photoUrl={person.photoUrl} />}
                               onClick={() => {
+                                // One card open at a time: opening this one closes any other form.
                                 setOpenId(open ? null : person.id);
                                 setOpenActivity(null);
-                                if (open) setEditing(null);
+                                setEditing(null);
+                                setNaming(null);
                               }}
                               label={person.name}
                               endContent={stateBadge(person)}
