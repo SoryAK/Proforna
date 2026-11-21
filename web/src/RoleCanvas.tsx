@@ -953,6 +953,9 @@ export function RoleCanvasEntry({
   }, []);
 
   useEffect(() => {
+    // A role-scoped canvas without a role has no boards of its own; saving it
+    // would replace the shared studies with an empty list.
+    if (scope === "role" && !role) return;
     const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     void scheduleSharedSave(boards, roleIds).catch(() => undefined);
   }, [boards, role, scope, catalog]);
@@ -2100,6 +2103,7 @@ export function RoleCanvasEntry({
     };
     setSnaps((current) => ({ ...current, [snapKey(canvas.id)]: [snap, ...list].slice(0, 30) }));
     setSaveError("");
+    if (scope === "role" && !role) return;
     const roleIds = scope === "all" ? catalog.map((item) => item.id) : role ? [role.id] : [];
     void scheduleSharedSave(boards, roleIds)
       .then(() => {
