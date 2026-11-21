@@ -58,6 +58,8 @@ import {
   ModelConnectionError,
   listModelConnections,
   saveModelConnection,
+  updateModelConnection,
+  removeModelConnection,
 } from "./models";
 import type { WorkMapPlace } from "../core/work-map";
 import { lookupGooglePlaces, reverseGooglePlace } from "./google-geocode";
@@ -70,6 +72,7 @@ import {
   evidenceIdForResume,
   loadAvatar,
   saveProfile,
+  removeAvatar,
   storeAvatar,
   storeResume,
 } from "./profile";
@@ -107,6 +110,9 @@ import {
   captureAccessRequest,
   createProjection,
   createProjectionGrant,
+  listProjectionGrants,
+  removeProjection,
+  revokeProjectionGrant,
   listProjections,
   previewWorkMapProjection,
   publishProjection,
@@ -130,6 +136,9 @@ import {
   createOffer,
   createOpportunity,
   createPlan,
+  updateOpportunity,
+  removePlan,
+  updatePlan,
   promoteOpportunityToNetwork,
   proposeExternalAction,
   readCareerManagement,
@@ -206,7 +215,9 @@ import {
 import {
   IntegrationStoreError,
   listIntegrations,
+  removeIntegration,
   saveIntegration,
+  updateIntegration,
 } from "./integrations";
 import {
   ResidenceStoreError,
@@ -595,12 +606,19 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       if (err instanceof ProfileError) {
         const messages: Record<string, string> = {
           "avatar-type": "Use a jpeg, png, webp, or gif photo.",
+          "avatar-empty": "That photo file is empty.",
           "avatar-too-large": "That photo is too large (5 MB max).",
         };
         return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
       }
       throw err;
     }
+  });
+
+  app.delete("/api/profile/avatar", (c) => {
+    const occupant = ensureOccupant(db);
+    const profile = removeAvatar(db, occupant.id, uploadsDir);
+    return c.json({ occupant, profile });
   });
 
   app.get("/api/profile/avatar", (c) => {
@@ -685,6 +703,44 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           "key-required": "A cloud connection needs an API key.",
         };
         return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
+      }
+      throw err;
+    }
+  });
+
+  const modelConnectionMessages: Record<string, string> = {
+    "hosting-required": "Choose local or cloud.",
+    "url-required": "A base URL is required.",
+    "url-invalid": "That does not look like an http(s) URL.",
+    "key-required": "A cloud connection needs an API key.",
+    "not-found": "That connection is no longer saved.",
+  };
+
+  app.put("/api/models/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as Record<string, unknown>;
+    try {
+      const connection = updateModelConnection(db, occupant.id, c.req.param("id"), body);
+      return c.json({ connection });
+    } catch (err) {
+      if (err instanceof ModelConnectionError) {
+        return c.json(
+          { error: modelConnectionMessages[err.code] ?? "Could not save." },
+          err.code === "not-found" ? 404 : 400,
+        );
+      }
+      throw err;
+    }
+  });
+
+  app.delete("/api/models/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeModelConnection(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (err) {
+      if (err instanceof ModelConnectionError) {
+        return c.json({ error: modelConnectionMessages[err.code] }, 404);
       }
       throw err;
     }
@@ -1599,6 +1655,56 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.get("/api/projections/:id/grants", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json({ grants: listProjectionGrants(db, occupant.id, c.req.param("id")) });
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/projections/:id/grants/:grantId/revoke", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await revokeProjectionGrant(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("grantId"),
+        relay,
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      if (error instanceof RelayTransportError) {
+        return c.json({ error: "relay-unavailable" }, 502);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/projections/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await removeProjection(db, occupant.id, c.req.param("id"), relay);
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      if (error instanceof RelayTransportError) {
+        return c.json({ error: "relay-unavailable" }, 502);
+      }
+      throw error;
+    }
+  });
+
   app.post("/api/projections/:id/grants", async (c) => {
     const occupant = ensureOccupant(db);
     const body = (await c.req.json()) as { expiresAt?: unknown };
@@ -1895,6 +2001,27 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.put("/api/opportunities/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const opportunity = updateOpportunity(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ opportunity });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "opportunity-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
   app.delete("/api/opportunities/:id", (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -2150,6 +2277,37 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/plans/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const plan = updatePlan(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ plan });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/plans/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removePlan(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }
@@ -2638,6 +2796,37 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof IntegrationStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/integrations/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const integration = updateIntegration(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ integration });
+    } catch (error) {
+      if (error instanceof IntegrationStoreError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/integrations/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeIntegration(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof IntegrationStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }

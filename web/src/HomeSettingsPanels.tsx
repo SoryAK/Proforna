@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type SVGProps,
 } from "react";
+import { AlertDialog } from "@astryxdesign/core/AlertDialog";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Divider } from "@astryxdesign/core/Divider";
@@ -218,6 +219,8 @@ export function ProfileSettingsPanel({
   const [portfolioUrl, setPortfolioUrl] = useState(profile.portfolioUrl);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(profile.avatarUrl);
+  // Removing waits for Save, like choosing a new photo, so Cancel undoes it.
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -282,6 +285,14 @@ export function ProfileSettingsPanel({
           return;
         }
         next = failed.profile;
+      } else if (removePhoto) {
+        const removed = await fetch("/api/profile/avatar", { method: "DELETE" });
+        const body = (await removed.json()) as { profile?: OnboardingProfileValue };
+        if (!removed.ok || !body.profile) {
+          setError("Could not remove the photo.");
+          return;
+        }
+        next = body.profile;
       }
       onSaved(next);
     } finally {
@@ -297,12 +308,28 @@ export function ProfileSettingsPanel({
           icon={CameraIcon}
           description="Shown on your profile."
           control={
-            <Button
-              label={preview ? "Change" : "Add"}
-              variant="secondary"
-              size="sm"
-              onClick={() => file.current?.click()}
-            />
+            <HStack gap={2}>
+              <Button
+                label={preview ? "Change" : "Add"}
+                variant="secondary"
+                size="sm"
+                onClick={() => file.current?.click()}
+              />
+              {preview ? (
+                <Button
+                  label="Remove"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Remove photo"
+                  onClick={() => {
+                    setPhoto(null);
+                    setPreview(null);
+                    setRemovePhoto(true);
+                    if (file.current) file.current.value = "";
+                  }}
+                />
+              ) : null}
+            </HStack>
           }
           detail={
             preview ? (
@@ -321,7 +348,10 @@ export function ProfileSettingsPanel({
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
           hidden
-          onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            setPhoto(event.target.files?.[0] ?? null);
+            setRemovePhoto(false);
+          }}
         />
         <SettingsRow
           title="Name"
@@ -421,8 +451,11 @@ export function ModelSettingsPanel({
   error,
   note,
   onSave,
+  onRemove,
+  connections = [],
 }: {
-  connection: { hosting: ModelHosting; baseUrl: string; model: string } | null;
+  connection: { hosting: ModelHosting; baseUrl: string; model: string; hasKey?: boolean } | null;
+  connections?: Array<{ id: string; hosting: ModelHosting; baseUrl: string; model: string }>;
   busy: boolean;
   error: string | null;
   note: string | null;
@@ -432,8 +465,13 @@ export function ModelSettingsPanel({
     model: string;
     apiKey: string;
   }) => void;
+  onRemove?: (id: string) => void;
 }) {
   const [hosting, setHosting] = useState<ModelHosting>(connection?.hosting ?? "local");
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const inUseId = connections[connections.length - 1]?.id ?? null;
+  // The saved key never comes back to the screen; a blank field keeps it.
+  const keptKey = Boolean(connection?.hasKey);
   const [baseUrl, setBaseUrl] = useState(connection?.baseUrl ?? DEFAULT_LOCAL_BASE_URL);
   const [model, setModel] = useState(connection?.model ?? "");
   const [apiKey, setApiKey] = useState("");
@@ -510,7 +548,7 @@ export function ModelSettingsPanel({
       setLocalError("A base URL is required.");
       return;
     }
-    if (hosting === "cloud" && !apiKey.trim()) {
+    if (hosting === "cloud" && !apiKey.trim() && !keptKey) {
       setLocalError("A cloud connection needs an API key.");
       return;
     }
@@ -577,13 +615,13 @@ export function ModelSettingsPanel({
           <SettingsRow
             title="API key"
             icon={KeyIcon}
-            description="Stays in this vault."
+            description={keptKey ? "A key is saved in this vault. Leave blank to keep it." : "Stays in this vault."}
             control={field("API key", apiKey, setApiKey, { type: "password" })}
           />
         ) : null}
       </SettingsCard>
       <SettingsStatus error={localError ?? error} message={note} />
-      <HStack>
+      <HStack gap={2}>
         <Button
           label={busy ? "Saving…" : "Save"}
           variant="primary"
@@ -592,8 +630,54 @@ export function ModelSettingsPanel({
           onClick={save}
         />
       </HStack>
+      {connections.length > 0 && onRemove ? (
+        <SettingsCard title="Saved connections">
+          {[...connections].reverse().map((saved) => (
+            <SettingsRow
+              key={saved.id}
+              title={modelLabel(saved.model)}
+              icon={saved.hosting === "cloud" ? CloudIcon : ServerIcon}
+              description={`${saved.id === inUseId ? "In use · " : ""}${saved.hosting === "cloud" ? "Cloud" : "Local"} · ${saved.baseUrl}`}
+              control={
+                <Button
+                  label="Remove"
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={busy}
+                  aria-label={`Remove ${modelLabel(saved.model)}${saved.id === inUseId ? " (in use)" : ""}`}
+                  onClick={() => setRemovingId(saved.id)}
+                />
+              }
+            />
+          ))}
+        </SettingsCard>
+      ) : null}
+      <AlertDialog
+        isOpen={removingId != null}
+        onOpenChange={(next) => {
+          if (!next) setRemovingId(null);
+        }}
+        title="Remove this model connection?"
+        description={
+          removingId === inUseId
+            ? "Extract and chat stop using it and move to the next saved connection. Its saved key is deleted."
+            : "This saved connection and its key are deleted."
+        }
+        actionLabel="Remove"
+        onAction={() => {
+          const id = removingId;
+          setRemovingId(null);
+          if (id) onRemove?.(id);
+        }}
+      />
     </VStack>
   );
+}
+
+/** A model id can be a long file path; show the file name. */
+function modelLabel(model: string): string {
+  const name = model.split(/[\\/]/).filter(Boolean).pop() ?? "";
+  return name || "No model chosen";
 }
 
 export function MapSettingsPanel({ onSaved }: { onSaved?: () => void }) {
@@ -1671,11 +1755,41 @@ const VISIBILITY_OPTIONS: Array<{ value: WorkMapPublicationSettings["visibility"
   { value: "private", label: "Private — keep off the relay" },
 ];
 
+type PublishedPage = { id: string; slug: string; status: string; visibility: string };
+
+type AccessLink = {
+  id: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  createdAt: string;
+  requester: { name: string; email: string } | null;
+};
+
+function linkOwner(link: AccessLink): string {
+  if (!link.requester) return "Shared link";
+  return link.requester.email ? `${link.requester.name} (${link.requester.email})` : link.requester.name;
+}
+
+function linkState(link: AccessLink): { active: boolean; label: string } {
+  const day = (value: string) => new Date(value).toLocaleDateString();
+  if (link.revokedAt) return { active: false, label: `Revoked ${day(link.revokedAt)}` };
+  if (Date.parse(link.expiresAt) <= Date.now()) return { active: false, label: `Expired ${day(link.expiresAt)}` };
+  return { active: true, label: `Expires ${day(link.expiresAt)}` };
+}
+
+function visibilityLabel(value: string): string {
+  return VISIBILITY_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 export function PublicationSettingsPanel() {
   const [settings, setSettings] = useState<WorkMapPublicationSettings | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [relayOrigin, setRelayOrigin] = useState<string | null>(null);
-  const [publications, setPublications] = useState<Array<{ slug: string; status: string }>>([]);
+  const [publications, setPublications] = useState<PublishedPage[]>([]);
+  const [openLinks, setOpenLinks] = useState<string | null>(null);
+  const [links, setLinks] = useState<AccessLink[]>([]);
+  const [removingPage, setRemovingPage] = useState<PublishedPage | null>(null);
+  const [revokingLink, setRevokingLink] = useState<AccessLink | null>(null);
   const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1704,7 +1818,7 @@ export function PublicationSettingsPanel() {
       setRelayOrigin(body.relayOrigin ?? null);
       if (!publicationResponse.ok) return;
       const listed = (await publicationResponse.json()) as {
-        projections: Array<{ slug: string; status: string }>;
+        projections: PublishedPage[];
       };
       if (cancel) return;
       setPublications(listed.projections);
@@ -1751,6 +1865,75 @@ export function PublicationSettingsPanel() {
     setUpdatedAt(body.updatedAt ?? null);
     setMessage("Publication settings saved.");
     announceRelayChange();
+  }
+
+  async function reloadPages() {
+    const response = await fetch("/api/projections");
+    if (!response.ok) return;
+    const listed = (await response.json()) as { projections: PublishedPage[] };
+    setPublications(listed.projections);
+  }
+
+  async function showLinks(page: PublishedPage) {
+    if (openLinks === page.id) {
+      setOpenLinks(null);
+      return;
+    }
+    setOpenLinks(page.id);
+    setLinks([]);
+    const response = await fetch(`/api/projections/${page.id}/grants`);
+    if (!response.ok) {
+      setError("Could not load the access links.");
+      return;
+    }
+    setLinks(((await response.json()) as { grants: AccessLink[] }).grants);
+  }
+
+  async function removePage(page: PublishedPage) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/projections/${page.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        setError(
+          response.status === 502
+            ? "The relay could not be reached, so nothing was removed. Try again."
+            : "Could not remove that page.",
+        );
+        return;
+      }
+      if (openLinks === page.id) setOpenLinks(null);
+      setMessage(`/r/${page.slug} was removed.`);
+      announceRelayChange();
+      await reloadPages();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeLink(page: PublishedPage, link: AccessLink) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/projections/${page.id}/grants/${link.id}/revoke`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        setError(
+          response.status === 502
+            ? "The relay could not be reached, so the link still works. Try again."
+            : "Could not revoke that link.",
+        );
+        return;
+      }
+      setMessage(`${linkOwner(link)} can no longer open the page.`);
+      const refreshed = await fetch(`/api/projections/${page.id}/grants`);
+      if (refreshed.ok) setLinks(((await refreshed.json()) as { grants: AccessLink[] }).grants);
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!settings) {
@@ -1871,6 +2054,112 @@ export function PublicationSettingsPanel() {
           }
         />
       </SettingsCard>
+      {publications.length > 0 ? (
+        <SettingsCard title="Published pages">
+          {publications.map((page) => {
+            const live = page.status === "published";
+            const linksOpen = openLinks === page.id;
+            return (
+              <SettingsRow
+                key={page.id}
+                title={`/r/${page.slug}`}
+                icon={GlobeAltIcon}
+                description={`${live ? "Live" : "Offline"} · ${visibilityLabel(page.visibility)}${page.slug === settings.slug ? " · Current slug" : ""}`}
+                control={
+                  <HStack gap={2}>
+                    {page.visibility === "access-controlled" ? (
+                      <Button
+                        label={linksOpen ? "Hide links" : "Access links"}
+                        variant="secondary"
+                        size="sm"
+                        isDisabled={busy}
+                        onClick={() => void showLinks(page)}
+                      />
+                    ) : null}
+                    <Button
+                      label="Remove"
+                      variant="ghost"
+                      size="sm"
+                      isDisabled={busy}
+                      aria-label={`Remove /r/${page.slug}`}
+                      onClick={() => setRemovingPage(page)}
+                    />
+                  </HStack>
+                }
+                detail={
+                  linksOpen ? (
+                    <VStack gap={1}>
+                      {links.length === 0 ? (
+                        <Text type="supporting" color="secondary">
+                          No access links handed out yet.
+                        </Text>
+                      ) : (
+                        links.map((link) => {
+                          const state = linkState(link);
+                          return (
+                            <HStack key={link.id} gap={2} style={{ justifyContent: "space-between", alignItems: "center" }}>
+                              <Text type="supporting">
+                                {linkOwner(link)} · {state.label}
+                              </Text>
+                              {state.active ? (
+                                <Button
+                                  label="Revoke"
+                                  variant="ghost"
+                                  size="sm"
+                                  isDisabled={busy}
+                                  aria-label={`Revoke access for ${linkOwner(link)}`}
+                                  onClick={() => setRevokingLink(link)}
+                                />
+                              ) : null}
+                            </HStack>
+                          );
+                        })
+                      )}
+                    </VStack>
+                  ) : undefined
+                }
+              />
+            );
+          })}
+        </SettingsCard>
+      ) : null}
+      <AlertDialog
+        isOpen={removingPage != null}
+        onOpenChange={(next) => {
+          if (!next) setRemovingPage(null);
+        }}
+        title="Remove this page?"
+        description={
+          removingPage
+            ? `/r/${removingPage.slug} goes offline, every access link stops working, and its copy is deleted here and on the relay. Publishing again makes a new page.`
+            : ""
+        }
+        actionLabel="Remove"
+        onAction={() => {
+          const page = removingPage;
+          setRemovingPage(null);
+          if (page) void removePage(page);
+        }}
+      />
+      <AlertDialog
+        isOpen={revokingLink != null}
+        onOpenChange={(next) => {
+          if (!next) setRevokingLink(null);
+        }}
+        title="Revoke this access link?"
+        description={
+          revokingLink
+            ? `${linkOwner(revokingLink)} can no longer open the page. Everyone else keeps their link.`
+            : ""
+        }
+        actionLabel="Revoke"
+        onAction={() => {
+          const link = revokingLink;
+          const page = publications.find((item) => item.id === openLinks);
+          setRevokingLink(null);
+          if (link && page) void revokeLink(page, link);
+        }}
+      />
       <SettingsCard title="Frame">
         <SettingsRow
           title="Frame"

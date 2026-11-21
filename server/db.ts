@@ -642,6 +642,8 @@ export function openDatabase(path: string): DatabaseSync {
   addColumnIfMissing(db, "projection_access_requests", "relay_request_id", "TEXT");
   addColumnIfMissing(db, "projection_access_requests", "owner_note", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "projection_access_requests", "answered_at", "TEXT");
+  // Which access request a link answered, so the owner can see who it is for.
+  addColumnIfMissing(db, "projection_access_grants", "request_id", "TEXT");
   addColumnIfMissing(
     db,
     "contacts",

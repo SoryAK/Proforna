@@ -35,6 +35,17 @@ export function createHttpProjectionRelay(
         method: "DELETE",
       });
     },
+    async revokeGrant(slug: string, tokenHash: string) {
+      await request(
+        `/relay/publications/${encodeURIComponent(slug)}/grants/${encodeURIComponent(tokenHash)}`,
+        { method: "DELETE" },
+      );
+    },
+    async erase(slug: string) {
+      await request(`/relay/publications/${encodeURIComponent(slug)}/erase`, {
+        method: "POST",
+      });
+    },
     async grant(slug: string, grant: { token: string; expiresAt: string }) {
       await request(
         `/relay/publications/${encodeURIComponent(slug)}/grants`,

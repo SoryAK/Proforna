@@ -1,5 +1,5 @@
 export type ChangeOperation = {
-  action: "create" | "supersede" | "transition" | "publish" | "revoke" | "send";
+  action: "create" | "supersede" | "transition" | "publish" | "revoke" | "send" | "remove";
   entityType: string;
   entityId?: string;
   values: Record<string, unknown>;

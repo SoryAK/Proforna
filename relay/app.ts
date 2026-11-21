@@ -86,7 +86,8 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
       projection.slug,
       JSON.stringify(projection),
       projection.visibility,
-      projection.expiresAt,
+      // A page sent without an expiry never expires.
+      projection.expiresAt ?? null,
       now,
     );
     return c.json({ slug: projection.slug, publishedAt: now }, 201);
@@ -128,6 +129,38 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
       body.expiresAt,
     );
     return c.json({ ok: true }, 201);
+  });
+
+  app.delete("/relay/publications/:slug/grants/:tokenHash", (c) => {
+    if (!isOwner(c.req.header("authorization"), ownerToken)) {
+      return c.json({ error: "Unauthorized." }, 401);
+    }
+    // The owner names the link by the hash of its token; the token itself is
+    // never sent back once it has been handed out.
+    db.prepare(
+      `UPDATE relay_grants SET revoked_at = ?
+        WHERE slug = ? AND token_hash = ? AND revoked_at IS NULL`,
+    ).run(new Date().toISOString(), c.req.param("slug"), c.req.param("tokenHash"));
+    return c.json({ ok: true });
+  });
+
+  app.post("/relay/publications/:slug/erase", (c) => {
+    if (!isOwner(c.req.header("authorization"), ownerToken)) {
+      return c.json({ error: "Unauthorized." }, 401);
+    }
+    const slug = c.req.param("slug");
+    db.exec("BEGIN");
+    try {
+      for (const table of ["relay_events", "relay_requests", "relay_grants", "relay_publications"]) {
+        db.prepare(`DELETE FROM ${table} WHERE slug = ?`).run(slug);
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    // Erasing a page that is already gone is not an error.
+    return c.json({ ok: true });
   });
 
   app.get("/r/:slug", (c) => {

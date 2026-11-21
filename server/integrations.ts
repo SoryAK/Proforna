@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type {
-  IntegrationConnection,
-  IntegrationKind,
+import {
+  prepareIntegration,
+  type IntegrationConnection,
+  type IntegrationKind,
 } from "../core/index";
 
 type JsonObject = Record<string, unknown>;
@@ -40,23 +41,12 @@ export function saveIntegration(
   occupantId: string,
   input: JsonObject,
 ): IntegrationConnection {
-  const kind = parseKind(input.kind);
-  const label = text(input.label);
-  if (!label) throw new IntegrationStoreError("label-required");
-  const config = isObject(input.config) ? input.config : {};
-  if (
-    Object.keys(config).some((key) =>
-      /password|secret|api.?key|access.?token|refresh.?token/i.test(key),
-    )
-  ) {
-    throw new IntegrationStoreError("secret-not-allowed");
-  }
+  const prepared = prepareIntegration(input);
+  if (!prepared.ok) throw new IntegrationStoreError(prepared.error);
   const connection: IntegrationConnection = {
     id: randomUUID(),
     occupantId,
-    kind,
-    label,
-    config,
+    ...prepared.value,
     status: "configured",
     createdAt: new Date().toISOString(),
   };
@@ -76,19 +66,51 @@ export function saveIntegration(
   return connection;
 }
 
-function parseKind(value: unknown): IntegrationKind {
-  if (value === "calendar" || value === "email" || value === "job-board") {
-    return value;
-  }
-  throw new IntegrationStoreError("kind-invalid");
+/** Changes an integration with the same fields that add it. */
+export function updateIntegration(
+  db: DatabaseSync,
+  occupantId: string,
+  integrationId: string,
+  input: JsonObject,
+): IntegrationConnection {
+  const current = db
+    .prepare(
+      "SELECT status, created_at FROM integration_connections WHERE id = ? AND occupant_id = ?",
+    )
+    .get(integrationId, occupantId) as
+    | { status: IntegrationConnection["status"]; created_at: string }
+    | undefined;
+  if (!current) throw new IntegrationStoreError("not-found");
+  const prepared = prepareIntegration(input);
+  if (!prepared.ok) throw new IntegrationStoreError(prepared.error);
+  db.prepare(
+    `UPDATE integration_connections SET kind = ?, label = ?, config_json = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    prepared.value.kind,
+    prepared.value.label,
+    JSON.stringify(prepared.value.config),
+    integrationId,
+    occupantId,
+  );
+  return {
+    id: integrationId,
+    occupantId,
+    ...prepared.value,
+    status: current.status,
+    createdAt: current.created_at,
+  };
 }
 
-function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+export function removeIntegration(
+  db: DatabaseSync,
+  occupantId: string,
+  integrationId: string,
+): void {
+  const removed = db
+    .prepare("DELETE FROM integration_connections WHERE id = ? AND occupant_id = ?")
+    .run(integrationId, occupantId);
+  if (removed.changes !== 1) throw new IntegrationStoreError("not-found");
 }
 
 export class IntegrationStoreError extends Error {
