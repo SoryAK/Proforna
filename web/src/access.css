@@ -60,7 +60,7 @@
 /* The preview in the Relay menu. */
 .access-menu { display: grid; gap: 6px; padding: 10px 12px 2px; border-top: 1px solid var(--color-border, #ececee); }
 .access-menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.access-menu-list li { display: flex; align-items: center; gap: 8px; }
+.access-menu-list li { display: block; }
 .access-menu-who { flex: 1; min-width: 0; display: grid; }
 .access-menu-scope { font-size: 12px; color: var(--color-text-secondary, #6b6b73); }
 .access-menu-actions { display: flex; justify-content: space-between; gap: 8px; }
@@ -90,3 +90,27 @@
   font-size: 13px;
 }
 .access-menu-share { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The heading carries Manage; each person opens Access at them. Two classes,
+   so the menu's general button style doesn't stretch these. */
+.access-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.access-menu-head .home-sync-setting { margin-left: 0; padding-left: 0; }
+.home-pub-menu .access-menu-manage {
+  width: auto;
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-primary, #171717);
+}
+.home-pub-menu .access-menu-manage:hover,
+.home-pub-menu .access-menu-manage:focus-visible { text-decoration: underline; background: none; }
+.home-pub-menu .access-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border-radius: 8px;
+}

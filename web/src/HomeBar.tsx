@@ -733,9 +733,9 @@ export function HomeBar({
               ) : null}
               {visibilityNote ? <p className="home-sync-setting-note">{visibilityNote}</p> : null}
               <AccessMenuSection
-                onManage={() => {
+                onManage={(personId) => {
                   setMenu(null);
-                  openAccess();
+                  openAccess(personId);
                 }}
               />
             </div>
