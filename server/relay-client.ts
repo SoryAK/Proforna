@@ -1,6 +1,6 @@
 import type { RelayRequestState } from "../core/index";
 import type { ProjectionRelay, RelayProjection } from "./projections";
-import type { RelayAsk, RequestRelay } from "./requests";
+import type { InboundAccessRequest, RelayAsk, RequestRelay } from "./requests";
 
 export function createHttpProjectionRelay(
   baseUrl: string,
@@ -72,6 +72,13 @@ export function createHttpRequestRelay(baseUrl: string, ownerToken: string): Req
         body: JSON.stringify({ hashes: tokenHashes }),
       });
       return ((await response.json()) as { states: Record<string, RelayRequestState> }).states;
+    },
+    async forgetJoin(tokenHash: string) {
+      await call(`/relay/asks/${tokenHash}/join`, { method: "DELETE" });
+    },
+    async inbound(after: string) {
+      const response = await call(`/relay/inbound?after=${encodeURIComponent(after)}`, { method: "GET" });
+      return ((await response.json()) as { requests: InboundAccessRequest[] }).requests;
     },
   };
 }

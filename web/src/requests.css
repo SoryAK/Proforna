@@ -42,15 +42,49 @@
   border: 1px dashed #c9c9cf;
   border-radius: 8px;
 }
+.req-linkbox {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+/* A long link wraps instead of widening the row past the dialog. */
 .req-linkbox code {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
   font-size: 12px;
 }
+.req-note { overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
   .req-row2 { grid-template-columns: 1fr; }
+}
+
+/* Long messages and notes show three lines until Show more. */
+.req-quote { display: grid; justify-items: start; gap: 2px; }
+.req-quote .req-note { justify-self: stretch; }
+.req-note.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.req-more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-link, #005fb8);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.req-more:hover,
+.req-more:focus-visible { text-decoration: underline; }
+
+/* Search and kind above a long list. */
+.req-tools { display: flex; gap: 8px; align-items: center; }
+.req-tools > :first-child { flex: 1; min-width: 0; }
+@media (max-width: 767px) {
+  .req-tools { flex-direction: column; align-items: stretch; }
 }

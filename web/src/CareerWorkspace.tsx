@@ -18,6 +18,7 @@ import { NetworkPage } from "./NetworkPage";
 import { searchPlaces } from "./place-search";
 import { LifeAnchors } from "./LifeAnchors";
 import type { HomePage } from "./HomeNav";
+import { openRequests } from "./Requests";
 import "./career-workspace.css";
 
 type ResumeRevision = {
@@ -347,23 +348,6 @@ function OpportunitiesPage() {
     await load();
   }
 
-  async function resolveAccess(opportunityId: string, decision: "grant" | "decline") {
-    const response = await fetch(`/api/opportunities/${opportunityId}/access`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decision }),
-    });
-    setMessage(
-      response.ok
-        ? decision === "grant"
-          ? "Access granted."
-          : "Request declined."
-        : "Could not resolve that request.",
-    );
-    window.dispatchEvent(new Event("proforna:notices-changed"));
-    await load();
-  }
-
   async function keepInNetwork(opportunityId: string) {
     const response = await fetch(`/api/opportunities/${opportunityId}/network`, {
       method: "POST",
@@ -549,22 +533,14 @@ function OpportunitiesPage() {
                 {opportunity.kind === "connection" ? (
                   <div className="opportunity-actions">
                     {opportunity.pending_access_request_id ? (
-                      <>
-                        <button
-                          className="is-primary"
-                          type="button"
-                          onClick={() => void resolveAccess(opportunity.id, "grant")}
-                        >
-                          Grant access
-                        </button>
-                        <button
-                          className="is-danger"
-                          type="button"
-                          onClick={() => void resolveAccess(opportunity.id, "decline")}
-                        >
-                          Decline
-                        </button>
-                      </>
+                      // Received requests are answered in one place: Requests.
+                      <button
+                        className="is-primary"
+                        type="button"
+                        onClick={() => openRequests("received", opportunity.pending_access_request_id ?? undefined)}
+                      >
+                        Answer in Requests
+                      </button>
                     ) : null}
                     {opportunity.status !== "closed" ? (
                       <button

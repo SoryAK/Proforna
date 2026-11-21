@@ -52,5 +52,13 @@ export function openRelayDatabase(path: string): DatabaseSync {
       occurred_at TEXT NOT NULL
     );
   `);
+  // Added after relay_asks first shipped; harmless when already present.
+  for (const column of ["join_choice TEXT", "join_json TEXT"]) {
+    try {
+      db.exec(`ALTER TABLE relay_asks ADD COLUMN ${column}`);
+    } catch {
+      /* the column exists */
+    }
+  }
   return db;
 }

@@ -4,7 +4,7 @@ import { openDatabase } from "./db";
 import { captureAccessRequest } from "./projections";
 
 describe("GET /api/notices", () => {
-  it("starts empty, then includes proposed changes and access requests", async () => {
+  it("starts empty, then includes proposed changes but not access requests", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db);
     try {
@@ -71,14 +71,10 @@ describe("GET /api/notices", () => {
             title: "Promote measured recovery result",
             href: "worklog",
           }),
-          expect.objectContaining({
-            kind: "access-request",
-            title: "Alex Rivera asked to view the Work Map",
-            href: "opportunities",
-          }),
         ]),
       );
-      expect(body.notices).toHaveLength(2);
+      // Access requests are answered in Requests, which counts them itself.
+      expect(body.notices).toHaveLength(1);
 
       const approval = await app.request(
         `/api/memory/proposals/${proposal.changeSet.id}/approve`,
@@ -88,9 +84,7 @@ describe("GET /api/notices", () => {
       const remaining = (await (
         await app.request("/api/notices")
       ).json()) as { notices: Array<{ kind: string }> };
-      expect(remaining.notices).toEqual([
-        expect.objectContaining({ kind: "access-request" }),
-      ]);
+      expect(remaining.notices).toEqual([]);
 
       const dashboard = (await (
         await app.request("/api/career-management")
@@ -123,7 +117,7 @@ describe("GET /api/notices", () => {
     }
   });
 
-  it("clears an access-request notice when the occupant declines it", async () => {
+  it("never lists an access request, before or after it is declined", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db);
     try {
@@ -138,6 +132,8 @@ describe("GET /api/notices", () => {
         email: "jordan@example.com",
         message: "Please share the map.",
       });
+      const before = (await (await app.request("/api/notices")).json()) as { notices: unknown[] };
+      expect(before.notices).toEqual([]);
       const dashboard = (await (
         await app.request("/api/career-management")
       ).json()) as {

@@ -1611,6 +1611,10 @@ button.home-nav-item:focus-visible {
   align-items: center;
 }
 
+/* The waiting count sits on the Request pill's corner. */
+.home-request-btn { position: relative; }
+.home-request-btn .home-notice-count { top: -5px; right: -5px; }
+
 .home-request-btn {
   display: none;
   align-items: center;

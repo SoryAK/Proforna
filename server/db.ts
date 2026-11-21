@@ -636,6 +636,12 @@ export function openDatabase(path: string): DatabaseSync {
     "TEXT NOT NULL DEFAULT 'career'",
   );
   addColumnIfMissing(db, "projection_access_requests", "opportunity_id", "TEXT");
+  // Requests (#169): who joined from a sent request, and received requests pulled from the Relay.
+  addColumnIfMissing(db, "outgoing_requests", "join_status", "TEXT");
+  addColumnIfMissing(db, "outgoing_requests", "joined_contact_id", "TEXT");
+  addColumnIfMissing(db, "projection_access_requests", "relay_request_id", "TEXT");
+  addColumnIfMissing(db, "projection_access_requests", "owner_note", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "projection_access_requests", "answered_at", "TEXT");
   addColumnIfMissing(
     db,
     "contacts",
