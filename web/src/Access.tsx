@@ -44,6 +44,7 @@ export type AccessPerson = {
   slug: string;
   name: string;
   email: string;
+  named: boolean;
   source: "asked" | "shared";
   sections: WorkMapPublishSection[];
   wholePage: boolean;
@@ -81,6 +82,7 @@ const ERRORS: Record<string, string> = {
   "link-unavailable": "This link was made before Docier kept links, so it can't be shown again. Revoke it and give access again.",
   "relay-unavailable": "The Relay couldn't be reached, so nothing changed. Try again.",
   "not-connected": "Connect Gmail in Settings to draft emails.",
+  "already-shared": "That email already has a link.",
 };
 
 async function loadAccess(): Promise<Listed> {
@@ -180,8 +182,9 @@ export function AccessMenuSection({ onManage, onShare }: { onManage: () => void;
         <button type="button" onClick={onManage}>
           Manage access
         </button>
-        <button type="button" onClick={onShare}>
-          + Share with someone
+        <button type="button" className="access-menu-share" onClick={onShare}>
+          <Share2 size={13} aria-hidden="true" />
+          Share
         </button>
       </div>
     </div>
@@ -362,6 +365,7 @@ export function AccessDialog({
   const [editing, setEditing] = useState<Editing>(null);
   // One person open at a time; their Activity shows only when asked for.
   const [openId, setOpenId] = useState<string | null>(null);
+  const [naming, setNaming] = useState<string | null>(null);
   const [openActivity, setOpenActivity] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "revoke" | "remove"; person: AccessPerson } | null>(null);
   const [message, setMessage] = useState("");
@@ -487,6 +491,14 @@ export function AccessDialog({
                 <ShareForm
                   page={page}
                   onCancel={() => setSharing(false)}
+                  people={people}
+                  onOpenPerson={(person) => {
+                    // Someone who already has a record: change it, or give access again.
+                    setSharing(false);
+                    setTab(isActive(person) ? "active" : "ended");
+                    setOpenId(person.id);
+                    setEditing({ mode: isActive(person) ? "change" : "restore", person });
+                  }}
                   onShare={async (body) => {
                     const person = await act("/api/access", "POST", body, `Shared with ${body.name}. Send them the link.`);
                     if (person) {
@@ -607,7 +619,32 @@ export function AccessDialog({
                                   {open ? (
                                   // Clicks inside the open card don't fold it.
                                   <div className="access-open" onClick={(event) => event.stopPropagation()}>
-                                  <span className="access-faint">{person.email}</span>
+                                  {naming === person.id ? (
+                                    <NameForm
+                                      person={person}
+                                      onCancel={() => setNaming(null)}
+                                      onSave={async (body) => {
+                                        const done = await act(
+                                          `/api/access/${person.id}/person`,
+                                          "PUT",
+                                          body,
+                                          person.named ? "Saved." : `This link is now ${body.name}'s.`,
+                                        );
+                                        if (done) setNaming(null);
+                                      }}
+                                    />
+                                  ) : (
+                                    <span className="access-who">
+                                      {person.named ? (
+                                        <span className="access-faint">{person.email || "No email"}</span>
+                                      ) : (
+                                        <span className="access-faint">Made before Docier kept names</span>
+                                      )}
+                                      <button type="button" className="req-more" onClick={() => setNaming(person.id)}>
+                                        {person.named ? "Edit" : "Name this link"}
+                                      </button>
+                                    </span>
+                                  )}
                                   <span className="access-sees">
                                     {scope(person) === "Whole page" ? (
                                       <>
@@ -791,44 +828,143 @@ function EditAccess({
   );
 }
 
+type NetworkContact = { id: string; name: string; email: string };
+
+/** A name and email, the same fields that share a link. */
+function NameForm({
+  person,
+  onCancel,
+  onSave,
+}: {
+  person: AccessPerson;
+  onCancel: () => void;
+  onSave: (body: { name: string; email: string }) => Promise<void>;
+}) {
+  const [name, setName] = useState(person.named ? person.name : "");
+  const [email, setEmail] = useState(person.email);
+  return (
+    <div className="access-box">
+      <div className="req-row2">
+        <TextInput label="Name" value={name} onChange={setName} hasAutoFocus />
+        <TextInput label="Email" type="email" value={email} onChange={setEmail} />
+      </div>
+      <div className="req-actions">
+        <Button label="Cancel" variant="ghost" size="sm" onClick={onCancel} />
+        <Button
+          label="Save"
+          variant="primary"
+          size="sm"
+          isDisabled={!name.trim()}
+          onClick={() => void onSave({ name: name.trim(), email: email.trim() })}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ShareForm({
   page,
+  people,
   onCancel,
   onShare,
+  onOpenPerson,
 }: {
   page: AccessPage | null;
+  people: AccessPerson[];
   onCancel: () => void;
   onShare: (body: ReturnType<typeof choiceBody> & { name: string; email: string }) => Promise<void>;
+  onOpenPerson: (person: AccessPerson) => void;
 }) {
   const sections = page?.sections ?? [];
+  const [to, setTo] = useState("network");
+  const [contacts, setContacts] = useState<NetworkContact[] | null>(null);
+  const [contactId, setContactId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [choice, setChoice] = useState<AccessChoiceValue>(() => defaultChoice(sections));
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/career-management")
+      .then(async (response) => (await response.json()) as { contacts?: NetworkContact[] })
+      .then((body) => setContacts(body.contacts ?? []))
+      .catch(() => setContacts([]));
+  }, []);
+
   if (!page?.published) {
     return <EmptyState isCompact title="Publish your page first" description="Then you can share it with someone." />;
   }
+  const contact = contacts?.find((item) => item.id === contactId) ?? null;
+  const who = to === "network" ? (contact ? { name: contact.name, email: contact.email } : null) : { name, email };
+  // Someone who already has a record is pointed at it, not given a second link.
+  const existing = who?.email
+    ? people.find((person) => person.email.toLowerCase() === who.email.trim().toLowerCase()) ?? null
+    : null;
+
   return (
     <div className="access-box">
-      <Text type="label">Share your page with someone</Text>
-      <div className="req-row2">
-        <TextInput label="Name" value={name} onChange={setName} />
-        <TextInput label="Email" type="email" value={email} onChange={setEmail} />
-      </div>
-      <AccessChoice page={sections} value={choice} onChange={setChoice} who={firstName(name) || "they"} />
-      <Text type="supporting" color="secondary">
-        You get a private link to send them. Docier doesn't send anything.
-      </Text>
+      <Text type="label">Share your page</Text>
+      <SegmentedControl label="With" size="sm" value={to} onChange={setTo}>
+        <SegmentedControlItem value="network" label="My Network" />
+        <SegmentedControlItem value="new" label="Someone new" />
+      </SegmentedControl>
+      {to === "network" ? (
+        contacts && contacts.length === 0 ? (
+          <Text type="supporting" color="secondary">
+            Nobody is in My Network yet. Choose Someone new.
+          </Text>
+        ) : (
+          <Selector
+            label="Person"
+            value={contactId}
+            placeholder="Choose someone"
+            hasSearch
+            onChange={(value) => setContactId(String(value))}
+            options={(contacts ?? []).map((item) => ({
+              value: item.id,
+              label: item.email ? item.name : `${item.name} (no email)`,
+              isDisabled: !item.email,
+            }))}
+          />
+        )
+      ) : (
+        <div className="req-row2">
+          <TextInput label="Name" value={name} onChange={setName} />
+          <TextInput label="Email" type="email" value={email} onChange={setEmail} />
+        </div>
+      )}
+      {existing ? (
+        <div className="access-existing" role="status">
+          <span>
+            {existing.name} already {isActive(existing) ? "has a link" : "had a link"}.{" "}
+            {isActive(existing) ? "Change what they see instead?" : "Give them access again instead?"}
+          </span>
+          <Button
+            label={isActive(existing) ? "Change access" : "Give access again"}
+            variant="secondary"
+            size="sm"
+            onClick={() => onOpenPerson(existing)}
+          />
+        </div>
+      ) : (
+        <>
+          <AccessChoice page={sections} value={choice} onChange={setChoice} who={firstName(who?.name ?? "") || "they"} />
+          <Text type="supporting" color="secondary">
+            You get a private link to send them. Docier doesn't send anything.
+          </Text>
+        </>
+      )}
       <div className="req-actions">
         <Button label="Cancel" variant="ghost" onClick={onCancel} />
         <Button
           label="Share"
           variant="primary"
-          isDisabled={busy || !name.trim() || !email.trim() || choice.sections.length === 0}
+          isDisabled={busy || Boolean(existing) || !who?.name.trim() || !who.email.trim() || choice.sections.length === 0}
           onClick={async () => {
+            if (!who) return;
             setBusy(true);
             try {
-              await onShare({ ...choiceBody(choice, sections), name: name.trim(), email: email.trim() });
+              await onShare({ ...choiceBody(choice, sections), name: who.name.trim(), email: who.email.trim() });
             } finally {
               setBusy(false);
             }
