@@ -69,6 +69,122 @@ export function saveEvidence(
   return prepared.value;
 }
 
+/**
+ * True when a career fact (current or superseded) or an open memory proposal
+ * names this evidence. Approved facts were judged against it, so it stays as
+ * captured while anything cites it.
+ */
+function evidenceCited(db: DatabaseSync, occupantId: string, evidenceId: string): boolean {
+  const quoted = `%${JSON.stringify(evidenceId)}%`;
+  const fact = db
+    .prepare("SELECT 1 FROM career_facts WHERE occupant_id = ? AND evidence_ids_json LIKE ? LIMIT 1")
+    .get(occupantId, quoted);
+  if (fact) return true;
+  const proposal = db
+    .prepare(
+      `SELECT 1 FROM change_sets
+        WHERE occupant_id = ? AND status = 'proposed' AND destination = 'career-memory'
+          AND operations_json LIKE ? LIMIT 1`,
+    )
+    .get(occupantId, quoted);
+  return Boolean(proposal);
+}
+
+/** Changes evidence with the same fields that add it, while nothing cites it. */
+export function updateEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  evidenceId: string,
+  input: {
+    sourceType?: unknown;
+    sourceRef?: unknown;
+    title?: unknown;
+    sensitivity?: unknown;
+    content?: unknown;
+  },
+): Evidence {
+  const current = db
+    .prepare("SELECT source_ref, captured_at FROM evidence WHERE id = ? AND occupant_id = ?")
+    .get(evidenceId, occupantId) as { source_ref: string; captured_at: string } | undefined;
+  if (!current) throw new CareerMemoryStoreError("evidence-missing");
+  if (evidenceCited(db, occupantId, evidenceId)) throw new CareerMemoryStoreError("evidence-cited");
+  const content = isObject(input.content) ? input.content : {};
+  const prepared = prepareEvidence({
+    id: evidenceId,
+    occupantId,
+    sourceType: parseSourceType(input.sourceType),
+    sourceRef: text(input.sourceRef) || current.source_ref,
+    title: text(input.title),
+    capturedAt: current.captured_at,
+    checksum: createHash("sha256").update(JSON.stringify(content)).digest("hex"),
+    sensitivity: parseSensitivity(input.sensitivity),
+    content,
+  });
+  if (!prepared.ok) throw new CareerMemoryStoreError(prepared.error);
+  db.prepare(
+    `UPDATE evidence
+        SET source_type = ?, source_ref = ?, title = ?, checksum = ?, sensitivity = ?, content_json = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    prepared.value.sourceType,
+    prepared.value.sourceRef,
+    prepared.value.title,
+    prepared.value.checksum,
+    prepared.value.sensitivity,
+    JSON.stringify(prepared.value.content),
+    evidenceId,
+    occupantId,
+  );
+  return prepared.value;
+}
+
+/** Removes evidence that nothing cites. */
+export function removeEvidence(db: DatabaseSync, occupantId: string, evidenceId: string): void {
+  const exists = db
+    .prepare("SELECT 1 FROM evidence WHERE id = ? AND occupant_id = ?")
+    .get(evidenceId, occupantId);
+  if (!exists) throw new CareerMemoryStoreError("evidence-missing");
+  if (evidenceCited(db, occupantId, evidenceId)) throw new CareerMemoryStoreError("evidence-cited");
+  db.prepare("DELETE FROM evidence WHERE id = ? AND occupant_id = ?").run(evidenceId, occupantId);
+}
+
+/**
+ * Withdraws a memory proposal before it is approved. A proposal is a hashed
+ * change set, so it is not edited: withdraw it and propose again.
+ */
+export function withdrawCareerFactChange(
+  db: DatabaseSync,
+  occupantId: string,
+  changeSetId: string,
+): void {
+  const now = new Date().toISOString();
+  db.exec("BEGIN");
+  try {
+    const withdrawn = db
+      .prepare(
+        `UPDATE change_sets SET status = 'withdrawn'
+          WHERE id = ? AND occupant_id = ? AND status = 'proposed' AND destination = 'career-memory'`,
+      )
+      .run(changeSetId, occupantId);
+    if (withdrawn.changes !== 1) throw new CareerMemoryStoreError("change-set-missing");
+    insertAudit(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "career-fact-change-withdrawn",
+      entityType: "change-set",
+      entityId: changeSetId,
+      changeSetId,
+      approvalId: null,
+      detail: {},
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export async function proposeCareerFact(
   db: DatabaseSync,
   occupantId: string,

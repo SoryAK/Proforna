@@ -64,3 +64,45 @@ export const CURATED_CAPABILITIES = {
     "immersive-work-map",
   ],
 } as const;
+
+export type IntegrationError = "kind-invalid" | "label-required" | "secret-not-allowed";
+
+/**
+ * The one reading of an integration submission, shared by adding and changing
+ * one. Adapter settings hold only metadata; secrets belong in the vault.
+ */
+export function prepareIntegration(
+  input: unknown,
+):
+  | { ok: true; value: Pick<IntegrationConnection, "kind" | "label" | "config"> }
+  | { ok: false; error: IntegrationError } {
+  const record =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const kind = record.kind;
+  if (kind !== "calendar" && kind !== "email" && kind !== "job-board") {
+    return { ok: false, error: "kind-invalid" };
+  }
+  const label = typeof record.label === "string" ? record.label.trim() : "";
+  if (!label) return { ok: false, error: "label-required" };
+  const config =
+    record.config && typeof record.config === "object" && !Array.isArray(record.config)
+      ? (record.config as Record<string, unknown>)
+      : {};
+  if (holdsSecret(config)) return { ok: false, error: "secret-not-allowed" };
+  return { ok: true, value: { kind, label, config } };
+}
+
+const SECRET_KEY = /password|secret|api.?key|access.?token|refresh.?token/i;
+
+/** True when any key, at any depth of objects and arrays, names a secret. */
+function holdsSecret(value: unknown, depth = 0): boolean {
+  // Settings are shallow metadata; anything nested this deep is refused outright.
+  if (depth > 20) return true;
+  if (Array.isArray(value)) return value.some((item) => holdsSecret(item, depth + 1));
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value as Record<string, unknown>).some(
+    ([key, item]) => SECRET_KEY.test(key) || holdsSecret(item, depth + 1),
+  );
+}

@@ -3445,3 +3445,15 @@
   color: #c9b8a0;
   font: 600 0.75rem/1.2 "Geist Variable", "Geist", system-ui, sans-serif;
 }
+
+/* Undo beside "Marked as a different role" in the duplicate review. */
+.history-review-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

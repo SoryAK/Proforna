@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { DatabaseSync } from "node:sqlite";
 import { isFrameTarget, pageAllowsFrame, PRODUCT, type ApplicationStage } from "../core/index";
 import {
@@ -18,6 +18,8 @@ import {
   type CompleteFn,
 } from "./openai-compat";
 import { pingDatabase } from "./db";
+import { RelayTransportError } from "./relay-client";
+import { DistinctPairError, listDistinctPairs, markDistinctPair, unmarkDistinctPair } from "./distinct-roles";
 import {
   applyComparedResume,
   loadCareerFile,
@@ -45,6 +47,8 @@ import {
   ModelConnectionError,
   listModelConnections,
   saveModelConnection,
+  updateModelConnection,
+  removeModelConnection,
 } from "./models";
 import type { WorkMapPlace } from "../core/work-map";
 import { lookupGooglePlaces, reverseGooglePlace } from "./google-geocode";
@@ -57,6 +61,7 @@ import {
   evidenceIdForResume,
   loadAvatar,
   saveProfile,
+  removeAvatar,
   storeAvatar,
   storeResume,
 } from "./profile";
@@ -72,6 +77,9 @@ import {
   proposeCareerFact,
   readCareerMemory,
   saveEvidence,
+  removeEvidence,
+  updateEvidence,
+  withdrawCareerFactChange,
 } from "./career-memory";
 import {
   WorklogStoreError,
@@ -94,6 +102,9 @@ import {
   captureAccessRequest,
   createProjection,
   createProjectionGrant,
+  listProjectionGrants,
+  removeProjection,
+  revokeProjectionGrant,
   listProjections,
   previewWorkMapProjection,
   publishProjection,
@@ -117,6 +128,14 @@ import {
   createOffer,
   createOpportunity,
   createPlan,
+  cancelExternalAction,
+  removeInterview,
+  removeOffer,
+  updateInterview,
+  updateOffer,
+  updateOpportunity,
+  removePlan,
+  updatePlan,
   promoteOpportunityToNetwork,
   proposeExternalAction,
   readCareerManagement,
@@ -193,7 +212,9 @@ import {
 import {
   IntegrationStoreError,
   listIntegrations,
+  removeIntegration,
   saveIntegration,
+  updateIntegration,
 } from "./integrations";
 import {
   ResidenceStoreError,
@@ -580,11 +601,23 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       if (err instanceof ProfileError) {
         const messages: Record<string, string> = {
           "avatar-type": "Use a jpeg, png, webp, or gif photo.",
+          "avatar-empty": "That photo file is empty.",
           "avatar-too-large": "That photo is too large (5 MB max).",
         };
         return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
       }
       throw err;
+    }
+  });
+
+  app.delete("/api/profile/avatar", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const profile = removeAvatar(db, occupant.id, uploadsDir);
+      return c.json({ occupant, profile });
+    } catch (error) {
+      if (error instanceof ProfileError) return c.json({ error: error.code }, 500);
+      throw error;
     }
   });
 
@@ -670,6 +703,44 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           "key-required": "A cloud connection needs an API key.",
         };
         return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
+      }
+      throw err;
+    }
+  });
+
+  const modelConnectionMessages: Record<string, string> = {
+    "hosting-required": "Choose local or cloud.",
+    "url-required": "A base URL is required.",
+    "url-invalid": "That does not look like an http(s) URL.",
+    "key-required": "A cloud connection needs an API key.",
+    "not-found": "That connection is no longer saved.",
+  };
+
+  app.put("/api/models/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as Record<string, unknown>;
+    try {
+      const connection = updateModelConnection(db, occupant.id, c.req.param("id"), body);
+      return c.json({ connection });
+    } catch (err) {
+      if (err instanceof ModelConnectionError) {
+        return c.json(
+          { error: modelConnectionMessages[err.code] ?? "Could not save." },
+          err.code === "not-found" ? 404 : 400,
+        );
+      }
+      throw err;
+    }
+  });
+
+  app.delete("/api/models/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeModelConnection(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (err) {
+      if (err instanceof ModelConnectionError) {
+        return c.json({ error: modelConnectionMessages[err.code] }, 404);
       }
       throw err;
     }
@@ -1112,6 +1183,38 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
       }
+      throw error;
+    }
+  });
+
+  app.get("/api/work-map/distinct-pairs", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ pairs: listDistinctPairs(db, occupant.id) });
+  });
+
+  app.post("/api/work-map/distinct-pairs", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const pair = markDistinctPair(db, occupant.id, await c.req.json());
+      return c.json({ pair }, 201);
+    } catch (error) {
+      if (error instanceof DistinctPairError) {
+        return c.json({ error: error.code }, error.code === "role-missing" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/distinct-pairs/:firstId/:secondId", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      unmarkDistinctPair(db, occupant.id, {
+        firstId: c.req.param("firstId"),
+        secondId: c.req.param("secondId"),
+      });
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof DistinctPairError) return c.json({ error: error.code }, 400);
       throw error;
     }
   });
@@ -1584,6 +1687,56 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.get("/api/projections/:id/grants", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json({ grants: listProjectionGrants(db, occupant.id, c.req.param("id")) });
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/projections/:id/grants/:grantId/revoke", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await revokeProjectionGrant(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("grantId"),
+        relay,
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json({ error: error.code }, error.code === "relay-not-configured" ? 409 : 404);
+      }
+      if (error instanceof RelayTransportError) {
+        return c.json({ error: "relay-unavailable" }, 502);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/projections/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await removeProjection(db, occupant.id, c.req.param("id"), relay);
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json({ error: error.code }, error.code === "relay-not-configured" ? 409 : 404);
+      }
+      if (error instanceof RelayTransportError) {
+        return c.json({ error: "relay-unavailable" }, 502);
+      }
+      throw error;
+    }
+  });
+
   app.post("/api/projections/:id/grants", async (c) => {
     const occupant = ensureOccupant(db);
     const body = (await c.req.json()) as { expiresAt?: unknown };
@@ -1880,6 +2033,27 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.put("/api/opportunities/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const opportunity = updateOpportunity(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ opportunity });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "opportunity-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
   app.delete("/api/opportunities/:id", (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -2135,6 +2309,141 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  const notFound = new Set(["not-found", "evidence-missing", "change-set-missing", "action-missing"]);
+  const careerError = (c: Context, error: unknown) => {
+    if (error instanceof CareerManagementStoreError || error instanceof CareerMemoryStoreError) {
+      const status = notFound.has(error.code) ? 404 : error.code === "evidence-cited" ? 409 : 400;
+      return c.json({ error: error.code }, status);
+    }
+    throw error;
+  };
+
+  app.put("/api/interviews/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const interview = updateInterview(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ interview });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.delete("/api/interviews/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeInterview(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.put("/api/offers/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const offer = updateOffer(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ offer });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.delete("/api/offers/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeOffer(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.post("/api/external-actions/:id/cancel", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      cancelExternalAction(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.put("/api/memory/evidence/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const evidence = updateEvidence(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ evidence });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.delete("/api/memory/evidence/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeEvidence(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.post("/api/memory/proposals/:id/withdraw", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      withdrawCareerFactChange(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return careerError(c, error);
+    }
+  });
+
+  app.put("/api/plans/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const plan = updatePlan(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ plan });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/plans/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removePlan(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }
@@ -2495,6 +2804,37 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof IntegrationStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/integrations/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const integration = updateIntegration(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ integration });
+    } catch (error) {
+      if (error instanceof IntegrationStoreError) {
+        return c.json({ error: error.code }, error.code === "not-found" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/integrations/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeIntegration(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof IntegrationStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }

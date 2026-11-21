@@ -253,6 +253,8 @@ export {
   mayPublishProjection,
   planProjectionAccessDecision,
   planProjectionGrant,
+  planProjectionGrantRevoke,
+  planProjectionRemove,
   planProjectionRevoke,
   presentRelayStatus,
   type InteractiveProjection,
@@ -267,7 +269,10 @@ export {
   resolveInboundAccessRequest,
   prepareExternalAction,
   planContactSubmission,
+  prepareInterview,
+  prepareOffer,
   prepareOpportunity,
+  preparePlan,
   transitionApplication,
   type Application,
   type ApplicationStage,
@@ -279,6 +284,7 @@ export {
   type ExternalActionKind,
   type Opportunity,
   type OpportunityKind,
+  type PreparedPlan,
 } from "./career-management";
 export {
   judgeListingFit,
@@ -378,8 +384,10 @@ export {
 export {
   CURATED_CAPABILITIES,
   PORTABLE_FORMAT_VERSION,
+  prepareIntegration,
   validatePortableManifest,
   type IntegrationConnection,
+  type IntegrationError,
   type IntegrationKind,
   type PortableManifest,
 } from "./portability";
@@ -511,3 +519,4 @@ export {
   type CareerTimelineResidence,
   type CareerTimelineRole,
 } from "./career-timeline";
+export { distinctPairKey, prepareDistinctPair, type DistinctPair } from "./distinct-roles";

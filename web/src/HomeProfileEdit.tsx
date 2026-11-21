@@ -22,6 +22,8 @@ export function HomeProfileEdit({
   const [bio, setBio] = useState(initial.bio);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(initial.avatarUrl);
+  // Removing waits for Save, like choosing a new photo, so Cancel undoes it.
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,8 +77,19 @@ export function HomeProfileEdit({
           return;
         }
         profile = failed.profile;
+      } else if (removePhoto) {
+        const removed = await fetch("/api/profile/avatar", { method: "DELETE" });
+        const body = (await removed.json().catch(() => ({}))) as { profile?: OnboardingProfileValue };
+        if (!removed.ok || !body.profile) {
+          setError("Could not remove the photo.");
+          return;
+        }
+        profile = body.profile;
       }
       onSaved(profile);
+    } catch {
+      // A failed request (or a reply that isn't JSON) keeps the form as typed, to retry.
+      setError("Could not reach Docier, so not everything was saved. Try again.");
     } finally {
       setBusy(false);
     }
@@ -111,7 +124,10 @@ export function HomeProfileEdit({
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            setPhoto(e.target.files?.[0] ?? null);
+            setRemovePhoto(false);
+          }}
         />
         {preview ? (
           <img src={preview} alt="Profile photo" />
@@ -119,6 +135,19 @@ export function HomeProfileEdit({
           <span>Add a photo</span>
         )}
       </label>
+      {preview ? (
+        <button
+          type="button"
+          className="onboarding-btn onboarding-btn-ghost"
+          onClick={() => {
+            setPhoto(null);
+            setPreview(null);
+            setRemovePhoto(true);
+          }}
+        >
+          Remove photo
+        </button>
+      ) : null}
 
       <label className="onboarding-field">
         <span>First name</span>

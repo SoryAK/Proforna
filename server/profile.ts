@@ -100,6 +100,7 @@ export function storeAvatar(
   if (!isAvatarType(file.type)) {
     throw new ProfileError("avatar-type");
   }
+  if (file.bytes.byteLength === 0) throw new ProfileError("avatar-empty");
   if (file.bytes.byteLength > PROFILE_AVATAR_MAX_BYTES) {
     throw new ProfileError("avatar-too-large");
   }
@@ -121,6 +122,28 @@ export function storeAvatar(
       /* leftover file is harmless */
     }
   }
+  return readProfile(db, occupantId);
+}
+
+/** Takes the profile back to no photo and deletes the stored file. */
+export function removeAvatar(
+  db: DatabaseSync,
+  occupantId: string,
+  uploadsDir: string,
+): ProfileRow {
+  const previous = avatarStoredName(db, occupantId);
+  // The file goes first. If it can't be deleted, the profile keeps its name so
+  // removing can be tried again; a file that's already gone is fine.
+  if (previous) {
+    try {
+      unlinkSync(join(uploadsDir, previous));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new ProfileError("avatar-delete-failed");
+    }
+  }
+  db.prepare(
+    "UPDATE profiles SET avatar_stored_name = NULL, updated_at = ? WHERE occupant_id = ?",
+  ).run(new Date().toISOString(), occupantId);
   return readProfile(db, occupantId);
 }
 

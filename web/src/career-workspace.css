@@ -775,6 +775,27 @@
   color: var(--gold-light);
 }
 
+.career-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.career-plan-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.career-plan-row small {
+  flex: 1;
+  min-width: 0;
+}
+
+.compact-career-form .career-plan-row button {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+}
+
 .network-page {
   display: flex;
   flex-direction: column;

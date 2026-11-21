@@ -75,7 +75,7 @@ export type ExternalAction = {
   destination: string;
   payload: Record<string, unknown>;
   idempotencyKey: string;
-  status: "proposed" | "approved" | "completed" | "failed";
+  status: "proposed" | "approved" | "completed" | "failed" | "cancelled";
   createdAt: string;
 };
 
@@ -86,7 +86,9 @@ export type CareerManagementError =
   | "destination-required"
   | "idempotency-required"
   | "decision-invalid"
-  | "kind-invalid";
+  | "kind-invalid"
+  | "schedule-required"
+  | "summary-required";
 
 export type InboundAccessDecision = "grant" | "decline";
 
@@ -289,4 +291,84 @@ export function prepareExternalAction(
     return { ok: false, error: "idempotency-required" };
   }
   return { ok: true, value: action };
+}
+
+export type PreparedPlan = {
+  title: string;
+  outcome: string;
+  /** Null when the submission leaves it out, so a change keeps what the plan has. */
+  horizon: string | null;
+  /** Null when the submission leaves them out, so a change keeps the plan's tasks. */
+  tasks: Array<{ title: string; dueOn: string | null }> | null;
+};
+
+/** The one reading of a plan submission, shared by adding a plan and changing it. */
+export function preparePlan(
+  input: unknown,
+): { ok: true; value: PreparedPlan } | { ok: false; error: CareerManagementError } {
+  const record =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const field = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const title = field(record.title);
+  if (!title) return { ok: false, error: "title-required" };
+  const tasks = Array.isArray(record.tasks)
+    ? record.tasks.flatMap((task) => {
+        if (!task || typeof task !== "object") return [];
+        const entry = task as Record<string, unknown>;
+        const taskTitle = field(entry.title);
+        return taskTitle ? [{ title: taskTitle, dueOn: field(entry.dueOn) || null }] : [];
+      })
+    : null;
+  return {
+    ok: true,
+    value: {
+      title,
+      outcome: field(record.outcome),
+      horizon: "horizon" in record ? field(record.horizon) : null,
+      tasks,
+    },
+  };
+}
+
+function recordOf(input: unknown): Record<string, unknown> {
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : {};
+}
+
+function trimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export type PreparedInterview = { kind: string; scheduledAt: string; notes: string };
+
+/** The one reading of an interview, shared by adding and changing it. */
+export function prepareInterview(
+  input: unknown,
+): { ok: true; value: PreparedInterview } | { ok: false; error: CareerManagementError } {
+  const record = recordOf(input);
+  const scheduledAt = trimmed(record.scheduledAt);
+  if (!scheduledAt) return { ok: false, error: "schedule-required" };
+  return {
+    ok: true,
+    value: {
+      kind: trimmed(record.kind) || "interview",
+      scheduledAt,
+      notes: trimmed(record.notes),
+    },
+  };
+}
+
+export type PreparedOffer = { summary: string; decisionDueAt: string | null };
+
+/** The one reading of an offer, shared by adding and changing it. */
+export function prepareOffer(
+  input: unknown,
+): { ok: true; value: PreparedOffer } | { ok: false; error: CareerManagementError } {
+  const record = recordOf(input);
+  const summary = trimmed(record.summary);
+  if (!summary) return { ok: false, error: "summary-required" };
+  return { ok: true, value: { summary, decisionDueAt: trimmed(record.decisionDueAt) || null } };
 }

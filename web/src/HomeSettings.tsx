@@ -62,9 +62,11 @@ type SearchableSetting = {
 };
 
 type PublicConnection = {
+  id: string;
   hosting: ModelHosting;
   baseUrl: string;
   model: string;
+  hasKey: boolean;
 };
 
 const NARROW_VIEWPORT = "(max-width: 640px)";
@@ -445,6 +447,7 @@ function SettingsFields({
   session,
   profile,
   connection,
+  connections,
   modelBusy,
   modelError,
   modelNote,
@@ -452,11 +455,13 @@ function SettingsFields({
   onProfileSaved,
   onMapsSaved,
   onSaveModel,
+  onRemoveModel,
 }: {
   section: Section;
   session: number;
   profile: OnboardingProfileValue;
   connection: PublicConnection | null;
+  connections: PublicConnection[];
   modelBusy: boolean;
   modelError: string | null;
   modelNote: string | null;
@@ -469,6 +474,7 @@ function SettingsFields({
     model: string;
     apiKey: string;
   }) => void;
+  onRemoveModel: (id: string) => void;
 }) {
   if (section === "profile") {
     return (
@@ -483,12 +489,14 @@ function SettingsFields({
   if (section === "models") {
     return (
       <ModelSettingsPanel
-        key={`${session}:${connection?.baseUrl ?? "new"}:${connection?.model ?? ""}`}
+        key={`${session}:${connection?.id ?? "new"}:${connection?.baseUrl ?? ""}:${connection?.model ?? ""}`}
         connection={connection}
+        connections={connections}
         busy={modelBusy}
         error={modelError}
         note={modelNote}
         onSave={onSaveModel}
+        onRemove={onRemoveModel}
       />
     );
   }
@@ -645,7 +653,11 @@ export function HomeSettings({
   const [modelBusy, setModelBusy] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
   const [modelNote, setModelNote] = useState<string | null>(null);
-  const [connection, setConnection] = useState<PublicConnection | null>(null);
+  const [connections, setConnections] = useState<PublicConnection[]>([]);
+  // Extract and chat use the newest connection, so that is the one the form edits.
+  const connection = connections[connections.length - 1] ?? null;
+  // Until the saved connections have loaded, a save can't tell adding from changing.
+  const [modelsLoad, setModelsLoad] = useState<"loading" | "ready" | "failed">("loading");
   const [session, setSession] = useState(0);
   const [wasOpen, setWasOpen] = useState(false);
   const selectPanelRef = useRef<(panel: Section) => void>(() => {});
@@ -664,13 +676,15 @@ export function HomeSettings({
 
   useEffect(() => {
     if (!open) return;
+    setModelsLoad("loading");
     void fetch("/api/models")
       .then(async (res) => {
+        if (!res.ok) throw new Error("models");
         const body = (await res.json()) as { connections?: PublicConnection[] };
-        const rows = body.connections ?? [];
-        setConnection(rows[rows.length - 1] ?? null);
+        setConnections(body.connections ?? []);
+        setModelsLoad("ready");
       })
-      .catch(() => setConnection(null));
+      .catch(() => setModelsLoad("failed"));
   }, [open]);
 
   async function saveModel(input: {
@@ -679,12 +693,21 @@ export function HomeSettings({
     model: string;
     apiKey: string;
   }) {
+    if (modelsLoad !== "ready") {
+      setModelError(
+        modelsLoad === "loading"
+          ? "Your connections are still loading. Try again in a moment."
+          : "Your connections couldn't be loaded, so nothing was saved. Close Settings and open it again.",
+      );
+      return;
+    }
     setModelBusy(true);
     setModelError(null);
     setModelNote(null);
     try {
-      const res = await fetch("/api/models", {
-        method: "POST",
+      // Saving changes the connection on screen; only the first save adds one.
+      const res = await fetch(connection ? `/api/models/${connection.id}` : "/api/models", {
+        method: connection ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(input),
       });
@@ -696,8 +719,41 @@ export function HomeSettings({
         setModelError(body.error ?? "Could not save that connection.");
         return;
       }
-      setConnection(body.connection);
+      const saved = body.connection;
+      setConnections((rows) =>
+        rows.some((row) => row.id === saved.id)
+          ? rows.map((row) => (row.id === saved.id ? saved : row))
+          : [...rows, saved],
+      );
       setModelNote("Saved. Extract will use this connection.");
+    } finally {
+      setModelBusy(false);
+    }
+  }
+
+  async function removeModel(id: string) {
+    setModelBusy(true);
+    setModelError(null);
+    setModelNote(null);
+    try {
+      const res = await fetch(`/api/models/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setModelError("Could not remove that connection.");
+        return;
+      }
+      // It's gone: drop it here at once, so nothing goes on pointing at it.
+      setConnections((rows) => rows.filter((row) => row.id !== id));
+      setModelNote("Connection removed.");
+      try {
+        const list = await fetch("/api/models");
+        if (!list.ok) throw new Error("models");
+        const body = (await list.json()) as { connections?: PublicConnection[] };
+        setConnections(body.connections ?? []);
+      } catch {
+        setModelNote("Connection removed. The list couldn't be refreshed; reopen Settings to see it.");
+      }
+    } catch {
+      setModelError("Could not remove that connection.");
     } finally {
       setModelBusy(false);
     }
@@ -722,6 +778,8 @@ export function HomeSettings({
       onProfileSaved={onProfileSaved}
       onMapsSaved={onMapsSaved}
       onSaveModel={(input) => void saveModel(input)}
+      connections={connections}
+      onRemoveModel={(id) => void removeModel(id)}
     />
   );
 

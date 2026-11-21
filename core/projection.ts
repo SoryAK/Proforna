@@ -168,6 +168,34 @@ export function planProjectionGrant(input: {
   };
 }
 
+/** Takes back one access link without touching the others. */
+export function planProjectionGrantRevoke(input: {
+  projectionId: string;
+  grantId: string;
+  slug: string;
+  tokenHash: string;
+}): ChangeOperation {
+  return {
+    action: "revoke",
+    entityType: "projection-access-grant",
+    entityId: input.grantId,
+    values: { projectionId: input.projectionId, slug: input.slug, tokenHash: input.tokenHash },
+  };
+}
+
+/** Takes a page offline and erases its copy here and on the relay. */
+export function planProjectionRemove(input: {
+  projectionId: string;
+  slug: string;
+}): ChangeOperation {
+  return {
+    action: "remove",
+    entityType: "interactive-projection",
+    entityId: input.projectionId,
+    values: { slug: input.slug },
+  };
+}
+
 export function planProjectionAccessDecision(input: {
   requestId: string;
   projectionId: string;
