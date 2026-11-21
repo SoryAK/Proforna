@@ -40,7 +40,7 @@ import {
 import { PersonAvatar, Quote, growRows, matches, nearLimit, relativeTime, shortDate } from "./list-parts";
 import "./requests.css";
 
-export type RequestsTab = "new" | "sent" | "received";
+export type RequestsTab = "new" | "sent" | "received" | "history";
 
 /** Fired after something changes what the Request button counts. */
 export const REQUESTS_CHANGED = "docier:requests-changed";
@@ -68,6 +68,8 @@ type SentRequest = {
   expiresAt: string;
   joinStatus: "joined" | "declined" | "ignored" | null;
   photoUrl?: string | null;
+  /** Cleared from Sent; still in History. */
+  clearedAt: string | null;
 };
 
 type ReceivedRequest = {
@@ -84,6 +86,8 @@ type ReceivedRequest = {
   grantId: string | null;
   activity: AccessActivity[];
   photoUrl?: string | null;
+  /** Cleared from Received; still in History. */
+  clearedAt: string | null;
 };
 
 type Listed = {
@@ -183,7 +187,32 @@ export function RequestsMenu({
   }, []);
 
   const waiting = listed?.received.filter((request) => request.status === "waiting").slice(0, 3) ?? [];
-  const yours = listed?.requests.slice(0, 3) ?? [];
+  const sent = listed?.requests.filter((request) => !request.clearedAt) ?? [];
+  const got = listed?.received.filter((request) => !request.clearedAt) ?? [];
+  // Only what still needs a look: waiting on the other person, or answered and not yet seen.
+  const yours = sent.filter((request) => PENDING.includes(request.status) || request.changed).slice(0, 3);
+  const finished =
+    // Unseen answers aren't counted: clearing never hides news.
+    sent.filter((request) => !PENDING.includes(request.status) && !request.changed).length +
+    got.filter((request) => request.status !== "waiting").length;
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearNote, setClearNote] = useState("");
+  async function clearFinished() {
+    setConfirmClear(false);
+    const response = await fetch("/api/requests/clear-finished", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ list: "all" }),
+    }).catch(() => null);
+    const body = (await response?.json().catch(() => ({}))) as { cleared?: number } | undefined;
+    setClearNote(
+      response?.ok
+        ? `Cleared ${body?.cleared ?? 0}. They're still in History.`
+        : "Nothing was cleared. Try again.",
+    );
+    window.dispatchEvent(new Event(REQUESTS_CHANGED));
+    setListed(await loadRequests().catch(() => listed));
+  }
   const nothing = listed != null && listed.requests.length === 0 && listed.received.length === 0;
   return (
     <VStack gap={0} className="req-menu">
@@ -191,8 +220,31 @@ export function RequestsMenu({
         <Text type="label" weight="semibold">
           Requests
         </Text>
-        <Button label="+ New" variant="secondary" size="sm" onClick={onNew} />
+        <HStack gap={2} vAlign="center">
+          {finished > 0 ? (
+            <button type="button" className="req-clear" onClick={() => setConfirmClear(true)}>
+              Clear finished · {finished}
+            </button>
+          ) : null}
+          <Button label="+ New" variant="secondary" size="sm" onClick={onNew} />
+        </HStack>
       </HStack>
+      {confirmClear ? (
+        // Confirmed right here: a dialog would close the dropdown under it.
+        <div className="req-menu-confirm" role="alertdialog" aria-label="Clear finished requests">
+          <span>
+            Clear {finished} finished request{finished === 1 ? "" : "s"}? They stay in History.
+          </span>
+          <HStack gap={1}>
+            <Button label="Cancel" variant="ghost" size="sm" onClick={() => setConfirmClear(false)} />
+            <Button label="Clear" variant="primary" size="sm" onClick={() => void clearFinished()} />
+          </HStack>
+        </div>
+      ) : clearNote ? (
+        <div className="req-menu-confirm" role="status">
+          <span>{clearNote}</span>
+        </div>
+      ) : null}
       {failed ? (
         <EmptyState isCompact title="Requests could not be loaded." />
       ) : !listed ? (
@@ -272,7 +324,7 @@ export function RequestsMenu({
               View all →
             </button>
             <span className="req-menu-counts">
-              Sent {listed.requests.length} · Received {listed.received.length}
+              Sent {sent.length} · Received {got.length}
             </span>
           </div>
         </>
@@ -348,12 +400,15 @@ export function RequestsDialog({
             <div className="req-tabs">
               <TabList
                 value={tab}
-                onChange={(next) => onTab(next === "new" ? "new" : next === "received" ? "received" : "sent")}
+                onChange={(next) =>
+                  onTab(next === "new" ? "new" : next === "received" ? "received" : next === "history" ? "history" : "sent")
+                }
                 hasDivider
               >
                 <Tab value="new" label={editing ? "Edit request" : "New request"} />
                 <Tab value="sent" label="Sent" />
                 <Tab value="received" label={listed?.waiting ? `Received · ${listed.waiting}` : "Received"} />
+                <Tab value="history" label="History" />
               </TabList>
             </div>
             {error ? <Banner status="error" title={error} container="section" collapsible={false} role="alert" /> : null}
@@ -398,6 +453,8 @@ export function RequestsDialog({
                   }}
                 />
               )
+            ) : tab === "history" ? (
+              <HistoryList listed={listed} onChanged={refresh} />
             ) : tab === "received" ? (
               <ReceivedList listed={listed} focusId={focusId} onChanged={refresh} />
             ) : (
@@ -668,7 +725,7 @@ function SentList({
   const [message, setMessage] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const focusRef = useRef<HTMLLIElement>(null);
-  const requests = useMemo(() => listed?.requests ?? [], [listed]);
+  const requests = useMemo(() => listed?.requests.filter((request) => !request.clearedAt) ?? [], [listed]);
 
   useEffect(() => {
     focusRef.current?.scrollIntoView({ block: "nearest" });
@@ -701,15 +758,17 @@ function SentList({
       {requests.length >= SEARCH_FROM || query || kind !== "all" ? (
         <ListTools query={query} onQuery={setQuery} kinds={kinds} kind={kind} onKind={setKind} />
       ) : null}
-      <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
-        {FILTERS.map((item) => (
-          <SegmentedControlItem
-            key={item.id}
-            value={item.id}
-            label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
-          />
-        ))}
-      </SegmentedControl>
+      <div className="req-filter-row">
+        <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
+          {FILTERS.map((item) => (
+            <SegmentedControlItem
+              key={item.id}
+              value={item.id}
+              label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
+            />
+          ))}
+        </SegmentedControl>
+      </div>
       {message ? (
         <Text type="supporting" color="secondary" role="status">
           {message}
@@ -768,7 +827,7 @@ function SentList({
                           label="Remove from list"
                           variant="ghost"
                           size="sm"
-                          onClick={() => void act(`/api/requests/${request.id}`, "DELETE", "Removed from the list.")}
+                          onClick={() => void act(`/api/requests/${request.id}/clear`, "POST", "Cleared. It's still in History.")}
                         />
                       )}
                     </HStack>
@@ -842,7 +901,7 @@ function ReceivedList({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [gmail, setGmail] = useState(false);
   const focusRef = useRef<HTMLLIElement>(null);
-  const received = useMemo(() => listed?.received ?? [], [listed]);
+  const received = useMemo(() => listed?.received.filter((request) => !request.clearedAt) ?? [], [listed]);
 
   useEffect(() => {
     void fetch("/api/gmail")
@@ -911,6 +970,19 @@ function ReceivedList({
     }
   }
 
+  async function removeAnswered(request: ReceivedRequest) {
+    setMessage("");
+    const response = await fetch(`/api/requests/received/${request.id}/clear`, { method: "POST" }).catch(() => null);
+    setMessage(
+      response?.ok
+        ? request.grantId
+          ? `Cleared. It's still in History, and ${request.requesterName.split(/\s+/)[0]} keeps their access.`
+          : "Cleared. It's still in History."
+        : "That request couldn't be cleared. Try again.",
+    );
+    await onChanged();
+  }
+
   async function draft(request: ReceivedRequest) {
     setMessage("");
     const response = await fetch(`/api/requests/received/${request.id}/gmail-draft`, {
@@ -929,15 +1001,17 @@ function ReceivedList({
   return (
     <div className="req-sent">
       {received.length >= SEARCH_FROM || query ? <ListTools query={query} onQuery={setQuery} /> : null}
-      <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
-        {RECEIVED_FILTERS.map((item) => (
-          <SegmentedControlItem
-            key={item.id}
-            value={item.id}
-            label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
-          />
-        ))}
-      </SegmentedControl>
+      <div className="req-filter-row">
+        <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
+          {RECEIVED_FILTERS.map((item) => (
+            <SegmentedControlItem
+              key={item.id}
+              value={item.id}
+              label={item.id !== "all" && count(item.id) ? `${item.label} · ${count(item.id)}` : item.label}
+            />
+          ))}
+        </SegmentedControl>
+      </div>
       {message ? (
         <Text type="supporting" color="secondary" role="status">
           {message}
@@ -1050,6 +1124,12 @@ function ReceivedList({
                           {gmail ? (
                             <Button label="Draft reply in Gmail" variant="ghost" size="sm" onClick={() => void draft(request)} />
                           ) : null}
+                          <Button
+                            label="Remove from list"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void removeAnswered(request)}
+                          />
                         </HStack>
                       </>
                     )}
@@ -1061,6 +1141,206 @@ function ReceivedList({
           })}
         </List>
       )}
+    </div>
+  );
+}
+
+const PERIODS: Array<{ id: string; label: string; days: number | null }> = [
+  { id: "30", label: "30 days", days: 30 },
+  { id: "90", label: "3 months", days: 90 },
+  { id: "365", label: "12 months", days: 365 },
+  { id: "all", label: "All time", days: null },
+];
+
+type HistoryEntry =
+  | { direction: "sent"; id: string; name: string; email: string; createdAt: string; request: SentRequest }
+  | { direction: "received"; id: string; name: string; email: string; createdAt: string; request: ReceivedRequest };
+
+/** Every request, sent and received, cleared ones too, over a chosen period. */
+function HistoryList({ listed, onChanged }: { listed: Listed | null; onChanged: () => Promise<void> }) {
+  const [period, setPeriod] = useState("90");
+  const [direction, setDirection] = useState("all");
+  const [query, setQuery] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<HistoryEntry | null>(null);
+  const [message, setMessage] = useState("");
+
+  const entries = useMemo<HistoryEntry[]>(() => {
+    if (!listed) return [];
+    return [
+      ...listed.requests.map((request) => ({
+        direction: "sent" as const,
+        id: request.id,
+        name: request.recipientName,
+        email: request.recipientEmail,
+        createdAt: request.createdAt,
+        request,
+      })),
+      ...listed.received.map((request) => ({
+        direction: "received" as const,
+        id: request.id,
+        name: request.requesterName,
+        email: request.requesterEmail,
+        createdAt: request.createdAt,
+        request,
+      })),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [listed]);
+
+  if (!listed) return <Text type="supporting" color="secondary">Loading…</Text>;
+
+  const days = PERIODS.find((item) => item.id === period)?.days ?? null;
+  const since = days === null ? "" : new Date(Date.now() - days * 86_400_000).toISOString();
+  const inPeriod = entries.filter(
+    (entry) =>
+      entry.createdAt >= since &&
+      matches(query, entry.name, entry.email, entry.direction === "sent" ? entry.request.body : entry.request.message),
+  );
+  const shown = inPeriod.filter((entry) => direction === "all" || entry.direction === direction);
+  const sentCount = inPeriod.filter((entry) => entry.direction === "sent").length;
+
+  // Grouped by month, newest first.
+  const months: Array<{ label: string; entries: HistoryEntry[] }> = [];
+  for (const entry of shown) {
+    const label = new Date(entry.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const last = months[months.length - 1];
+    if (last && last.label === label) last.entries.push(entry);
+    else months.push({ label, entries: [entry] });
+  }
+
+  async function remove(entry: HistoryEntry) {
+    const path = entry.direction === "sent" ? `/api/requests/${entry.id}` : `/api/requests/received/${entry.id}`;
+    const response = await fetch(path, { method: "DELETE" }).catch(() => null);
+    const body = (await response?.json().catch(() => ({}))) as { error?: string } | undefined;
+    setMessage(
+      response?.ok
+        ? "Deleted for good."
+        : body?.error === "request-open"
+          ? "Answer it first, then it can be deleted."
+          : "That request couldn't be deleted. Try again.",
+    );
+    setOpenId(null);
+    window.dispatchEvent(new Event(REQUESTS_CHANGED));
+    await onChanged();
+  }
+
+  return (
+    <div className="req-sent">
+      <TextInput
+        label="Search history"
+        isLabelHidden
+        placeholder="Search by name, email, or message"
+        value={query}
+        onChange={setQuery}
+      />
+      <div className="req-filter-row">
+        <SegmentedControl label="Period" size="sm" value={period} onChange={setPeriod}>
+          {PERIODS.map((item) => (
+            <SegmentedControlItem key={item.id} value={item.id} label={item.label} />
+          ))}
+        </SegmentedControl>
+        <SegmentedControl label="Direction" size="sm" value={direction} onChange={setDirection}>
+          <SegmentedControlItem value="all" label="All" />
+          <SegmentedControlItem value="sent" label={`Sent · ${sentCount}`} />
+          <SegmentedControlItem value="received" label={`Received · ${inPeriod.length - sentCount}`} />
+        </SegmentedControl>
+      </div>
+      {message ? (
+        <Text type="supporting" color="secondary" role="status">
+          {message}
+        </Text>
+      ) : null}
+      {months.length === 0 ? (
+        <EmptyState isCompact title="Nothing in this period" description="Try a longer period, or clear the search." />
+      ) : (
+        months.map((month) => (
+          <div key={month.label} className="req-history-month">
+            <Text type="supporting" color="secondary" className="req-menu-heading">
+              {month.label} · {month.entries.length}
+            </Text>
+            <List>
+              {month.entries.map((entry) => {
+                const open = openId === `${entry.direction}:${entry.id}`;
+                const status = entry.request.status;
+                const label =
+                  entry.direction === "sent"
+                    ? SENT_STATUS_LABEL[entry.request.status]
+                    : RECEIVED_STATUS_LABEL[entry.request.status];
+                const kind = entry.direction === "sent" ? REQUEST_KIND_LABEL[entry.request.kind] : "Access";
+                const canDelete = !(entry.direction === "received" && entry.request.status === "waiting");
+                return (
+                  <ListItem
+                    key={`${entry.direction}:${entry.id}`}
+                    itemKey={`${entry.direction}:${entry.id}`}
+                    align="start"
+                    isSelected={open}
+                    startContent={<PersonAvatar name={entry.name} photoUrl={entry.request.photoUrl} />}
+                    onClick={() => setOpenId(open ? null : `${entry.direction}:${entry.id}`)}
+                    label={entry.name}
+                    description={
+                      <VStack gap={2}>
+                        <span>
+                          {entry.direction === "sent" ? "You asked" : "Asked you"} · {kind} · {shortDate(entry.createdAt)}
+                          {entry.request.clearedAt ? " · cleared" : ""}
+                        </span>
+                        {open ? (
+                          <>
+                            {entry.direction === "sent" ? (
+                              <>
+                                <Quote text={entry.request.body} prefix="You: " />
+                                {entry.request.note ? <Quote text={entry.request.note} prefix="Them: " /> : null}
+                                {entry.request.joinStatus === "joined" ? <span>Joined your network</span> : null}
+                              </>
+                            ) : (
+                              <ActivityList activity={entry.request.activity} name={entry.name} />
+                            )}
+                            {canDelete ? (
+                              <HStack gap={1}>
+                                <Button
+                                  label={
+                                    entry.direction === "sent" && PENDING.includes(entry.request.status)
+                                      ? "Withdraw and delete"
+                                      : "Delete permanently"
+                                  }
+                                  variant="ghost"
+                                  size="sm"
+                                  className="access-danger"
+                                  onClick={() => setDeleting(entry)}
+                                />
+                              </HStack>
+                            ) : (
+                              <Text type="supporting" color="secondary">
+                                Answer it in Received before deleting it.
+                              </Text>
+                            )}
+                          </>
+                        ) : null}
+                      </VStack>
+                    }
+                    endContent={<span className={`req-menu-status is-${status}`}>{label}</span>}
+                  />
+                );
+              })}
+            </List>
+          </div>
+        ))
+      )}
+      <AlertDialog
+        isOpen={deleting != null}
+        onOpenChange={(next) => (!next ? setDeleting(null) : undefined)}
+        title={`Delete this request with ${deleting?.name ?? ""} for good?`}
+        description={
+          deleting?.direction === "received"
+            ? "It leaves History, and its message and Activity are deleted. Any access you gave stays in Access."
+            : "It leaves History for good. A request still waiting is withdrawn first."
+        }
+        actionLabel="Delete"
+        onAction={() => {
+          const entry = deleting;
+          setDeleting(null);
+          if (entry) void remove(entry);
+        }}
+      />
     </div>
   );
 }

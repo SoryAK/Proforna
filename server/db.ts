@@ -644,6 +644,14 @@ export function openDatabase(path: string): DatabaseSync {
   addColumnIfMissing(db, "projection_access_requests", "answered_at", "TEXT");
   // Which access request a link answered, so the owner can see who it is for.
   addColumnIfMissing(db, "projection_access_grants", "request_id", "TEXT");
+  // A received request the occupant cleared from Requests. It stays, marked, so
+  // it isn't pulled in from the Relay again; Access keeps any link it led to.
+  addColumnIfMissing(db, "projection_access_requests", "cleared_at", "TEXT");
+  // A received request deleted for good from History: its personal details are
+  // emptied, and the row stays only so the Relay can't bring it back.
+  addColumnIfMissing(db, "projection_access_requests", "deleted_at", "TEXT");
+  // A sent request cleared from the lists; it stays in History.
+  addColumnIfMissing(db, "outgoing_requests", "cleared_at", "TEXT");
   // A photo on a My Network contact, stored in uploads like the profile photo.
   addColumnIfMissing(db, "contacts", "photo_stored_name", "TEXT");
   // Access (managed from the Relay menu): who each link is for, what it opens,

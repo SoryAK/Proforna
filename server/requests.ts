@@ -65,6 +65,8 @@ export type SentRequest = {
   expiresAt: string;
   /** Whether the recipient joined My Network; null while unknown or not asked yet. */
   joinStatus: "joined" | "declined" | "ignored" | null;
+  /** When it was cleared from the lists; it stays in History. */
+  clearedAt: string | null;
 };
 
 type Row = {
@@ -84,6 +86,7 @@ type Row = {
   created_at: string;
   join_status: "joined" | "declined" | "ignored" | null;
   joined_contact_id: string | null;
+  cleared_at: string | null;
 };
 
 export class RequestStoreError extends Error {
@@ -120,6 +123,7 @@ function present(row: Row, origin: string | null, now: string): SentRequest {
     answeredAt: row.answered_at,
     expiresAt: row.expires_at,
     joinStatus: row.join_status,
+    clearedAt: row.cleared_at ?? null,
   };
 }
 
@@ -433,6 +437,34 @@ export async function removeRequest(
   const row = readRow(db, occupantId, id);
   if (isPendingRequest(row.status)) await withdrawRequest(db, occupantId, id, relay);
   db.prepare("DELETE FROM outgoing_requests WHERE id = ? AND occupant_id = ?").run(id, occupantId);
+}
+
+/** Clears a finished request from the lists. It stays in History; one still open can't be cleared. */
+export function clearSent(db: DatabaseSync, occupantId: string, id: string): void {
+  const row = readRow(db, occupantId, id);
+  if (isPendingRequest(effectiveRequestStatus(row.status, row.expires_at, new Date().toISOString()))) {
+    throw new RequestStoreError("request-open");
+  }
+  db.prepare("UPDATE outgoing_requests SET cleared_at = COALESCE(cleared_at, ?) WHERE id = ?").run(new Date().toISOString(), id);
+}
+
+/**
+ * Clears every finished request (answered, expired, or withdrawn) from the
+ * lists; they stay in History. Ones still waiting on the other person stay.
+ * Returns how many were cleared.
+ */
+export function clearFinishedSent(db: DatabaseSync, occupantId: string): number {
+  const now = new Date().toISOString();
+  const rows = db
+    .prepare("SELECT * FROM outgoing_requests WHERE occupant_id = ? AND cleared_at IS NULL")
+    .all(occupantId) as Row[];
+  // An answer not seen yet stays until it has been: clearing never hides news.
+  const finished = rows
+    .map((row) => present(row, null, now))
+    .filter((request) => !isPendingRequest(request.status) && !request.changed);
+  const clear = db.prepare("UPDATE outgoing_requests SET cleared_at = ? WHERE id = ?");
+  for (const request of finished) clear.run(now, request.id);
+  return finished.length;
 }
 
 /** Records that the occupant has seen the current status, which clears the "changed" dot. */

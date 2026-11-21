@@ -21,6 +21,8 @@ import { pingDatabase } from "./db";
 import { RelayTransportError } from "./relay-client";
 import {
   RequestStoreError,
+  clearFinishedSent,
+  clearSent,
   createRequest,
   listRequests,
   markRequestsSeen,
@@ -38,7 +40,15 @@ import {
   removeContactPhoto,
   storeContactPhoto,
 } from "./contact-photos";
-import { answerReceived, listReceived, pullReceived, receivedEmail } from "./received-requests";
+import {
+  answerReceived,
+  clearFinishedReceived,
+  clearReceived,
+  deleteReceived,
+  listReceived,
+  pullReceived,
+  receivedEmail,
+} from "./received-requests";
 import {
   AccessStoreError,
   accessEmail,
@@ -2621,7 +2631,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       const status =
         error.code === "not-found" || error.code === "contact-missing"
           ? 404
-          : error.code === "relay-not-configured" || error.code === "request-closed"
+          : error.code === "relay-not-configured" || error.code === "request-closed" || error.code === "request-open"
             ? 409
             : 400;
       return c.json({ error: error.code }, status);
@@ -2660,6 +2670,53 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       if (error instanceof ProjectionStoreError) return c.json({ error: error.code }, 400);
       return requestError(c, error);
     }
+  });
+
+  // Clears an answered request from Received; it stays in History, and Access
+  // keeps any link it led to.
+  app.post("/api/requests/received/:id/clear", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      clearReceived(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  // Deletes an answered request for good, from History too.
+  app.delete("/api/requests/received/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteReceived(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  // Clears a finished sent request from Sent; it stays in History.
+  app.post("/api/requests/:id/clear", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      clearSent(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  // Clears every finished request from one list; anything still open stays.
+  app.post("/api/requests/clear-finished", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json().catch(() => ({}))) as { list?: unknown };
+    if (body.list !== "sent" && body.list !== "received" && body.list !== "all") {
+      return c.json({ error: "list-invalid" }, 400);
+    }
+    const cleared =
+      (body.list === "received" ? 0 : clearFinishedSent(db, occupant.id)) +
+      (body.list === "sent" ? 0 : clearFinishedReceived(db, occupant.id));
+    return c.json({ cleared });
   });
 
   // Drafts the reply to a received request in Gmail. Docier never sends it.
