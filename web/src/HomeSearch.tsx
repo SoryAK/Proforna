@@ -11,7 +11,7 @@ const PLACES = [
   { id: "map", label: "Map", detail: "Places for the roles" },
   { id: "updates", label: "Live updates", detail: "Notes from current roles" },
   { id: "media", label: "Media and events", detail: "Photos and events" },
-  { id: "proforna", label: "Proforna", detail: "The right panel" },
+  { id: "proforna", label: "Docier", detail: "The right panel" },
 ] as const;
 
 export type SearchPlace = (typeof PLACES)[number]["id"];

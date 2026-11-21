@@ -8,7 +8,7 @@
 ## Context
 
 The previous app kept job search on its own map and applications in a
-separate tracker. Proforna already has an Opportunity for a role, project,
+separate tracker. Docier already has an Opportunity for a role, project,
 speaking event, or connection, and already has one geographic map for career
 history. A second map, a hardcoded listing site, or a judgment against a
 saved resume would split that record. A resume file also goes stale as soon
@@ -25,7 +25,7 @@ as the career record moves.
   connection stay in scope.
 - A **Job Source** is added by name. An application id and an API key are
   optional and stay in the Career Vault. Adzuna is not a built-in control.
-  Search reads a source named Adzuna. Any other name is kept until Proforna
+  Search reads a source named Adzuna. Any other name is kept until Docier
   can read that place.
 - A fit judgment reads the live career record, and only the sections the
   occupant leaves checked. A stored resume file is not one of those sections.
@@ -41,6 +41,6 @@ as the career record moves.
 
 - Opportunities and Career History share one map.
 - Listing credentials live in the vault, with the map key.
-- A source Proforna cannot read yet is still valid configuration.
+- A source Docier cannot read yet is still valid configuration.
 - Commute geometry and reading pages beyond the one saved address are later
   work, not gaps in this decision.

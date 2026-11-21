@@ -7,7 +7,7 @@
 
 ## Context
 
-Proforna is **personal career management**: you own the data and you act on
+Docier is **personal career management**: you own the data and you act on
 it (profile, resumes, work history, worklog, documents, job search,
 applications). It is not a log-only tracker.
 

@@ -1,13 +1,13 @@
-# Proforna Career Management
+# Docier Career Management
 
-Proforna is a private career operating system. It turns evidence from a
+Docier is a private career operating system. It turns evidence from a
 person's work into trustworthy career facts, plans, artifacts, and approved
 external actions.
 
 ## Language
 
 **Occupant**:
-The person whose career is managed by a local Proforna vault.
+The person whose career is managed by a local Docier vault.
 _Avoid_: User, account, candidate
 
 **Career Vault**:
@@ -53,7 +53,7 @@ Opportunity.
 _Avoid_: Job lead, application, job search page
 
 **Job Source**:
-A named place the occupant asks Proforna to read listings from. When that
+A named place the occupant asks Docier to read listings from. When that
 place requires an application id or an API key, those stay in the Career Vault.
 _Avoid_: Job board, integration
 
@@ -147,7 +147,7 @@ _Avoid_: Alert, toast, reminder, notification center, inbox
 
 **Agent Run**:
 A recorded execution with declared purpose, inputs, capabilities, and
-resulting proposals. Occupants talk to Proforna, not named agents. Purposes
+resulting proposals. Occupants talk to Docier, not named agents. Purposes
 in the shipped cut are inspect, extract-facts, suggest-reply, and command —
 never a picker or specialist chrome. The governed-agency epic (#49) is done;
 see docs/agent-authority.md. A cloud model requires an explicit grant before
@@ -155,6 +155,6 @@ vault text may leave the machine.
 _Avoid_: Chat, automation, agent picker, named specialist bot
 
 **Command Session**:
-A persisted Home conversation with Proforna. Each occupant turn is a command
+A persisted Home conversation with Docier. Each occupant turn is a command
 Agent Run. It does not send messages, extract facts, or write Change Sets.
 _Avoid_: Chat, assistant thread, inbox

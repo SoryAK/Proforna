@@ -2583,7 +2583,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const archive = createPortableArchive(db, occupant.id, uploadsDir);
     return c.body(Buffer.from(archive), 200, {
       "content-type": "application/zip",
-      "content-disposition": 'attachment; filename="proforna-export.zip"',
+      "content-disposition": 'attachment; filename="docier-backup.zip"',
     });
   });
 
@@ -2905,7 +2905,7 @@ async function forgetNangoLink(
   try {
     await deleteNangoConnection(runtime, link);
   } catch {
-    // Remove still finishes in Proforna when the helper cannot be reached.
+    // Remove still finishes in Docier when the helper cannot be reached.
   }
 }
 

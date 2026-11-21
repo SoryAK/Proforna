@@ -7,7 +7,7 @@
 
 ## Context
 
-Proforna must let an occupant use private evidence and agent assistance while
+Docier must let an occupant use private evidence and agent assistance while
 still publishing an interactive resume. Hosting the whole career database
 would make public presentation easy, but would turn the relay into a second
 authority and expose substantially more private data than publication needs.

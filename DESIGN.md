@@ -1,5 +1,5 @@
 ---
-name: Proforna
+name: Docier
 description: A private, editorial career operating system in near-black and restrained gold.
 colors:
   near-black: "#0a0a0a"
@@ -97,13 +97,13 @@ components:
     rounded: "{rounded.pill}"
 ---
 
-# Design System: Proforna
+# Design System: Docier
 
 ## Overview
 
 **Creative North Star: "The Private Career Ledger"**
 
-Proforna is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental. One sans-serif, Geist, carries identity and controls; weight and size mark headings.
+Docier is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental. One sans-serif, Geist, carries identity and controls; weight and size mark headings.
 
 The system supports two related densities. Profile and reading surfaces use generous editorial spacing and soft or pill-shaped controls. Data-rich operating surfaces tighten the rhythm, use square-edged divisions, and allow compact rectangular controls so records remain connected rather than becoming a dashboard of interchangeable cards.
 

@@ -103,7 +103,7 @@ const BOARD_PLACES = [
   { id: "map", label: "Map", detail: "Places for the roles" },
   { id: "updates", label: "Live updates", detail: "Notes from current roles" },
   { id: "media", label: "Media and events", detail: "Photos and events" },
-  { id: "proforna", label: "Proforna", detail: "The right panel" },
+  { id: "proforna", label: "Docier", detail: "The right panel" },
 ] as const;
 
 type PaletteHit = SearchableItem<{
@@ -722,7 +722,7 @@ export function CardBoardMock() {
           >
             <PanelIcon side="left" open={leftOpen} />
           </button>
-          <p className="cbm-brand">Proforna</p>
+          <p className="cbm-brand">Docier</p>
         </div>
         <button type="button" className="cbm-top-search" aria-label="Search" onClick={() => setSearchOpen(true)}>
           <span>Type to search</span>
@@ -1461,7 +1461,7 @@ export function CardBoardMock() {
                     <ChatMessage
                       key={`${sessionId}-${index}-${note.sender}`}
                       sender={note.sender === "assistant" ? "assistant" : "user"}
-                      name={note.sender === "assistant" ? "Proforna" : undefined}
+                      name={note.sender === "assistant" ? "Docier" : undefined}
                     >
                       <ChatMessageBubble>{note.text}</ChatMessageBubble>
                       {note.sender !== "assistant" && note.roles.length > 0 ? (

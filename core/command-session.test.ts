@@ -138,6 +138,6 @@ describe("command session", () => {
         { speaker: "occupant", body: "What is thin?" },
         { speaker: "proforna", body: "Measured outcomes." },
       ]),
-    ).toBe("[occupant] What is thin?\n[proforna] Measured outcomes.");
+    ).toBe("[occupant] What is thin?\n[docier] Measured outcomes.");
   });
 });

@@ -74,7 +74,7 @@ function requestOnce(url: string): Promise<{
         lookup: guardedLookup,
         timeout: TIMEOUT_MS,
         headers: {
-          "user-agent": "Proforna linked evidence capture",
+          "user-agent": "Docier linked evidence capture",
           accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
         },
       },
@@ -171,7 +171,7 @@ function requestHeaders(
         lookup: guardedLookup,
         timeout: TIMEOUT_MS,
         headers: {
-          "user-agent": "Proforna linked evidence capture",
+          "user-agent": "Docier linked evidence capture",
           accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
         },
       },

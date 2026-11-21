@@ -44,6 +44,7 @@ export function HomeNotices({
         type="button"
         className="home-notice-btn"
         aria-label={label}
+        title={label}
         aria-expanded={open}
         aria-haspopup="true"
         aria-controls={panelId}

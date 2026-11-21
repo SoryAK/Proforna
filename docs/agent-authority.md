@@ -3,7 +3,7 @@
 Agents operate inside explicit capability grants. Their default output is a
 proposal, not a mutation or external side effect.
 
-Occupants talk to **one Proforna**, not named specialist bots. Specialist
+Occupants talk to **one Docier**, not named specialist bots. Specialist
 workflows are Agent Run **purposes** (inspect, extract-facts, suggest-reply,
 command), never chrome, pickers, or separate assistants.
 
@@ -16,7 +16,7 @@ command sessions.
 
 What that means in the product:
 
-- Proforna proposes; Change Sets and Notices carry review.
+- Docier proposes; Change Sets and Notices carry review.
 - Direct messages live on a Contact; My Network is that list.
 - A cloud model still needs an explicit grant before vault text may leave.
 - Follow-ups belong in **new** issues, not by treating #49 as open.

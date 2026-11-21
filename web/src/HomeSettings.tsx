@@ -45,7 +45,8 @@ import {
 } from "./HomeSettingsPanels";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 
-type Section = "profile" | "models" | "maps" | "jobs" | "publication" | "integrations";
+export type SettingsSection = "profile" | "models" | "maps" | "jobs" | "publication" | "integrations";
+type Section = SettingsSection;
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 type PanelConfig = {
@@ -137,7 +138,7 @@ const GROUPS: { label: string; panels: PanelConfig[] }[] = [
       {
         id: "integrations",
         label: "Integrations",
-        description: "Connections Proforna can use.",
+        description: "Connections Docier can use.",
         icon: PuzzlePieceIcon,
       },
     ],
@@ -636,12 +637,15 @@ function SettingsNarrowShell({
 
 export function HomeSettings({
   open,
+  section: openSection = "profile",
   profile,
   onClose,
   onProfileSaved,
   onMapsSaved,
 }: {
   open: boolean;
+  /** The panel Settings opens on. */
+  section?: Section;
   profile: OnboardingProfileValue;
   onClose: () => void;
   onProfileSaved: (profile: OnboardingProfileValue) => void;
@@ -666,7 +670,7 @@ export function HomeSettings({
   if (open && !wasOpen) {
     setWasOpen(true);
     setSession((n) => n + 1);
-    setSection("profile");
+    setSection(openSection);
     setModelError(null);
     setModelNote(null);
     if (search.query) search.setQuery("");

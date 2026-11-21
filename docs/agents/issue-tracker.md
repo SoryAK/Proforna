@@ -1,9 +1,9 @@
 # Issue tracker: GitHub
 
 Issues and specs for this repo live as GitHub issues on
-[SoryAK/Proforna](https://github.com/SoryAK/Proforna). Use the `gh` CLI for all
+[SoryAK/Docier](https://github.com/SoryAK/Docier). Use the `gh` CLI for all
 operations. Inside a clone, `gh` infers that repo from `git remote -v`; pass
-`-R SoryAK/Proforna` when a command needs the repo named explicitly.
+`-R SoryAK/Docier` when a command needs the repo named explicitly.
 
 ## Conventions
 

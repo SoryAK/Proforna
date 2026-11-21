@@ -26,7 +26,7 @@ It is not a Job Source.
 - Settings and onboarding list only integrations whose sign-in is already
   configured. The plugin files stay.
 - A home command lists the integrations that are turned on.
-- When the prompt names one, Proforna calls that integration's own read tool.
+- When the prompt names one, Docier calls that integration's own read tool.
   It picks a read that needs no arguments. It does not call a tool that
   creates, updates, deletes, or sends.
 - The credential stays on the server. The model sees the result, not the

@@ -19,7 +19,7 @@ detail leaves the Role unchanged.
 Ask is enabled for any checked set, including several Roles. The label does
 not say what is being asked.
 
-The checked Roles are the subject. Ask opens the Proforna conversation with
+The checked Roles are the subject. Ask opens the Docier conversation with
 that set attached, so the question is about those Roles together. One Role
 is a question about that Role. Several Roles are one question about the set.
 The label should say that once the wording is settled.

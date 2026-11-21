@@ -9,7 +9,7 @@ const coreDir = dirname(fileURLToPath(import.meta.url));
 describe("core", () => {
   it("names personal career management", () => {
     expect(PRODUCT).toEqual({
-      name: "Proforna",
+      name: "Docier",
       kind: "personal-career-management",
     });
   });

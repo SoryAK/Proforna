@@ -473,7 +473,7 @@ export async function reverseNominatimPlace(
 }
 
 const nominatimHeaders = {
-  "User-Agent": "Proforna/0.0.1 (https://github.com/SoryAK/Proforna)",
+  "User-Agent": "Docier/0.0.1 (https://github.com/SoryAK/Docier)",
 };
 
 type NominatimHit = {

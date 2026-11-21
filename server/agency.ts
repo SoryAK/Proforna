@@ -441,7 +441,7 @@ function enabledAccounts(db: DatabaseSync, occupantId: string): EnabledAccount[]
     accounts.push({
       name: "gmail",
       displayName: "Gmail",
-      description: "Search mail and save a draft. Proforna does not send mail.",
+      description: "Search mail and save a draft. Docier does not send mail.",
       endpoint: null,
       link: null,
       plugin: null,

@@ -1,7 +1,7 @@
 [package]
 name = "proforna"
 version = "0.0.1"
-description = "Proforna desktop shell"
+description = "Docier desktop shell"
 authors = ["Sory Kaba"]
 edition = "2021"
 

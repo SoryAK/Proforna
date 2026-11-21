@@ -263,11 +263,11 @@ export function NetworkPage() {
         return;
       }
       if (response.status === 409) {
-        setStatus("Proforna is already using the model.");
+        setStatus("Docier is already using the model.");
         return;
       }
       if (!response.ok) {
-        setStatus("Connect a model in Settings before asking Proforna.");
+        setStatus("Connect a model in Settings before asking Docier.");
         return;
       }
       await openThread(contactId);

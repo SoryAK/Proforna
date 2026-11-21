@@ -2,6 +2,10 @@
 
 Sources for marks and icons. Add a row when a new source is chosen.
 
+## Docier marks
+
+The product's own D mark lives in [`web/src/branding/`](../web/src/branding/README.md), with a note on what each file is for.
+
 ## Dev logos
 
 Developer, infrastructure, and project logos, as SVG and PNG.

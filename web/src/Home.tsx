@@ -26,7 +26,7 @@ import { HomeBar, type HomeBioMode } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
 import { HomeSearch, type SearchPlace } from "./HomeSearch";
-import { HomeSettings } from "./HomeSettings";
+import { HomeSettings, type SettingsSection } from "./HomeSettings";
 import { ResumeImport } from "./ResumeImport";
 import type { DetailTab } from "./RoleDetailPanel";
 import { WorkHistory } from "./WorkHistory";
@@ -66,6 +66,7 @@ export function Home({
   const [chatRelease, setChatRelease] = useState<{ id: string; nonce: number } | null>(null);
   const [chatAttach, setChatAttach] = useState<{ id: string; nonce: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("profile");
   const [importOpen, setImportOpen] = useState(false);
   const [careerRevision, setCareerRevision] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -213,14 +214,12 @@ export function Home({
     }
   }
 
+  // The profile card is only shown while previewing the public page, so
+  // editing the profile opens Settings on Profile, which is always visible.
   function goProfile() {
-    showLeft();
-    if (page === "home") {
-      setEditing(true);
-      return;
-    }
     setEditing(false);
-    goHome();
+    setSettingsSection("profile");
+    setSettingsOpen(true);
   }
 
   function showLeft() {
@@ -321,6 +320,7 @@ export function Home({
       />
       <HomeSettings
         open={settingsOpen}
+        section={settingsSection}
         profile={profile}
         onClose={() => setSettingsOpen(false)}
         onProfileSaved={(next) => {
@@ -363,7 +363,11 @@ export function Home({
             }
             toggleMenu();
           }}
-          onSettings={() => setSettingsOpen(true)}
+          onSettings={(section = "profile") => {
+            setSettingsSection(section);
+            setSettingsOpen(true);
+          }}
+          onEditProfile={goProfile}
           onSearch={() => setSearchOpen(true)}
           onProforna={togglePanel}
           onRequest={openRequest}

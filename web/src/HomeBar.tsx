@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Divider } from "@astryxdesign/core/Divider";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import type { OccupantNoticeHref } from "@core/notices";
@@ -6,7 +6,8 @@ import type { RelayStatus } from "@core/projection";
 import { normalizeSlug, publicationLink, type WorkMapPublicationSettings } from "@core/work-map";
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
-import mark from "./docier-mark.svg";
+import mark from "./branding/docier-mark.svg";
+import { readPreviewPlacement } from "./preview-placement";
 import { announceRelayChange, useRelayStatus } from "./relay-status";
 
 export type HomeBioMode = "browse" | "preview" | "share";
@@ -19,6 +20,7 @@ export function HomeBar({
   menuLabel,
   onMenu,
   onSettings,
+  onEditProfile,
   onSearch,
   onProforna,
   onRequest,
@@ -38,7 +40,8 @@ export function HomeBar({
   menuExpanded: boolean;
   menuLabel?: string;
   onMenu: () => void;
-  onSettings: () => void;
+  onSettings: (section?: "profile" | "publication") => void;
+  onEditProfile?: () => void;
   onSearch: () => void;
   onProforna?: () => void;
   onRequest?: () => void;
@@ -69,6 +72,9 @@ export function HomeBar({
   const [heldPrivate, setHeldPrivate] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLElement>(null);
+  const menuTrigger = useRef<HTMLElement | null>(null);
+  const shownMenu = useRef<typeof menu>(null);
   const root = useRef<HTMLDivElement>(null);
   const publicationRef = useRef(publication);
   const slugDraftRef = useRef(slugDraft);
@@ -89,6 +95,55 @@ export function HomeBar({
   const menuId = useId();
   const visibilityId = useId();
   const letters = initials(name);
+  const previewPlacement = readPreviewPlacement();
+
+  // Opening a menu moves focus into it; closing it gives focus back to the
+  // button that opened it, unless the person already moved on elsewhere.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const was = shownMenu.current;
+    shownMenu.current = menu;
+    if (menu && menu !== was) {
+      const active = document.activeElement;
+      menuTrigger.current =
+        active instanceof HTMLElement && bar.contains(active) && active.getAttribute("aria-expanded") !== null
+          ? active
+          : bar.querySelector<HTMLElement>('[aria-expanded="true"]');
+      requestAnimationFrame(() => {
+        const panel = bar.querySelector<HTMLElement>('[role="menu"], .home-sync-settings');
+        const first =
+          panel?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])') ??
+          panel?.querySelector<HTMLElement>("button:not([disabled]), input:not([disabled]), a[href]");
+        first?.focus();
+      });
+      return;
+    }
+    if (!menu && was) {
+      const active = document.activeElement;
+      const lost = !active || active === document.body || bar.contains(active);
+      if (lost && menuTrigger.current?.isConnected) menuTrigger.current.focus();
+      menuTrigger.current = null;
+    }
+  }, [menu]);
+
+  function moveInMenu(event: ReactKeyboardEvent<HTMLElement>) {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const target = event.target as HTMLElement;
+    const list = target.closest<HTMLElement>('[role="menu"]');
+    if (!list) return;
+    const items = [...list.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])')];
+    if (items.length === 0) return;
+    event.preventDefault();
+    const at = items.indexOf(target);
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : (Math.max(at, 0) + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  }
 
   useEffect(() => {
     if (!publishNote) return;
@@ -349,7 +404,7 @@ export function HomeBar({
   }
 
   return (
-    <header className="home-bar">
+    <header className="home-bar" ref={barRef} onKeyDown={moveInMenu}>
       <div className="home-bar-start">
         <button
           type="button"
@@ -357,6 +412,7 @@ export function HomeBar({
           aria-label={
             menuLabel ?? (menuExpanded ? "Collapse menu" : "Expand menu")
           }
+          title={menuLabel ?? (menuExpanded ? "Collapse menu" : "Expand menu")}
           aria-expanded={menuLabel ? undefined : menuExpanded}
           aria-controls={menuLabel ? undefined : HOME_NAV_ID}
           onClick={onMenu}
@@ -381,6 +437,7 @@ export function HomeBar({
           type="button"
           className="home-search-icon"
           aria-label="Search"
+          title="Search"
           onClick={onSearch}
         >
           <Icon name="search" />
@@ -419,9 +476,25 @@ export function HomeBar({
             <button
               type="button"
               className="home-sync-ghost is-preview"
-              aria-expanded={menu === "preview"}
-              aria-haspopup="menu"
-              onClick={() => setMenu((current) => (current === "preview" ? null : "preview"))}
+              aria-expanded={previewPlacement === "ask" ? menu === "preview" : undefined}
+              aria-haspopup={previewPlacement === "ask" ? "menu" : undefined}
+              title={
+                previewPlacement === "here"
+                  ? "Preview in this window"
+                  : previewPlacement === "window"
+                    ? "Preview in a new window"
+                    : "Preview"
+              }
+              onClick={() => {
+                // Settings → Publication chooses where Preview opens; it only asks when set to ask.
+                const placement = readPreviewPlacement();
+                if (placement !== "ask") {
+                  setMenu(null);
+                  onPreview(placement);
+                  return;
+                }
+                setMenu((current) => (current === "preview" ? null : "preview"));
+              }}
             >
               Preview
             </button>
@@ -463,25 +536,40 @@ export function HomeBar({
                 ) : null}
               </div>
               {bioMode !== "preview" && !previewOpen ? (
+                // Shown only on narrow screens, where the Preview button is hidden.
                 <div className="home-sync-preview" role="group" aria-label="Preview">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onPreview("here");
-                      setMenu(null);
-                    }}
-                  >
-                    Preview in this window
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onPreview("window");
-                      setMenu(null);
-                    }}
-                  >
-                    Preview in a new window
-                  </button>
+                  {previewPlacement === "ask" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPreview("here");
+                          setMenu(null);
+                        }}
+                      >
+                        Preview in this window
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onPreview("window");
+                          setMenu(null);
+                        }}
+                      >
+                        Preview in a new window
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPreview(previewPlacement);
+                        setMenu(null);
+                      }}
+                    >
+                      Preview
+                    </button>
+                  )}
                 </div>
               ) : null}
               {link ? (
@@ -654,7 +742,13 @@ export function HomeBar({
               </span>
               <span className="home-request-label">Request</span>
             </button>
-            <button type="button" className="home-notice-btn home-request-icon" aria-label="Request" onClick={onRequest}>
+            <button
+              type="button"
+              className="home-notice-btn home-request-icon"
+              aria-label="Request"
+              title="Request"
+              onClick={onRequest}
+            >
               <Icon name="request" />
             </button>
           </>
@@ -672,7 +766,8 @@ export function HomeBar({
                 ? "home-notice-btn home-proforna-toggle is-current"
                 : "home-notice-btn home-proforna-toggle"
             }
-            aria-label={profornaOpen ? "Hide Proforna" : "Show Proforna"}
+            aria-label={profornaOpen ? "Hide Docier" : "Show Docier"}
+            title={profornaOpen ? "Hide Docier" : "Show Docier"}
             aria-pressed={profornaOpen}
             onClick={onProforna}
           >
@@ -738,6 +833,30 @@ export function HomeBar({
                   {headline ? <p className="home-user-role">{headline}</p> : null}
                 </div>
               </div>
+              {onEditProfile ? (
+                <button
+                  type="button"
+                  className="home-user-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    onEditProfile();
+                  }}
+                >
+                  Edit profile
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="home-user-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  onSettings("publication");
+                }}
+              >
+                Publication
+              </button>
               <button
                 type="button"
                 className="home-user-item"
@@ -749,6 +868,16 @@ export function HomeBar({
               >
                 Settings
               </button>
+              <div className="home-user-separator" role="separator" />
+              <a
+                className="home-user-item"
+                role="menuitem"
+                href="/api/portability/export"
+                download="docier-backup.zip"
+                onClick={() => setMenu(null)}
+              >
+                Export backup
+              </a>
             </div>
           ) : null}
         </div>

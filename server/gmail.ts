@@ -252,7 +252,7 @@ async function handleGmailCallback(
   }
   try {
     await finishGmailSignIn(db, signIn, code, gmailRedirectUri(signInPort), fetchImpl);
-    writePage(response, 200, "Gmail is connected. Return to Proforna.");
+    writePage(response, 200, "Gmail is connected. Return to Docier.");
   } catch {
     writePage(response, 400, "Gmail could not be connected.");
   }

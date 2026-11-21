@@ -78,7 +78,7 @@ export function IntegrationSettings({
   async function startSignIn(row: ListedIntegration) {
     const popup = openSignInWindow();
     if (!popup) {
-      setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+      setError("The sign-in window was blocked. Allow popups for Docier, then try Connect again.");
       return;
     }
     setBusy(true);
@@ -99,7 +99,7 @@ export function IntegrationSettings({
         return;
       }
       popup.close();
-      setMessage(`${row.displayName} is connected. Proforna can use it when you ask.`);
+      setMessage(`${row.displayName} is connected. Docier can use it when you ask.`);
       await load();
     } catch {
       popup.close();
@@ -130,7 +130,7 @@ export function IntegrationSettings({
         return;
       }
       setValues({});
-      setMessage("Saved. Proforna can use this connection when you ask.");
+      setMessage("Saved. Docier can use this connection when you ask.");
       await load();
     } catch {
       setError("Could not save that connection.");
@@ -181,7 +181,7 @@ export function IntegrationSettings({
       }
       setMessage(
         enabled
-          ? `${row.displayName} is on. Proforna can use it when you ask.`
+          ? `${row.displayName} is on. Docier can use it when you ask.`
           : `${row.displayName} is off. The saved sign-in stays until you remove it.`,
       );
       await load();
@@ -220,7 +220,7 @@ export function IntegrationSettings({
         <>
           <h1>Integrations</h1>
           <p className="onboarding-lead">
-            Turn a connection on when you want Proforna to use it. It does not file mail into Opportunities on its own.
+            Turn a connection on when you want Docier to use it. It does not file mail into Opportunities on its own.
           </p>
         </>
       )}
@@ -304,7 +304,7 @@ export function IntegrationSettings({
                     ) : row.signIn ? (
                       <div>
                         <p className="home-settings-note">
-                          Connect opens a sign-in window. You allow access once. Proforna does not ask for a client id.
+                          Connect opens a sign-in window. You allow access once. Docier does not ask for a client id.
                         </p>
                         {row.configured ? (
                           <div className="integration-actions">
@@ -409,7 +409,7 @@ const CONNECTED_PREVIEW_ROWS: ListedIntegration[] = [
   {
     name: "gmail",
     displayName: "Gmail",
-    description: "Search mail and save a draft. Proforna does not send mail.",
+    description: "Search mail and save a draft. Docier does not send mail.",
     available: true,
     fields: [],
     configured: true,
