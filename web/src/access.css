@@ -19,9 +19,27 @@
 /* What a person can see, as one plain line. */
 .access-sees { color: var(--color-text-primary, #171717); }
 .access-sees strong { font-weight: 500; }
-/* One row of actions: a little less padding so they fit without wrapping. */
-.access-actions { flex-wrap: wrap; column-gap: 2px; }
-.access-actions > button { padding-inline: 10px; }
+/* A card's actions: small outlined pills, matching Manage in the Relay menu. */
+.access-actions { flex-wrap: wrap; gap: 6px; }
+.access-actions > button {
+  height: 26px;
+  min-height: 0;
+  padding: 0 11px;
+  border: 1px solid var(--color-border-strong, #c9c9cf);
+  border-radius: 999px;
+  background: var(--color-background, #fff);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-primary, #171717);
+}
+.access-actions > button:hover,
+.access-actions > button:focus-visible {
+  border-color: var(--color-text-primary, #171717);
+  background: var(--color-background, #fff);
+}
+.access-actions > button.access-danger { color: var(--color-text-error, #b42318); }
+.access-actions > button.access-danger:hover,
+.access-actions > button.access-danger:focus-visible { border-color: var(--color-text-error, #b42318); }
 .access-danger { color: var(--color-text-error, #b42318); }
 
 /* Activity: newest first, a dot per entry. */
