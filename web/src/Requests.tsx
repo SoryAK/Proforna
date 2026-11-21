@@ -595,6 +595,54 @@ function CreatedRequest({ request, onDone }: { request: SentRequest; onDone: () 
   );
 }
 
+/** Search, plus a kind choice when there's more than one kind, above a long list. */
+const SEARCH_FROM = 5;
+
+function matches(query: string, ...fields: string[]): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const text = fields.join(" ").toLowerCase();
+  return words.every((word) => text.includes(word));
+}
+
+function ListTools({
+  query,
+  onQuery,
+  kinds,
+  kind,
+  onKind,
+}: {
+  query: string;
+  onQuery: (value: string) => void;
+  kinds?: RequestKind[];
+  kind?: string;
+  onKind?: (value: string) => void;
+}) {
+  return (
+    <div className="req-tools">
+      <TextInput
+        label="Search requests"
+        isLabelHidden
+        placeholder="Search by name, email, or message"
+        value={query}
+        onChange={onQuery}
+      />
+      {kinds && kinds.length > 1 && onKind ? (
+        <Selector
+          label="Kind"
+          isLabelHidden
+          value={kind ?? "all"}
+          width="10.5rem"
+          onChange={(value) => onKind(String(value))}
+          options={[
+            { value: "all", label: "All kinds" },
+            ...kinds.map((item) => ({ value: item, label: REQUEST_KIND_LABEL[item] })),
+          ]}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 const FILTERS: Array<{ id: string; label: string; match: (status: SentRequestStatus) => boolean }> = [
   { id: "all", label: "All", match: () => true },
   { id: "pending", label: "Pending", match: (status) => PENDING.includes(status) },
@@ -615,6 +663,8 @@ function SentList({
   onEdit: (request: SentRequest) => void;
 }) {
   const [filter, setFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState("all");
   const [withdrawing, setWithdrawing] = useState<SentRequest | null>(null);
   const [message, setMessage] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -630,8 +680,15 @@ function SentList({
     return <EmptyState isCompact title="Nothing sent yet" description="Start one in New request." />;
   }
 
-  const shown = requests.filter((request) => FILTERS.find((item) => item.id === filter)!.match(request.status));
-  const count = (id: string) => requests.filter((request) => FILTERS.find((item) => item.id === id)!.match(request.status)).length;
+  const kinds = REQUEST_KINDS.filter((item) => requests.some((request) => request.kind === item));
+  // Search and kind narrow the list first; the status counts follow them.
+  const narrowed = requests.filter(
+    (request) =>
+      (kind === "all" || request.kind === kind) &&
+      matches(query, request.recipientName, request.recipientEmail, request.body, request.note),
+  );
+  const shown = narrowed.filter((request) => FILTERS.find((item) => item.id === filter)!.match(request.status));
+  const count = (id: string) => narrowed.filter((request) => FILTERS.find((item) => item.id === id)!.match(request.status)).length;
 
   async function act(url: string, method: string, done: string) {
     const response = await fetch(url, { method });
@@ -642,6 +699,9 @@ function SentList({
 
   return (
     <div className="req-sent">
+      {requests.length >= SEARCH_FROM || query || kind !== "all" ? (
+        <ListTools query={query} onQuery={setQuery} kinds={kinds} kind={kind} onKind={setKind} />
+      ) : null}
       <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
         {FILTERS.map((item) => (
           <SegmentedControlItem
@@ -762,6 +822,14 @@ function ReceivedList({
   onChanged: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState("all");
+  // Opens on what needs an answer, when anything does: chosen once the list arrives.
+  const chosen = useRef(false);
+  useEffect(() => {
+    if (!listed || chosen.current) return;
+    chosen.current = true;
+    if (listed.waiting > 0) setFilter("waiting");
+  }, [listed]);
+  const [query, setQuery] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -793,8 +861,11 @@ function ReceivedList({
     );
   }
 
-  const shown = received.filter((request) => RECEIVED_FILTERS.find((item) => item.id === filter)!.match(request.status));
-  const count = (id: string) => received.filter((request) => RECEIVED_FILTERS.find((item) => item.id === id)!.match(request.status)).length;
+  const narrowed = received.filter((request) =>
+    matches(query, request.requesterName, request.requesterEmail, request.message, request.note),
+  );
+  const shown = narrowed.filter((request) => RECEIVED_FILTERS.find((item) => item.id === filter)!.match(request.status));
+  const count = (id: string) => narrowed.filter((request) => RECEIVED_FILTERS.find((item) => item.id === id)!.match(request.status)).length;
 
   async function answer(request: ReceivedRequest, decision: "approved" | "declined") {
     setBusyId(request.id);
@@ -836,6 +907,7 @@ function ReceivedList({
 
   return (
     <div className="req-sent">
+      {received.length >= SEARCH_FROM || query ? <ListTools query={query} onQuery={setQuery} /> : null}
       <SegmentedControl label="Filter" size="sm" value={filter} onChange={setFilter}>
         {RECEIVED_FILTERS.map((item) => (
           <SegmentedControlItem

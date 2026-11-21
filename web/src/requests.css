@@ -81,3 +81,10 @@
 }
 .req-more:hover,
 .req-more:focus-visible { text-decoration: underline; }
+
+/* Search and kind above a long list. */
+.req-tools { display: flex; gap: 8px; align-items: center; }
+.req-tools > :first-child { flex: 1; min-width: 0; }
+@media (max-width: 767px) {
+  .req-tools { flex-direction: column; align-items: stretch; }
+}
