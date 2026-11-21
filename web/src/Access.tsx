@@ -601,9 +601,11 @@ export function AccessDialog({
                               isSelected={open}
                               align="start"
                               onClick={() => {
+                                // One card open at a time: opening this one closes any other form.
                                 setOpenId(open ? null : person.id);
                                 setOpenActivity(null);
-                                if (open) setEditing(null);
+                                setEditing(null);
+                                setNaming(null);
                               }}
                               label={person.name}
                               endContent={stateBadge(person)}
