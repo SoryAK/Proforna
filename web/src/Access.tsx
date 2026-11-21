@@ -170,7 +170,7 @@ export function AccessMenuSection({ onManage }: { onManage: () => void }) {
               <span className="access-menu-who">
                 <span>{person.name}</span>
                 <span className="access-menu-scope">
-                  {scope(person)} · {until(person)}
+                  {summary(person)} · {until(person)}
                 </span>
               </span>
               {person.state === "ending" ? <Badge label="Ends soon" variant="warning" /> : null}
