@@ -35,6 +35,8 @@ export type ReceivedRequest = {
   activity: AccessActivity[];
   /** Their photo, when they're in My Network with one. */
   photoUrl?: string | null;
+  /** When it was cleared from Received; it stays in History. */
+  clearedAt: string | null;
 };
 
 type Row = {
@@ -50,10 +52,11 @@ type Row = {
   slug: string;
   projection_json: string;
   grant_id: string | null;
+  cleared_at: string | null;
 };
 
 const SELECT = `SELECT r.id, r.requester_name, r.requester_email, r.message, r.status, r.owner_note,
-                       r.opportunity_id, r.created_at, r.answered_at, p.slug, p.projection_json,
+                       r.opportunity_id, r.created_at, r.answered_at, r.cleared_at, p.slug, p.projection_json,
                        (SELECT g.id FROM projection_access_grants g WHERE g.request_id = r.id
                          ORDER BY g.created_at DESC LIMIT 1) AS grant_id
                   FROM projection_access_requests r
@@ -86,6 +89,7 @@ function present(db: DatabaseSync, occupantId: string, row: Row): ReceivedReques
     answeredAt: row.answered_at,
     grantId: row.grant_id,
     activity,
+    clearedAt: row.cleared_at ?? null,
   };
 }
 
@@ -136,14 +140,17 @@ export async function pullReceived(
 export function listReceived(db: DatabaseSync, occupantId: string): ReceivedRequest[] {
   const photos = contactPhotos(db, occupantId);
   return (
-    db.prepare(`${SELECT} WHERE p.occupant_id = ? AND r.cleared_at IS NULL ORDER BY r.created_at DESC`).all(occupantId) as Row[]
+    // Cleared ones are included for History; deleted ones are gone.
+    db.prepare(`${SELECT} WHERE p.occupant_id = ? AND r.deleted_at IS NULL ORDER BY r.created_at DESC`).all(occupantId) as Row[]
   ).map(
     (row) => ({ ...present(db, occupantId, row), photoUrl: photos.find(null, row.requester_email) }),
   );
 }
 
 function readRow(db: DatabaseSync, occupantId: string, id: string): Row {
-  const row = db.prepare(`${SELECT} WHERE p.occupant_id = ? AND r.id = ?`).get(occupantId, id) as Row | undefined;
+  const row = db.prepare(`${SELECT} WHERE p.occupant_id = ? AND r.id = ? AND r.deleted_at IS NULL`).get(occupantId, id) as
+    | Row
+    | undefined;
   if (!row) throw new RequestStoreError("not-found");
   return row;
 }
@@ -238,7 +245,35 @@ export function receivedEmail(
 export function clearReceived(db: DatabaseSync, occupantId: string, id: string) {
   const row = readRow(db, occupantId, id);
   if (receivedStatus(row.status) === "waiting") throw new RequestStoreError("request-open");
-  db.prepare("UPDATE projection_access_requests SET cleared_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+  db.prepare("UPDATE projection_access_requests SET cleared_at = COALESCE(cleared_at, ?) WHERE id = ?").run(
+    new Date().toISOString(),
+    id,
+  );
+}
+
+/**
+ * Deletes a received request for good, from History too: its name, email,
+ * message, and note are emptied, and its own Activity goes. The row stays only
+ * so the Relay can't bring it back. A link it led to stays in Access.
+ */
+export function deleteReceived(db: DatabaseSync, occupantId: string, id: string) {
+  const row = readRow(db, occupantId, id);
+  if (receivedStatus(row.status) === "waiting") throw new RequestStoreError("request-open");
+  const now = new Date().toISOString();
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `UPDATE projection_access_requests
+          SET requester_name = '', requester_email = '', message = '', owner_note = '',
+              cleared_at = COALESCE(cleared_at, ?), deleted_at = ?
+        WHERE id = ?`,
+    ).run(now, now, id);
+    db.prepare("DELETE FROM access_activity WHERE request_id = ? AND grant_id IS NULL").run(id);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 /** Clears every answered request; ones still waiting stay. Returns how many were cleared. */
@@ -247,7 +282,7 @@ export function clearFinishedReceived(db: DatabaseSync, occupantId: string): num
     db
       .prepare(
         `UPDATE projection_access_requests SET cleared_at = ?
-          WHERE cleared_at IS NULL AND status IN ('granted', 'declined')
+          WHERE cleared_at IS NULL AND deleted_at IS NULL AND status IN ('granted', 'declined')
             AND projection_id IN (SELECT id FROM interactive_projections WHERE occupant_id = ?)`,
       )
       .run(new Date().toISOString(), occupantId).changes,

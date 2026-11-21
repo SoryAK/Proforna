@@ -22,6 +22,7 @@ import { RelayTransportError } from "./relay-client";
 import {
   RequestStoreError,
   clearFinishedSent,
+  clearSent,
   createRequest,
   listRequests,
   markRequestsSeen,
@@ -43,6 +44,7 @@ import {
   answerReceived,
   clearFinishedReceived,
   clearReceived,
+  deleteReceived,
   listReceived,
   pullReceived,
   receivedEmail,
@@ -2669,11 +2671,34 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
-  // Clears an answered request from Received; Access keeps any link it led to.
-  app.delete("/api/requests/received/:id", (c) => {
+  // Clears an answered request from Received; it stays in History, and Access
+  // keeps any link it led to.
+  app.post("/api/requests/received/:id/clear", (c) => {
     const occupant = ensureOccupant(db);
     try {
       clearReceived(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  // Deletes an answered request for good, from History too.
+  app.delete("/api/requests/received/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteReceived(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      return requestError(c, error);
+    }
+  });
+
+  // Clears a finished sent request from Sent; it stays in History.
+  app.post("/api/requests/:id/clear", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      clearSent(db, occupant.id, c.req.param("id"));
       return c.json({ ok: true });
     } catch (error) {
       return requestError(c, error);
@@ -2684,9 +2709,12 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.post("/api/requests/clear-finished", async (c) => {
     const occupant = ensureOccupant(db);
     const body = (await c.req.json().catch(() => ({}))) as { list?: unknown };
-    if (body.list !== "sent" && body.list !== "received") return c.json({ error: "list-invalid" }, 400);
+    if (body.list !== "sent" && body.list !== "received" && body.list !== "all") {
+      return c.json({ error: "list-invalid" }, 400);
+    }
     const cleared =
-      body.list === "sent" ? clearFinishedSent(db, occupant.id) : clearFinishedReceived(db, occupant.id);
+      (body.list === "received" ? 0 : clearFinishedSent(db, occupant.id)) +
+      (body.list === "sent" ? 0 : clearFinishedReceived(db, occupant.id));
     return c.json({ cleared });
   });
 

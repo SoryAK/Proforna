@@ -186,3 +186,19 @@ button.req-menu-row:focus-visible { background: var(--color-background-secondary
 }
 .req-clear:hover,
 .req-clear:focus-visible { color: var(--color-text-primary, #171717); text-decoration: underline; }
+
+/* The confirmation, or what clearing did, right under the dropdown's title. */
+.req-menu-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 14px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-background-secondary, #f4f4f5);
+  font-size: 13px;
+}
+.req-menu-status.is-waiting::before { background: #005fb8; }
+.req-history-month .req-menu-heading { padding-left: 0; }

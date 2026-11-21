@@ -169,26 +169,36 @@ describe("requests received from the public page", () => {
     expect(email.body).toContain("Welcome.");
   });
 
-  it("clears answered requests from the list, never pulls them back, and leaves waiting ones", async () => {
+  it("clears answered requests into History, deletes for good, and never pulls them back", async () => {
     const ctx = await withAccessPage();
     await ctx.ask("Ava Chen", "ava@giants.example");
     await ctx.ask("Sam Ortiz", "sam@temple.example");
-    let received = (await ctx.send("GET", "/api/requests")).body.received as Array<{ id: string; requesterName: string }>;
-    const ava = received.find((request) => request.requesterName === "Ava Chen")!;
-    // A request still waiting can't be cleared.
+    type Received = { id: string; requesterName: string; clearedAt: string | null };
+    const received = async () => (await ctx.send("GET", "/api/requests")).body.received as Received[];
+    const ava = (await received()).find((request) => request.requesterName === "Ava Chen")!;
+    // A request still waiting can be neither cleared nor deleted.
+    expect((await ctx.send("POST", `/api/requests/received/${ava.id}/clear`)).status).toBe(409);
     expect((await ctx.send("DELETE", `/api/requests/received/${ava.id}`)).status).toBe(409);
     await ctx.send("POST", `/api/requests/received/${ava.id}/answer`, { decision: "approved" });
-    expect((await ctx.send("DELETE", `/api/requests/received/${ava.id}`)).status).toBe(200);
-    received = (await ctx.send("GET", "/api/requests")).body.received;
-    expect(received.map((request) => request.requesterName)).toEqual(["Sam Ortiz"]);
-    // Reading again doesn't bring Ava back from the Relay, and her access stays.
-    expect((await ctx.send("GET", "/api/requests")).body.received).toHaveLength(1);
-    expect((await ctx.send("GET", "/api/access")).body.people.map((person: { name: string }) => person.name)).toEqual(["Ava Chen"]);
+    expect((await ctx.send("POST", `/api/requests/received/${ava.id}/clear`)).status).toBe(200);
+    // Cleared: off the list, still in History, and not pulled again from the Relay.
+    expect(Object.fromEntries((await received()).map((request) => [request.requesterName, Boolean(request.clearedAt)]))).toEqual({
+      "Sam Ortiz": false,
+      "Ava Chen": true,
+    });
+    expect(await received()).toHaveLength(2);
 
-    const sam = received[0]!;
-    await ctx.send("POST", `/api/requests/received/${sam.id}/answer`, { decision: "declined" });
+    const sam = (await received()).find((request) => request.requesterName === "Sam Ortiz")!;
+    await ctx.send("POST", `/api/requests/received/${sam.id}/answer`, { decision: "declined", note: "Not now." });
     expect((await ctx.send("POST", "/api/requests/clear-finished", { list: "received" })).body.cleared).toBe(1);
-    expect((await ctx.send("GET", "/api/requests")).body.received).toEqual([]);
+    expect((await received()).every((request) => request.clearedAt)).toBe(true);
+
+    // Deleting for good removes it from History and empties its details; Ava keeps her access.
+    expect((await ctx.send("DELETE", `/api/requests/received/${ava.id}`)).status).toBe(200);
+    expect((await received()).map((request) => request.requesterName)).toEqual(["Sam Ortiz"]);
+    expect(ctx.db.prepare("SELECT requester_email FROM projection_access_requests WHERE id = ?").get(ava.id)).toEqual({ requester_email: "" });
+    expect((await ctx.send("GET", "/api/access")).body.people.map((person: { name: string }) => person.name)).toEqual(["Ava Chen"]);
+    expect(await received()).toHaveLength(1);
     expect((await ctx.send("POST", "/api/requests/clear-finished", { list: "nope" })).status).toBe(400);
   });
 

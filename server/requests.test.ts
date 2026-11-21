@@ -143,15 +143,30 @@ describe("sending a request and following the answer", () => {
   });
 
   it("clears finished requests at once and keeps the ones still waiting", async () => {
-    const { send } = await setup();
+    const { db, send } = await setup();
     const make = async (name: string) =>
       (await send("POST", "/api/requests", { kind: "general", body: "Hi", recipientName: name, recipientEmail: `${name}@x.example` })).body.request;
     const open = await make("open");
     const done = await make("done");
     await send("POST", `/api/requests/${done.id}/withdraw`);
-    expect((await send("POST", "/api/requests/clear-finished", { list: "sent" })).body.cleared).toBe(1);
-    expect((await send("GET", "/api/requests")).body.requests.map((request: { id: string }) => request.id)).toEqual([open.id]);
+    // An open request can't be cleared on its own.
+    expect((await send("POST", `/api/requests/${open.id}/clear`)).status).toBe(409);
+    expect((await send("POST", "/api/requests/clear-finished", { list: "all" })).body.cleared).toBe(1);
+    // Cleared requests stay, marked, for History.
+    const listed = (await send("GET", "/api/requests")).body.requests as Array<{ id: string; clearedAt: string | null }>;
+    expect(Object.fromEntries(listed.map((request) => [request.id, Boolean(request.clearedAt)]))).toEqual({
+      [done.id]: true,
+      [open.id]: false,
+    });
     expect((await send("POST", "/api/requests/clear-finished", { list: "sent" })).body.cleared).toBe(0);
+    // An answer not seen yet isn't cleared until it has been.
+    db.prepare("UPDATE outgoing_requests SET status = 'approved', seen_status = 'sent', cleared_at = NULL WHERE id = ?").run(done.id);
+    expect((await send("POST", "/api/requests/clear-finished", { list: "sent" })).body.cleared).toBe(0);
+    await send("POST", "/api/requests/seen", { ids: [done.id] });
+    expect((await send("POST", "/api/requests/clear-finished", { list: "sent" })).body.cleared).toBe(1);
+    // Deleting is for good.
+    expect((await send("DELETE", `/api/requests/${done.id}`)).status).toBe(200);
+    expect((await send("GET", "/api/requests")).body.requests.map((request: { id: string }) => request.id)).toEqual([open.id]);
   });
 
   it("shows an expired request as expired, and its link refuses an answer", async () => {
