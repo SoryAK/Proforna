@@ -32,6 +32,19 @@ import {
 } from "./requests";
 import { answerReceived, listReceived, pullReceived, receivedEmail } from "./received-requests";
 import {
+  AccessStoreError,
+  accessEmail,
+  changeAccess,
+  listAccess,
+  pullOpens,
+  readAccessPage,
+  recordActivity,
+  removeAccess,
+  restoreAccess,
+  revokeAccess,
+  shareAccess,
+} from "./access";
+import {
   applyComparedResume,
   loadCareerFile,
   resolveImportEvidence,
@@ -1745,6 +1758,12 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         c.req.param("slug"),
         (await c.req.json()) as Record<string, unknown>,
       );
+      recordActivity(db, ensureOccupant(db).id, {
+        requestId: request.id,
+        kind: "asked",
+        message: request.message,
+        occurredAt: request.createdAt,
+      });
       return c.json({ request: { id: request.id } }, 201);
     } catch (error) {
       if (error instanceof ProjectionStoreError) {
@@ -2594,11 +2613,103 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         ? body.accessLink
         : null;
     try {
-      const draft = await draftGmail(db, occupant.id, receivedEmail(db, occupant.id, c.req.param("id"), accessLink));
+      const draft = await draftGmail(db, occupant.id, receivedEmail(db, occupant.id, c.req.param("id"), accessLink, requestOrigin));
+      recordActivity(db, occupant.id, { requestId: c.req.param("id"), kind: "drafted" });
       return c.json({ draft }, 201);
     } catch (error) {
       if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
       return requestError(c, error);
+    }
+  });
+
+  // Access: everyone with a link to the page, managed from the Relay menu.
+  const accessError = (c: Context, error: unknown) => {
+    if (error instanceof AccessStoreError) {
+      const status =
+        error.code === "not-found"
+          ? 404
+          : ["access-ended", "access-active", "page-not-published", "link-unavailable"].includes(error.code)
+            ? 409
+            : 400;
+      return c.json({ error: error.code }, status);
+    }
+    if (error instanceof ProjectionStoreError) return c.json({ error: error.code }, 400);
+    if (error instanceof RelayTransportError) return c.json({ error: "relay-unavailable" }, 502);
+    throw error;
+  };
+
+  app.get("/api/access", async (c) => {
+    const occupant = ensureOccupant(db);
+    const reachable = await pullOpens(db, occupant.id, options.relay);
+    return c.json({
+      page: readAccessPage(db, occupant.id),
+      people: listAccess(db, occupant.id, requestOrigin),
+      stale: !reachable,
+      relayConfigured: Boolean(options.relay && requestOrigin),
+    });
+  });
+
+  app.post("/api/access", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const person = await shareAccess(db, occupant.id, await c.req.json(), options.relay, requestOrigin);
+      return c.json({ person }, 201);
+    } catch (error) {
+      return accessError(c, error);
+    }
+  });
+
+  app.put("/api/access/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const person = await changeAccess(db, occupant.id, c.req.param("id"), await c.req.json(), options.relay, requestOrigin);
+      return c.json({ person });
+    } catch (error) {
+      return accessError(c, error);
+    }
+  });
+
+  app.post("/api/access/:id/revoke", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const person = await revokeAccess(db, occupant.id, c.req.param("id"), body, options.relay, requestOrigin);
+      return c.json({ person });
+    } catch (error) {
+      return accessError(c, error);
+    }
+  });
+
+  app.post("/api/access/:id/restore", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const person = await restoreAccess(db, occupant.id, c.req.param("id"), await c.req.json(), options.relay, requestOrigin);
+      return c.json({ person });
+    } catch (error) {
+      return accessError(c, error);
+    }
+  });
+
+  app.delete("/api/access/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await removeAccess(db, occupant.id, c.req.param("id"), options.relay);
+      return c.json({ ok: true });
+    } catch (error) {
+      return accessError(c, error);
+    }
+  });
+
+  // Drafts the email carrying someone's link in Gmail. Docier never sends it.
+  app.post("/api/access/:id/gmail-draft", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const draft = await draftGmail(db, occupant.id, accessEmail(db, occupant.id, c.req.param("id"), requestOrigin));
+      recordActivity(db, occupant.id, { grantId: c.req.param("id"), kind: "drafted" });
+      return c.json({ draft }, 201);
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      return accessError(c, error);
     }
   });
 

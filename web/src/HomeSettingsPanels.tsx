@@ -1,3 +1,4 @@
+import { openAccess } from "./Access";
 import {
   Children,
   useEffect,
@@ -1757,25 +1758,6 @@ const VISIBILITY_OPTIONS: Array<{ value: WorkMapPublicationSettings["visibility"
 
 type PublishedPage = { id: string; slug: string; status: string; visibility: string };
 
-type AccessLink = {
-  id: string;
-  expiresAt: string;
-  revokedAt: string | null;
-  createdAt: string;
-  requester: { name: string; email: string } | null;
-};
-
-function linkOwner(link: AccessLink): string {
-  if (!link.requester) return "Shared link";
-  return link.requester.email ? `${link.requester.name} (${link.requester.email})` : link.requester.name;
-}
-
-function linkState(link: AccessLink): { active: boolean; label: string } {
-  const day = (value: string) => new Date(value).toLocaleDateString();
-  if (link.revokedAt) return { active: false, label: `Revoked ${day(link.revokedAt)}` };
-  if (Date.parse(link.expiresAt) <= Date.now()) return { active: false, label: `Expired ${day(link.expiresAt)}` };
-  return { active: true, label: `Expires ${day(link.expiresAt)}` };
-}
 
 function visibilityLabel(value: string): string {
   return VISIBILITY_OPTIONS.find((option) => option.value === value)?.label ?? value;
@@ -1786,10 +1768,7 @@ export function PublicationSettingsPanel() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [relayOrigin, setRelayOrigin] = useState<string | null>(null);
   const [publications, setPublications] = useState<PublishedPage[]>([]);
-  const [openLinks, setOpenLinks] = useState<string | null>(null);
-  const [links, setLinks] = useState<AccessLink[]>([]);
   const [removingPage, setRemovingPage] = useState<PublishedPage | null>(null);
-  const [revokingLink, setRevokingLink] = useState<AccessLink | null>(null);
   const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1874,20 +1853,6 @@ export function PublicationSettingsPanel() {
     setPublications(listed.projections);
   }
 
-  async function showLinks(page: PublishedPage) {
-    if (openLinks === page.id) {
-      setOpenLinks(null);
-      return;
-    }
-    setOpenLinks(page.id);
-    setLinks([]);
-    const response = await fetch(`/api/projections/${page.id}/grants`);
-    if (!response.ok) {
-      setError("Could not load the access links.");
-      return;
-    }
-    setLinks(((await response.json()) as { grants: AccessLink[] }).grants);
-  }
 
   async function removePage(page: PublishedPage) {
     setBusy(true);
@@ -1903,7 +1868,6 @@ export function PublicationSettingsPanel() {
         );
         return;
       }
-      if (openLinks === page.id) setOpenLinks(null);
       setMessage(`/r/${page.slug} was removed.`);
       announceRelayChange();
       await reloadPages();
@@ -1912,29 +1876,6 @@ export function PublicationSettingsPanel() {
     }
   }
 
-  async function revokeLink(page: PublishedPage, link: AccessLink) {
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      const response = await fetch(`/api/projections/${page.id}/grants/${link.id}/revoke`, {
-        method: "POST",
-      });
-      if (!response.ok) {
-        setError(
-          response.status === 502
-            ? "The relay could not be reached, so the link still works. Try again."
-            : "Could not revoke that link.",
-        );
-        return;
-      }
-      setMessage(`${linkOwner(link)} can no longer open the page.`);
-      const refreshed = await fetch(`/api/projections/${page.id}/grants`);
-      if (refreshed.ok) setLinks(((await refreshed.json()) as { grants: AccessLink[] }).grants);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   if (!settings) {
     return <SettingsStatus message={error ? null : "Loading publication settings."} error={error || null} />;
@@ -2058,7 +1999,6 @@ export function PublicationSettingsPanel() {
         <SettingsCard title="Published pages">
           {publications.map((page) => {
             const live = page.status === "published";
-            const linksOpen = openLinks === page.id;
             return (
               <SettingsRow
                 key={page.id}
@@ -2067,14 +2007,9 @@ export function PublicationSettingsPanel() {
                 description={`${live ? "Live" : "Offline"} · ${visibilityLabel(page.visibility)}${page.slug === settings.slug ? " · Current slug" : ""}`}
                 control={
                   <HStack gap={2}>
-                    {page.visibility === "access-controlled" ? (
-                      <Button
-                        label={linksOpen ? "Hide links" : "Access links"}
-                        variant="secondary"
-                        size="sm"
-                        isDisabled={busy}
-                        onClick={() => void showLinks(page)}
-                      />
+                    {page.visibility === "access-controlled" && page.slug === settings.slug ? (
+                      // Who has a link, and what it opens, lives in Access.
+                      <Button label="Manage access" variant="secondary" size="sm" onClick={() => openAccess()} />
                     ) : null}
                     <Button
                       label="Remove"
@@ -2085,38 +2020,6 @@ export function PublicationSettingsPanel() {
                       onClick={() => setRemovingPage(page)}
                     />
                   </HStack>
-                }
-                detail={
-                  linksOpen ? (
-                    <VStack gap={1}>
-                      {links.length === 0 ? (
-                        <Text type="supporting" color="secondary">
-                          No access links handed out yet.
-                        </Text>
-                      ) : (
-                        links.map((link) => {
-                          const state = linkState(link);
-                          return (
-                            <HStack key={link.id} gap={2} style={{ justifyContent: "space-between", alignItems: "center" }}>
-                              <Text type="supporting">
-                                {linkOwner(link)} · {state.label}
-                              </Text>
-                              {state.active ? (
-                                <Button
-                                  label="Revoke"
-                                  variant="ghost"
-                                  size="sm"
-                                  isDisabled={busy}
-                                  aria-label={`Revoke access for ${linkOwner(link)}`}
-                                  onClick={() => setRevokingLink(link)}
-                                />
-                              ) : null}
-                            </HStack>
-                          );
-                        })
-                      )}
-                    </VStack>
-                  ) : undefined
                 }
               />
             );
@@ -2139,25 +2042,6 @@ export function PublicationSettingsPanel() {
           const page = removingPage;
           setRemovingPage(null);
           if (page) void removePage(page);
-        }}
-      />
-      <AlertDialog
-        isOpen={revokingLink != null}
-        onOpenChange={(next) => {
-          if (!next) setRevokingLink(null);
-        }}
-        title="Revoke this access link?"
-        description={
-          revokingLink
-            ? `${linkOwner(revokingLink)} can no longer open the page. Everyone else keeps their link.`
-            : ""
-        }
-        actionLabel="Revoke"
-        onAction={() => {
-          const link = revokingLink;
-          const page = publications.find((item) => item.id === openLinks);
-          setRevokingLink(null);
-          if (link && page) void revokeLink(page, link);
         }}
       />
       <SettingsCard title="Frame">

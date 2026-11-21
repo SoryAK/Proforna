@@ -2,7 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { groupLinkedEvidence, type PublishedLinkedEvidence } from "../core/index";
+import { groupLinkedEvidence, limitProjection, type PublishedLinkedEvidence, type WorkMapPublishSection } from "../core/index";
 import { registerAsks } from "./asks";
 import { handleMcp, type PublicationRead, type PublicationSnapshot } from "./mcp";
 
@@ -114,21 +114,63 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
     const body = (await c.req.json()) as {
       token?: unknown;
       expiresAt?: unknown;
+      sections?: unknown;
     };
     if (typeof body.token !== "string" || typeof body.expiresAt !== "string") {
       return c.json({ error: "Token and expiry are required." }, 400);
     }
+    const sections = grantSections(body.sections);
+    if (sections === false) return c.json({ error: "Sections must be a list." }, 400);
     db.prepare(
       `INSERT INTO relay_grants
-        (id, slug, token_hash, expires_at, revoked_at)
-       VALUES (?, ?, ?, ?, NULL)`,
+        (id, slug, token_hash, expires_at, revoked_at, sections_json)
+       VALUES (?, ?, ?, ?, NULL, ?)`,
     ).run(
       randomUUID(),
       c.req.param("slug"),
       hashToken(body.token),
       body.expiresAt,
+      sections ? JSON.stringify(sections) : null,
     );
     return c.json({ ok: true }, 201);
+  });
+
+  // Changes what one link opens and until when; the link itself stays the same.
+  app.patch("/relay/publications/:slug/grants/:tokenHash", async (c) => {
+    if (!isOwner(c.req.header("authorization"), ownerToken)) {
+      return c.json({ error: "Unauthorized." }, 401);
+    }
+    const body = (await c.req.json().catch(() => ({}))) as { expiresAt?: unknown; sections?: unknown };
+    const sections = grantSections(body.sections);
+    if (typeof body.expiresAt !== "string" || sections === false) {
+      return c.json({ error: "Expiry and sections are required." }, 400);
+    }
+    const result = db
+      .prepare(
+        `UPDATE relay_grants SET expires_at = ?, sections_json = ?
+          WHERE slug = ? AND token_hash = ? AND revoked_at IS NULL`,
+      )
+      .run(
+        body.expiresAt,
+        sections ? JSON.stringify(sections) : null,
+        c.req.param("slug"),
+        c.req.param("tokenHash"),
+      );
+    return result.changes ? c.json({ ok: true }) : c.json({ error: "Link not found." }, 404);
+  });
+
+  // When links were opened, after a point, so the owner can add them to Activity.
+  app.get("/relay/grants/opens", (c) => {
+    if (!isOwner(c.req.header("authorization"), ownerToken)) {
+      return c.json({ error: "Unauthorized." }, 401);
+    }
+    const opens = db
+      .prepare(
+        `SELECT id, slug, token_hash AS tokenHash, opened_at AS openedAt
+           FROM relay_grant_opens WHERE opened_at > ? ORDER BY opened_at LIMIT 500`,
+      )
+      .all(c.req.query("after") ?? "");
+    return c.json({ opens });
   });
 
   app.delete("/relay/publications/:slug/grants/:tokenHash", (c) => {
@@ -151,7 +193,7 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
     const slug = c.req.param("slug");
     db.exec("BEGIN");
     try {
-      for (const table of ["relay_events", "relay_requests", "relay_grants", "relay_publications"]) {
+      for (const table of ["relay_events", "relay_requests", "relay_grant_opens", "relay_grants", "relay_publications"]) {
         db.prepare(`DELETE FROM ${table} WHERE slug = ?`).run(slug);
       }
       db.exec("COMMIT");
@@ -188,6 +230,7 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
         (id, slug, event_type, section, occurred_at)
        VALUES (?, ?, 'view', NULL, ?)`,
     ).run(randomUUID(), projection.slug, new Date().toISOString());
+    recordGrantOpen(db, projection.slug, c.req.query("token") ?? null);
     return framedHtml(
       c,
       renderProjectionHtml(
@@ -303,14 +346,47 @@ function resolveProjection(
     if (!token) return null;
     const grant = db
       .prepare(
-        `SELECT id FROM relay_grants
+        `SELECT id, sections_json FROM relay_grants
          WHERE slug = ? AND token_hash = ? AND revoked_at IS NULL
            AND expires_at > ?`,
       )
-      .get(slug, hashToken(token), new Date().toISOString());
+      .get(slug, hashToken(token), new Date().toISOString()) as
+      | { id: string; sections_json: string | null }
+      | undefined;
     if (!grant) return null;
+    // A link may open only some of the page.
+    const sections = grant.sections_json ? (JSON.parse(grant.sections_json) as WorkMapPublishSection[]) : null;
+    return limitProjection(JSON.parse(String(row.projection_json)) as RelayProjection, sections);
   }
   return JSON.parse(String(row.projection_json)) as RelayProjection;
+}
+
+/** A list of section names, `null` for the whole page, or `false` when malformed. */
+function grantSections(value: unknown): string[] | null | false {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) return false;
+  return value as string[];
+}
+
+/**
+ * Notes that a link opened its page. Reloads within half an hour count once,
+ * so Activity shows visits rather than refreshes.
+ */
+function recordGrantOpen(db: DatabaseSync, slug: string, token: string | null) {
+  if (!token) return;
+  const hash = hashToken(token);
+  const known = db
+    .prepare("SELECT 1 FROM relay_grants WHERE slug = ? AND token_hash = ?")
+    .get(slug, hash);
+  if (!known) return;
+  const now = new Date();
+  const recent = db
+    .prepare("SELECT 1 FROM relay_grant_opens WHERE token_hash = ? AND opened_at > ?")
+    .get(hash, new Date(now.getTime() - 30 * 60_000).toISOString());
+  if (recent) return;
+  db.prepare(
+    "INSERT INTO relay_grant_opens (id, slug, token_hash, opened_at) VALUES (?, ?, ?, ?)",
+  ).run(randomUUID(), slug, hash, now.toISOString());
 }
 
 function requiresAccess(db: DatabaseSync, slug: string): boolean {

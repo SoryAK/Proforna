@@ -21,6 +21,7 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { VStack } from "@astryxdesign/core/VStack";
 import { MapPin } from "lucide-react";
 import { OPEN_REQUESTS, REQUESTS_CHANGED, RequestsDialog, type RequestsTab } from "./Requests";
+import { AccessDialog, OPEN_ACCESS } from "./Access";
 import { HomeBar, type HomeBioMode } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
@@ -211,6 +212,18 @@ export function Home({
     }
     window.addEventListener(OPEN_REQUESTS, onOpen);
     return () => window.removeEventListener(OPEN_REQUESTS, onOpen);
+  }, []);
+
+  const [access, setAccess] = useState<{ focusId: string | null; share: boolean } | null>(null);
+  useEffect(() => {
+    function onOpen(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string; share?: boolean }>).detail ?? {};
+      // Access opens on its own; Requests steps aside so one window shows at a time.
+      setRequests(null);
+      setAccess({ focusId: detail.id ?? null, share: Boolean(detail.share) });
+    }
+    window.addEventListener(OPEN_ACCESS, onOpen);
+    return () => window.removeEventListener(OPEN_ACCESS, onOpen);
   }, []);
 
   function goPage(next: HomePage) {
@@ -595,6 +608,12 @@ export function Home({
         </div>
       ) : null}
       <ContactNoteDialog isOpen={bioDialog === "contact"} onClose={() => setBioDialog(null)} />
+      <AccessDialog
+        isOpen={access != null}
+        focusId={access?.focusId ?? null}
+        startSharing={access?.share ?? false}
+        onClose={() => setAccess(null)}
+      />
       <RequestsDialog
         isOpen={requests !== null}
         tab={requests?.tab ?? "sent"}

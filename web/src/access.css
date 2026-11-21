@@ -1,0 +1,83 @@
+/* Access: people with a link to the page. The parts are Astryx; this only spaces them. */
+
+.access-faint { color: var(--color-text-secondary, #6b6b73); font-weight: 400; font-size: 12.5px; }
+.access-top { justify-content: space-between; align-items: center; }
+.access-top > :first-child { flex: 1; min-width: 0; }
+.access-box {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border, #e4e4e7);
+  border-radius: 10px;
+}
+.access-checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin-top: 6px;
+}
+.access-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.access-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--color-background-secondary, #f3f3f4);
+  font-size: 12px;
+}
+.access-chip.is-off {
+  background: none;
+  border: 1px dashed var(--color-border, #d4d4d8);
+  color: var(--color-text-secondary, #8a8a91);
+  text-decoration: line-through;
+}
+.access-actions { flex-wrap: wrap; }
+.access-danger { color: var(--color-text-error, #b42318); }
+
+/* Activity: newest first, a dot per entry. */
+.access-activity { display: grid; gap: 8px; }
+.access-activity-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
+.access-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--color-border, #e4e4e7);
+  display: grid;
+  gap: 10px;
+}
+.access-timeline li { position: relative; display: grid; gap: 2px; }
+.access-timeline li::before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-background, #fff);
+  border: 2px solid #8a8a91;
+}
+.access-timeline li.is-approved::before,
+.access-timeline li.is-shared::before,
+.access-timeline li.is-changed::before,
+.access-timeline li.is-restored::before { border-color: #18794e; }
+.access-timeline li.is-declined::before,
+.access-timeline li.is-revoked::before { border-color: #b42318; }
+.access-timeline li.is-asked::before { border-color: #005fb8; }
+.access-when { font-size: 12px; color: var(--color-text-secondary, #8a8a91); }
+.access-what { font-weight: 500; }
+
+/* The preview in the Relay menu. */
+.access-menu { display: grid; gap: 6px; padding: 10px 12px 2px; border-top: 1px solid var(--color-border, #ececee); }
+.access-menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.access-menu-list li { display: flex; align-items: center; gap: 8px; }
+.access-menu-who { flex: 1; min-width: 0; display: grid; }
+.access-menu-scope { font-size: 12px; color: var(--color-text-secondary, #6b6b73); }
+.access-menu-actions { display: flex; justify-content: space-between; gap: 8px; }
+
+@media (max-width: 640px) {
+  .access-checks { grid-template-columns: 1fr; }
+  /* The Share button takes its own line so both tabs stay readable. */
+  .access-top { flex-direction: column; align-items: stretch; }
+}

@@ -8,6 +8,7 @@ import { normalizeSlug, publicationLink, type WorkMapPublicationSettings } from 
 import { HOME_NAV_ID, Icon } from "./HomeNav";
 import { HomeNotices } from "./HomeNotices";
 import { RequestsMenu, useRequestsWaiting, type RequestsTab } from "./Requests";
+import { AccessMenuSection, openAccess } from "./Access";
 import mark from "./branding/docier-mark.svg";
 import { readPreviewPlacement } from "./preview-placement";
 import { announceRelayChange, useRelayStatus } from "./relay-status";
@@ -712,6 +713,16 @@ export function HomeBar({
                 </button>
               ) : null}
               {visibilityNote ? <p className="home-sync-setting-note">{visibilityNote}</p> : null}
+              <AccessMenuSection
+                onManage={() => {
+                  setMenu(null);
+                  openAccess();
+                }}
+                onShare={() => {
+                  setMenu(null);
+                  openAccess(undefined, true);
+                }}
+              />
             </div>
           ) : null}
           {menu === "preview" && bioMode !== "preview" ? (
