@@ -497,3 +497,88 @@ async function mcp(
     body: JSON.stringify(body),
   });
 }
+
+describe("share links with an access token", () => {
+  async function protectedRelay() {
+    const db = openRelayDatabase(":memory:");
+    const app = createRelayApp(db, "owner-secret");
+    const owner = {
+      authorization: "Bearer owner-secret",
+      "content-type": "application/json",
+    };
+    await app.request("/relay/publications/systems", {
+      method: "PUT",
+      headers: owner,
+      body: JSON.stringify({
+        projection: {
+          ...projection,
+          visibility: "access-controlled",
+          profile: { ...projection.profile, bio: "Shared with a token." },
+        },
+      }),
+    });
+    await app.request("/relay/publications/systems/grants", {
+      method: "POST",
+      headers: owner,
+      body: JSON.stringify({ token: "viewer-token", expiresAt: "2099-01-01T00:00:00.000Z" }),
+    });
+    return { db, app };
+  }
+
+  it("trades the token for a page cookie and drops it from the address", async () => {
+    const { db, app } = await protectedRelay();
+    try {
+      const first = await app.request("https://relay.test/r/systems?token=viewer-token&view=journey");
+      expect(first.status).toBe(303);
+      expect(first.headers.get("location")).toBe("/r/systems?view=journey");
+      expect(first.headers.get("referrer-policy")).toBe("no-referrer");
+      const cookie = first.headers.get("set-cookie") ?? "";
+      expect(cookie).toContain("HttpOnly");
+      expect(cookie).toContain("Secure");
+      expect(cookie).toContain("SameSite=Lax");
+      expect(cookie).toContain("Path=/r/systems");
+
+      const page = await app.request("https://relay.test/r/systems?view=journey", {
+        headers: { cookie: cookie.split(";")[0] },
+      });
+      expect(page.status).toBe(200);
+      expect(await page.text()).toContain("Shared with a token.");
+      expect(page.headers.get("cache-control")).toBe("private, no-store");
+      expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+    } finally {
+      db.close();
+    }
+  });
+
+  it("sets the cookie Secure whatever the request claims, unless told not to", async () => {
+    const { db, app } = await protectedRelay();
+    try {
+      const plain = await app.request("http://relay.test/r/systems?token=viewer-token", {
+        headers: { "x-forwarded-proto": "http" },
+      });
+      expect(plain.headers.get("set-cookie") ?? "").toContain("Secure");
+      const local = createRelayApp(db, "owner-secret", { insecureCookies: true });
+      const lan = await local.request("http://192.168.1.20/r/systems?token=viewer-token");
+      expect(lan.headers.get("set-cookie") ?? "").not.toContain("Secure");
+    } finally {
+      db.close();
+    }
+  });
+
+  it("refuses the page without the cookie, and sets none for a wrong token", async () => {
+    const { db, app } = await protectedRelay();
+    try {
+      expect((await app.request("/r/systems")).status).toBe(403);
+      const wrong = await app.request("/r/systems?token=guess");
+      expect(wrong.status).toBe(303);
+      expect(wrong.headers.get("location")).toBe("/r/systems");
+      expect(wrong.headers.get("set-cookie")).toBeNull();
+      const forged = await app.request("/r/systems", {
+        headers: { cookie: "proforna_access=guess" },
+      });
+      expect(forged.status).toBe(403);
+    } finally {
+      db.close();
+    }
+  });
+});

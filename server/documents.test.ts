@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -88,7 +88,9 @@ describe("document vault", () => {
       const created = (await (await app.request("/api/documents", { method: "POST", body: form })).json()) as {
         document: { id: string };
       };
-      db.prepare("UPDATE documents SET stored_name = ? WHERE id = ?").run(".", created.document.id);
+      // A folder where the file should be makes the cleanup fail.
+      mkdirSync(join(uploadsDir, "documents", "a-folder"), { recursive: true });
+      db.prepare("UPDATE documents SET stored_name = ? WHERE id = ?").run("documents/a-folder", created.document.id);
       const blocked = await app.request(`/api/documents/${created.document.id}`, { method: "DELETE" });
       expect(blocked.status).toBe(500);
       const stillThere = (await (await app.request("/api/documents")).json()) as { documents: unknown[] };

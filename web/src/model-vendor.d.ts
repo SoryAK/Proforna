@@ -61,7 +61,7 @@ declare module "three/examples/jsm/loaders/GLTFLoader.js" {
       url: string,
       onLoad: (gltf: { scene: { position: { sub(offset: object): void } } }) => void,
       onProgress?: unknown,
-      onError?: () => void,
+      onError?: (error: unknown) => void,
     ): void;
   }
 }
