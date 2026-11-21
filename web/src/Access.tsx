@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Share2 } from "lucide-react";
 import { AlertDialog } from "@astryxdesign/core/AlertDialog";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
@@ -507,7 +508,13 @@ export function AccessDialog({
                     <Tab value="ended" label={`Revoked & expired · ${ended.length}`} />
                   </TabList>
                   {page?.published ? (
-                    <Button label="Share" variant="secondary" size="sm" onClick={() => setSharing(true)} />
+                    <Button
+                      label="Share"
+                      icon={<Share2 size={14} aria-hidden="true" />}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSharing(true)}
+                    />
                   ) : null}
                 </HStack>
               )}
